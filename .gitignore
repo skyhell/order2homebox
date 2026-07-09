@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.venv-dev/
+venv/
+.pytest_cache/
+.coverage
+
+# App runtime data (cookies, settings) & secrets
+data/
+.env
+
+# Claude Code scratch
+.scratch/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Dry-run print output
+*.dryrun.png

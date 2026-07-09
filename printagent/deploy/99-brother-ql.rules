@@ -1,0 +1,3 @@
+# Brother QL-500 (USB 04f9:2015) — allow the plugdev group to print via usblp
+SUBSYSTEM=="usbmisc", KERNEL=="lp*", ATTRS{idVendor}=="04f9", GROUP="plugdev", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", ATTRS{idProduct}=="2015", GROUP="plugdev", MODE="0660"

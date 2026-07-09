@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-wide">
+  <h1 class="page-title">{{ t('edit_title') }}</h1>
+  <p class="page-subtitle">{{ t('edit_order_info', order_no=order.order_no or '—', shop=order.shop.display_name) }}</p>
+
+  {% if warning %}<div class="banner banner-warning">{{ warning }}</div>{% endif %}
+
+  <form method="post" action="/create" id="create-form">
+    <input type="hidden" name="shop" value="{{ order.shop.value }}">
+    <input type="hidden" name="item_count" value="{{ order.items | length }}">
+
+    <div class="card meta-card">
+      <label class="field field-inline">
+        <span>{{ t('order_no_label') }}</span>
+        <input class="input input-mono" type="text" name="order_no" value="{{ order.order_no }}">
+      </label>
+      <label class="field field-inline">
+        <span>{{ t('order_date_label') }}</span>
+        <input class="input" type="date" name="order_date" value="{{ order.order_date }}">
+      </label>
+    </div>
+
+    {% for item in order.items %}
+    {% set idx = loop.index0 %}
+    <div class="card item-card" id="item-card-{{ idx }}">
+      <div class="item-head">
+        <h2>{{ t('item_heading', n=loop.index) }}</h2>
+        {% if order.items | length > 1 %}
+        <button type="button" class="btn btn-ghost btn-small" onclick="removeItemCard({{ idx }})">{{ t('remove_item') }}</button>
+        {% endif %}
+      </div>
+      {% if item.image_url %}
+      <img class="item-thumb" src="{{ item.image_url }}" alt="" loading="lazy" onerror="this.remove()">
+      {% endif %}
+      <label class="field">
+        <span>{{ t('field_name') }}</span>
+        <input class="input" type="text" name="item-{{ idx }}-name" value="{{ item.name }}" required>
+      </label>
+      <label class="field">
+        <span>{{ t('field_description') }}</span>
+        <textarea class="input" name="item-{{ idx }}-description" rows="2">{{ item.description }}</textarea>
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span>{{ t('field_quantity') }}</span>
+          <input class="input" type="number" name="item-{{ idx }}-quantity" value="{{ item.quantity }}" min="1">
+        </label>
+        <label class="field">
+          <span>{{ t('field_price') }} ({{ item.currency }})</span>
+          <input class="input" type="text" inputmode="decimal" name="item-{{ idx }}-price"
+                 value="{{ '%.2f' | format(item.unit_price) if item.unit_price is not none else '' }}">
+        </label>
+      </div>
+      <label class="field">
+        <span>{{ t('field_product_url') }}</span>
+        <input class="input" type="url" name="item-{{ idx }}-url" value="{{ item.product_url }}">
+      </label>
+      <div class="field-row">
+        <div class="field">
+          <span>{{ t('field_location') }}</span>
+          {% include "_location_select.html" %}
+          <div class="newloc">
+            <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('newloc-form-{{ idx }}').classList.toggle('hidden')">{{ t('new_location_button') }}</button>
+            <div class="newloc-form hidden" id="newloc-form-{{ idx }}">
+              <input class="input" type="text" name="name" id="newloc-name-{{ idx }}" placeholder="{{ t('new_location_placeholder') }}">
+              <button type="button" class="btn btn-secondary btn-small"
+                      hx-post="/locations"
+                      hx-include="#newloc-name-{{ idx }}"
+                      hx-vals='{"idx": {{ idx }}}'
+                      hx-target="#loc-select-{{ idx }}"
+                      hx-swap="outerHTML">{{ t('new_location_create') }}</button>
+            </div>
+          </div>
+        </div>
+        <label class="field">
+          <span>{{ t('field_labels') }}</span>
+          <select class="input select-multi" name="item-{{ idx }}-labels" multiple size="3">
+            {% for label in hb_labels %}
+            <option value="{{ label.id }}">{{ label.name }}</option>
+            {% endfor %}
+          </select>
+          <small class="hint">{{ t('labels_hint') }}</small>
+        </label>
+      </div>
+      <label class="check">
+        <input type="checkbox" name="item-{{ idx }}-print" checked>
+        <span>{{ t('print_after_create') }}</span>
+      </label>
+    </div>
+    {% endfor %}
+
+    <div class="action-bar">
+      <button class="btn btn-primary btn-large" type="submit" data-loading-text="{{ t('creating') }}">{{ t('create_submit') }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

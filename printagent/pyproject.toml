@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "order2homebox-printagent"
+version = "0.1.0"
+description = "Print agent for order2homebox: prints PNG labels on a Brother QL-500 via brother_ql"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "pillow>=9.0",
+    "python-multipart>=0.0.9",
+    # Maintained fork of pklaus/brother_ql (Pillow 10 compatible); imports as `brother_ql`
+    "brother-ql-inventree>=1.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["printagent*"]

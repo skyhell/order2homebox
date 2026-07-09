@@ -1,0 +1,5 @@
+<select name="item-{{ idx }}-location" id="loc-select-{{ idx }}" class="input">
+  {% for loc in locations %}
+  <option value="{{ loc.id }}" {% if loc.id == selected_id %}selected{% endif %}>{{ loc.name }}</option>
+  {% endfor %}
+</select>

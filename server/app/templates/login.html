@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ t('login_title') }} — {{ t('app_name') }}{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <form class="card login-card" method="post" action="/login">
+    <svg class="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v10"/></svg>
+    <h1>{{ t('app_name') }}</h1>
+    {% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}
+    <label class="field">
+      <span>{{ t('login_username') }}</span>
+      <input class="input" type="text" name="username" autocomplete="username" autofocus required>
+    </label>
+    <label class="field">
+      <span>{{ t('login_password') }}</span>
+      <input class="input" type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit">{{ t('login_submit') }}</button>
+    <div class="login-lang">
+      <a href="/lang/de" class="lang{% if lang == 'de' %} active{% endif %}">DE</a> · <a href="/lang/en" class="lang{% if lang == 'en' %} active{% endif %}">EN</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

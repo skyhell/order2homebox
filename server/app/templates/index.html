@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-narrow">
+  <h1 class="page-title">{{ t('index_title') }}</h1>
+  <p class="page-subtitle">{{ t('index_subtitle') }}</p>
+
+  {% if error %}
+  <div class="banner banner-error">
+    {{ error }}
+    {% if error_settings_link %}
+    <a class="banner-link" href="/settings">{{ t('go_to_settings') }} →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <form class="card" method="post" action="/fetch" id="fetch-form">
+    <div class="field">
+      <span>{{ t('shop_label') }}</span>
+      <div class="segmented" role="radiogroup">
+        {% for s in shops %}
+        <input type="radio" name="shop" value="{{ s.value }}" id="shop-{{ s.value }}" {% if loop.first %}checked{% endif %}>
+        <label for="shop-{{ s.value }}">{{ s.display_name }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <label class="field">
+      <span>{{ t('order_no_label') }}</span>
+      <input class="input input-mono" type="text" name="order_no" placeholder="{{ t('order_no_placeholder') }}" required autofocus>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit" data-loading-text="{{ t('fetch_loading') }}">{{ t('fetch_submit') }}</button>
+  </form>
+
+  <p class="center-note"><a class="subtle-link" href="/manual">{{ t('manual_link') }}</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+[Unit]
+Description=order2homebox print agent (Brother QL-500)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=o2h
+Group=plugdev
+WorkingDirectory=/opt/order2homebox/printagent
+EnvironmentFile=/opt/order2homebox/printagent/.env
+ExecStart=/opt/order2homebox/printagent/.venv/bin/uvicorn printagent.main:app --host 0.0.0.0 --port 8010
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

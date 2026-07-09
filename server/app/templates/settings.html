@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-narrow">
+  <h1 class="page-title">{{ t('settings_title') }}</h1>
+
+  {% if msg %}<div class="banner banner-info">{{ msg }}</div>{% endif %}
+
+  <h2 class="section-title">{{ t('section_connections') }}</h2>
+  <div class="card">
+    <div class="status-row">
+      <span class="status-dot {{ 'ok' if hb_status.ok else 'err' }}"></span>
+      <span class="status-name">{{ t('homebox_label') }}</span>
+      <span class="status-detail">{{ hb_status.url }}{% if not hb_status.ok %} — {{ hb_status.error }}{% endif %}</span>
+      <span class="status-text">{{ t('status_ok') if hb_status.ok else t('status_error') }}</span>
+    </div>
+    <div class="status-row">
+      <span class="status-dot {{ 'ok' if agent_status.ok else 'err' }}"></span>
+      <span class="status-name">{{ t('printagent_label') }}</span>
+      <span class="status-detail">{% if agent_status.ok and agent_status.get('dry_run') %}(dry-run){% endif %}{% if not agent_status.ok %}{{ agent_status.get('error', '') }}{% endif %}</span>
+      <span class="status-text">{{ t('status_ok') if agent_status.ok else t('status_error') }}</span>
+      <button class="btn btn-secondary btn-small"
+              hx-post="/settings/test-print"
+              hx-target="#test-print-status"
+              hx-swap="innerHTML">{{ t('test_print_button') }}</button>
+      <span id="test-print-status"></span>
+    </div>
+  </div>
+
+  <h2 class="section-title">{{ t('section_cookies') }}</h2>
+  <p class="page-subtitle">{{ t('cookies_help') }}</p>
+  {% for shop, status in shop_status.items() %}
+  <div class="card">
+    <div class="item-head">
+      <h2>{{ shop.display_name }}</h2>
+      <span class="status-text">
+        {% if status.imported %}
+          {{ t('status_imported', count=status.count, date=status.imported_at) }}
+          {% if status.expired_count %} · <span class="error-text">{{ t('status_expired', n=status.expired_count) }}</span>{% endif %}
+        {% else %}
+          {{ t('status_none') }}
+        {% endif %}
+      </span>
+    </div>
+    {% if status.last_success %}
+    <p class="hint">{{ t('status_last_success', date=status.last_success) }}</p>
+    {% endif %}
+    <form method="post" action="/settings/cookies/{{ shop.value }}">
+      <textarea class="input input-mono" name="cookies_json" rows="4" placeholder="{{ t('cookies_placeholder') }}" required></textarea>
+      <div class="action-right">
+        <button class="btn btn-secondary" type="submit">{{ t('save_cookies') }}</button>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

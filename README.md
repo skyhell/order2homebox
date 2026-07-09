@@ -46,7 +46,7 @@ local state is the imported shop cookies under `data/`.
 On the Proxmox **host**, as root:
 
 ```sh
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/order2homebox/main/install/proxmox-install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homebox/main/install/proxmox-install.sh)"
 ```
 
 The script asks for container settings (ID, storage, …) and application settings
@@ -60,7 +60,7 @@ Already have a Debian LXC/VM? Run `install/install-in-lxc.sh` inside it instead.
 Connect the QL-500 via USB, then on the Pi:
 
 ```sh
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/order2homebox/main/printagent/deploy/install-pi.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homebox/main/printagent/deploy/install-pi.sh)"
 ```
 
 Copy the printed **API key** into the server's `/opt/order2homebox/server/.env`

@@ -3,11 +3,11 @@
 # Called by proxmox-install.sh (settings passed via O2H_SETUP_* env vars),
 # but also works standalone on any existing Debian LXC/VM:
 #
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/order2homebox/main/install/install-in-lxc.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homebox/main/install/install-in-lxc.sh)"
 #
 set -euo pipefail
 
-REPO_URL="${O2H_REPO_URL:-https://github.com/OWNER/order2homebox.git}"
+REPO_URL="${O2H_REPO_URL:-https://github.com/skyhell/order2homebox.git}"
 APP_DIR=/opt/order2homebox
 VENV="$APP_DIR/server/.venv"
 

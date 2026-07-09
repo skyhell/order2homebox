@@ -2,11 +2,11 @@
 # order2homebox print agent — installer for the Raspberry Pi (Raspberry Pi OS /
 # Debian, Brother QL-500 connected via USB). Run as root:
 #
-#   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/order2homebox/main/printagent/deploy/install-pi.sh)"
+#   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homebox/main/printagent/deploy/install-pi.sh)"
 #
 set -euo pipefail
 
-REPO_URL="${O2H_REPO_URL:-https://github.com/OWNER/order2homebox.git}"
+REPO_URL="${O2H_REPO_URL:-https://github.com/skyhell/order2homebox.git}"
 APP_DIR=/opt/order2homebox
 VENV="$APP_DIR/printagent/.venv"
 

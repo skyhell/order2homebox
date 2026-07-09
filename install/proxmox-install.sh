@@ -4,12 +4,12 @@
 #
 #   bash proxmox-install.sh
 #   # or straight from GitHub:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/order2homebox/main/install/proxmox-install.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homebox/main/install/proxmox-install.sh)"
 #
 set -euo pipefail
 
-REPO_URL="${O2H_REPO_URL:-https://github.com/OWNER/order2homebox.git}"
-RAW_BASE="${O2H_RAW_BASE:-https://raw.githubusercontent.com/OWNER/order2homebox/main}"
+REPO_URL="${O2H_REPO_URL:-https://github.com/skyhell/order2homebox.git}"
+RAW_BASE="${O2H_RAW_BASE:-https://raw.githubusercontent.com/skyhell/order2homebox/main}"
 
 if ! command -v pct >/dev/null 2>&1; then
   echo "ERROR: this script must run on a Proxmox VE host (pct not found)." >&2

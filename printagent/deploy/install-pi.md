@@ -8,7 +8,7 @@ a small HTTP API that the order2homebox server calls.
 Connect the QL-500 via USB, power it on, then run on the Pi:
 
 ```sh
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/order2homebox/main/printagent/deploy/install-pi.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homebox/main/printagent/deploy/install-pi.sh)"
 ```
 
 The script installs everything (clone → venv → udev rule → systemd service) and

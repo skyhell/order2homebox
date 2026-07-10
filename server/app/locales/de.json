@@ -38,8 +38,10 @@
   "new_location_placeholder": "Name des neuen Lagerorts",
   "new_location_button": "+ Neuer Lagerort",
   "new_location_create": "Anlegen",
-  "create_submit": "In Homebox anlegen",
+  "item_create_button": "Diesen Artikel anlegen",
+  "create_submit": "Alle Artikel in Homebox anlegen",
   "creating": "Wird angelegt …",
+  "err_name_required": "Der Artikel braucht einen Namen.",
 
   "result_title": "Ergebnis",
   "result_summary": "{n} Artikel in Homebox angelegt",

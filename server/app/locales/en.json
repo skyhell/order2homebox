@@ -38,8 +38,10 @@
   "new_location_placeholder": "Name of the new location",
   "new_location_button": "+ New location",
   "new_location_create": "Create",
-  "create_submit": "Create in Homebox",
+  "item_create_button": "Create this item",
+  "create_submit": "Create all items in Homebox",
   "creating": "Creating …",
+  "err_name_required": "The item needs a name.",
 
   "result_title": "Result",
   "result_summary": "{n} item(s) created in Homebox",

@@ -202,6 +202,13 @@ html[data-theme="light"] .icon-sun { display: none; }
 .newloc-form .input { flex: 1; }
 .hidden { display: none !important; }
 
+.item-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-top: 8px;
+  border-top: 1px solid var(--border); padding-top: 14px;
+}
+.item-actions .check { margin: 0; }
+
 .result-grid { display: flex; gap: 24px; align-items: flex-start; }
 .result-info { flex: 1; }
 .result-info h2 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }

@@ -1,0 +1,33 @@
+<div class="card result-card" id="item-card-{{ idx }}">
+  <div class="result-grid">
+    <div class="result-info">
+      <h2>{{ r.draft.name }}</h2>
+      <p class="asset-line">
+        <span class="asset-badge">{{ t('asset_id_label') }} {{ r.item.assetId }}</span>
+        <a class="subtle-link" href="{{ homebox_url }}/item/{{ r.item.id }}" target="_blank" rel="noopener">{{ t('open_in_homebox') }} ↗</a>
+      </p>
+      {% if r.printed %}<p class="ok-text">{{ t('printed_auto') }} ✓</p>{% endif %}
+      {% if r.print_error %}<p class="error-text">{{ t('print_failed') }}: {{ r.print_error }}</p>{% endif %}
+      <div class="print-controls" id="print-{{ idx }}">
+        <input type="hidden" name="asset_id" value="{{ r.item.assetId }}">
+        <label class="field-inline-sm">
+          <span>{{ t('print_copies') }}</span>
+          <input class="input input-sm" type="number" name="copies" value="1" min="1" max="20">
+        </label>
+        <label class="check">
+          <input type="checkbox" name="show_text" value="true" {% if show_asset_id_default %}checked{% endif %}>
+          <span>{{ t('print_with_id') }}</span>
+        </label>
+        <button type="button" class="btn btn-primary"
+                hx-post="/print"
+                hx-include="#print-{{ idx }} input"
+                hx-target="#print-status-{{ idx }}"
+                hx-swap="innerHTML">{{ t('print_button') }}</button>
+        <span id="print-status-{{ idx }}"></span>
+      </div>
+    </div>
+    <div class="result-preview">
+      <img src="/label/{{ r.item.assetId }}.png?text={{ 1 if show_asset_id_default else 0 }}" alt="Label preview" class="label-preview">
+    </div>
+  </div>
+</div>

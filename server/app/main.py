@@ -211,67 +211,82 @@ async def create_location(
     )
 
 
-@app.post("/create", response_class=HTMLResponse)
-async def create_items(request: Request, user: str = Depends(require_login)):
-    form = await request.form()
-    lang = get_lang(request)
-    shop = Shop(form.get("shop", "amazon"))
-    order = Order(
-        shop=shop,
+def _order_from_form(form) -> Order:
+    return Order(
+        shop=Shop(form.get("shop", "amazon")),
         order_no=str(form.get("order_no", "")).strip(),
         order_date=str(form.get("order_date", "")).strip(),
     )
 
+
+def _item_from_form(form, i: int):
+    """Item fields for index i → (draft, location_id, label_ids, want_print),
+    or None when the card was removed in the UI."""
+    if f"item-{i}-name" not in form:
+        return None
+    try:
+        quantity = max(1, int(form.get(f"item-{i}-quantity", 1)))
+    except ValueError:
+        quantity = 1
+    price_raw = str(form.get(f"item-{i}-price", "")).strip().replace(",", ".")
+    try:
+        unit_price = float(price_raw) if price_raw else None
+    except ValueError:
+        unit_price = None
+    draft = OrderItemDraft(
+        name=str(form.get(f"item-{i}-name", "")).strip(),
+        description=str(form.get(f"item-{i}-description", "")).strip(),
+        quantity=quantity,
+        unit_price=unit_price,
+        product_url=str(form.get(f"item-{i}-url", "")).strip(),
+    )
+    location_id = str(form.get(f"item-{i}-location", ""))
+    label_ids = [str(v) for v in form.getlist(f"item-{i}-labels")]
+    want_print = form.get(f"item-{i}-print") is not None
+    return draft, location_id, label_ids, want_print
+
+
+async def _create_and_print(
+    draft: OrderItemDraft, order: Order, location_id: str, label_ids: list[str], want_print: bool
+) -> dict:
+    entry = {"draft": draft, "error": "", "item": None, "printed": False, "print_error": ""}
+    try:
+        item = await homebox.create_item(draft, order, location_id, label_ids)
+        entry["item"] = item
+    except HomeboxError as exc:
+        entry["error"] = str(exc)
+        return entry
+    if want_print and item.get("assetId"):
+        png = render_label_png(
+            item["assetId"],
+            homebox.asset_qr_url(item["assetId"]),
+            show_asset_id=settings.label_show_asset_id,
+            qr_per_row=settings.label_qr_per_row,
+        )
+        try:
+            await printer.print_png(png, copies=1)
+            entry["printed"] = True
+        except printer.PrintError as exc:
+            entry["print_error"] = str(exc)
+    return entry
+
+
+@app.post("/create", response_class=HTMLResponse)
+async def create_items(request: Request, user: str = Depends(require_login)):
+    form = await request.form()
+    lang = get_lang(request)
+    order = _order_from_form(form)
+
     results = []
     count = int(form.get("item_count", 0))
     for i in range(count):
-        if f"item-{i}-name" not in form:
-            continue  # card was removed in the UI
-        name = str(form.get(f"item-{i}-name", "")).strip()
-        if not name:
-            continue
-        try:
-            quantity = max(1, int(form.get(f"item-{i}-quantity", 1)))
-        except ValueError:
-            quantity = 1
-        price_raw = str(form.get(f"item-{i}-price", "")).strip().replace(",", ".")
-        try:
-            unit_price = float(price_raw) if price_raw else None
-        except ValueError:
-            unit_price = None
-        draft = OrderItemDraft(
-            name=name,
-            description=str(form.get(f"item-{i}-description", "")).strip(),
-            quantity=quantity,
-            unit_price=unit_price,
-            product_url=str(form.get(f"item-{i}-url", "")).strip(),
+        parsed = _item_from_form(form, i)
+        if parsed is None or not parsed[0].name:
+            continue  # card removed or already created via its own button
+        draft, location_id, label_ids, want_print = parsed
+        results.append(
+            await _create_and_print(draft, order, location_id, label_ids, want_print)
         )
-        location_id = str(form.get(f"item-{i}-location", ""))
-        label_ids = [str(v) for v in form.getlist(f"item-{i}-labels")]
-        want_print = form.get(f"item-{i}-print") is not None
-
-        entry = {"draft": draft, "error": "", "item": None, "printed": False, "print_error": ""}
-        try:
-            item = await homebox.create_item(draft, order, location_id, label_ids)
-            entry["item"] = item
-        except HomeboxError as exc:
-            entry["error"] = str(exc)
-            results.append(entry)
-            continue
-
-        if want_print and item.get("assetId"):
-            png = render_label_png(
-                item["assetId"],
-                homebox.asset_qr_url(item["assetId"]),
-                show_asset_id=settings.label_show_asset_id,
-                qr_per_row=settings.label_qr_per_row,
-            )
-            try:
-                await printer.print_png(png, copies=1)
-                entry["printed"] = True
-            except printer.PrintError as exc:
-                entry["print_error"] = str(exc)
-        results.append(entry)
 
     if not results:
         return render(request, "index.html", error=t("err_nothing_created", lang))
@@ -280,6 +295,53 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         "result.html",
         order=order,
         results=results,
+        show_asset_id_default=settings.label_show_asset_id,
+    )
+
+
+@app.post("/create-item", response_class=HTMLResponse)
+async def create_single_item(request: Request, user: str = Depends(require_login)):
+    """Per-item button on the edit page: create just this item in Homebox
+    (+ print its label) and swap the card for a result fragment."""
+    form = await request.form()
+    lang = get_lang(request)
+    idx = int(form.get("idx", 0))
+    order = _order_from_form(form)
+    parsed = _item_from_form(form, idx)
+    if parsed is None:
+        return HTMLResponse(status_code=400)
+    draft, location_id, label_ids, want_print = parsed
+
+    async def card_with_error(message: str) -> HTMLResponse:
+        try:
+            locations = await homebox.get_locations()
+            labels = await homebox.get_labels()
+        except HomeboxError:
+            locations, labels = [], []
+        return render(
+            request,
+            "_item_card.html",
+            item=draft,
+            idx=idx,
+            card_error=message,
+            locations=locations,
+            hb_labels=labels,
+            selected_location_id=location_id,
+            selected_label_ids=label_ids,
+            want_print=want_print,
+        )
+
+    if not draft.name:
+        return await card_with_error(t("err_name_required", lang))
+
+    entry = await _create_and_print(draft, order, location_id, label_ids, want_print)
+    if entry["error"]:
+        return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
+    return render(
+        request,
+        "_item_result.html",
+        r=entry,
+        idx=idx,
         show_asset_id_default=settings.label_show_asset_id,
     )
 

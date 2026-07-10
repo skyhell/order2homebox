@@ -1,0 +1,74 @@
+<div class="card item-card" id="item-card-{{ idx }}">
+  <div class="item-head">
+    <h2>{{ t('item_heading', n=idx + 1) }}</h2>
+    <button type="button" class="btn btn-ghost btn-small" onclick="removeItemCard({{ idx }})">{{ t('remove_item') }}</button>
+  </div>
+  {% if card_error %}<div class="banner banner-error">{{ card_error }}</div>{% endif %}
+  {% if item.image_url %}
+  <img class="item-thumb" src="{{ item.image_url }}" alt="" loading="lazy" onerror="this.remove()">
+  {% endif %}
+  <label class="field">
+    <span>{{ t('field_name') }}</span>
+    <input class="input" type="text" name="item-{{ idx }}-name" value="{{ item.name }}" required>
+  </label>
+  <label class="field">
+    <span>{{ t('field_description') }}</span>
+    <textarea class="input" name="item-{{ idx }}-description" rows="2">{{ item.description }}</textarea>
+  </label>
+  <div class="field-row">
+    <label class="field">
+      <span>{{ t('field_quantity') }}</span>
+      <input class="input" type="number" name="item-{{ idx }}-quantity" value="{{ item.quantity }}" min="1">
+    </label>
+    <label class="field">
+      <span>{{ t('field_price') }} ({{ item.currency }})</span>
+      <input class="input" type="text" inputmode="decimal" name="item-{{ idx }}-price"
+             value="{{ '%.2f' | format(item.unit_price) if item.unit_price is not none else '' }}">
+    </label>
+  </div>
+  <label class="field">
+    <span>{{ t('field_product_url') }}</span>
+    <input class="input" type="url" name="item-{{ idx }}-url" value="{{ item.product_url }}">
+  </label>
+  <div class="field-row">
+    <div class="field">
+      <span>{{ t('field_location') }}</span>
+      {% set selected_id = selected_location_id | default('') %}
+      {% include "_location_select.html" %}
+      <div class="newloc">
+        <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('newloc-form-{{ idx }}').classList.toggle('hidden')">{{ t('new_location_button') }}</button>
+        <div class="newloc-form hidden" id="newloc-form-{{ idx }}">
+          <input class="input" type="text" name="name" id="newloc-name-{{ idx }}" placeholder="{{ t('new_location_placeholder') }}">
+          <button type="button" class="btn btn-secondary btn-small"
+                  hx-post="/locations"
+                  hx-include="#newloc-name-{{ idx }}"
+                  hx-vals='{"idx": {{ idx }}}'
+                  hx-target="#loc-select-{{ idx }}"
+                  hx-swap="outerHTML">{{ t('new_location_create') }}</button>
+        </div>
+      </div>
+    </div>
+    <label class="field">
+      <span>{{ t('field_labels') }}</span>
+      <select class="input select-multi" name="item-{{ idx }}-labels" multiple size="3">
+        {% for label in hb_labels %}
+        <option value="{{ label.id }}" {% if label.id in (selected_label_ids | default([])) %}selected{% endif %}>{{ label.name }}</option>
+        {% endfor %}
+      </select>
+      <small class="hint">{{ t('labels_hint') }}</small>
+    </label>
+  </div>
+  <div class="item-actions">
+    <label class="check">
+      <input type="checkbox" name="item-{{ idx }}-print" {% if want_print | default(true) %}checked{% endif %}>
+      <span>{{ t('print_after_create') }}</span>
+    </label>
+    <button type="button" class="btn btn-secondary"
+            hx-post="/create-item"
+            hx-include="#create-form"
+            hx-vals='{"idx": {{ idx }}}'
+            hx-target="#item-card-{{ idx }}"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this">{{ t('item_create_button') }}</button>
+  </div>
+</div>

@@ -53,6 +53,79 @@ def test_login_page_available(client):
     assert "order2homebox" in response.text
 
 
+def test_create_single_item_returns_result_fragment(logged_in, monkeypatch):
+    """Per-item button: creates one item in Homebox, prints, swaps in result card."""
+    import app.main as main
+
+    created_with = {}
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        created_with.update(
+            name=draft.name, price=draft.unit_price, location=location_id,
+            labels=label_ids, order_no=order.order_no,
+        )
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(png, copies=1):
+        created_with["printed_copies"] = copies
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    response = logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2",
+        "item-1-name": "USB Hub", "item-1-quantity": "1", "item-1-price": "16,27",
+        "item-1-location": "loc1", "item-1-labels": "lab1", "item-1-print": "on",
+    })
+    assert response.status_code == 200
+    assert 'id="item-card-1"' in response.text
+    assert "000-007" in response.text
+    assert created_with == {
+        "name": "USB Hub", "price": 16.27, "location": "loc1",
+        "labels": ["lab1"], "order_no": "028-111", "printed_copies": 1,
+    }
+
+
+def test_create_single_item_without_name_keeps_card(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    response = logged_in.post("/create-item", data={
+        "idx": "0", "shop": "amazon", "order_no": "", "order_date": "",
+        "item_count": "1", "item-0-name": "  ", "item-0-quantity": "1",
+    })
+    assert response.status_code == 200
+    assert 'id="item-card-0"' in response.text
+    assert 'name="item-0-name"' in response.text  # still editable
+    assert "Namen" in response.text  # German error message
+
+
+def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_locations():
+        return [{"id": "loc1", "name": "Büro"}]
+
+    async def fake_labels():
+        return [{"id": "lab1", "name": "Elektronik"}]
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_labels)
+
+    response = logged_in.get("/manual?shop=temu")
+    assert response.status_code == 200
+    assert 'id="item-card-0"' in response.text
+    assert 'hx-post="/create-item"' in response.text  # per-item button present
+    assert "Büro" in response.text and "Elektronik" in response.text
+
+
 def test_fetch_crash_shows_error_banner_not_500(logged_in, monkeypatch):
     """Unexpected scraper exceptions must render an error banner, not a 500."""
     import app.main as main

@@ -238,14 +238,47 @@ def test_aliexpress_rescales_to_paid_total():
 
 def test_temu_parse_from_embedded_json():
     order = TemuScraper().parse(load_fixture("temu_order.html"), "PO-211-12345678901234567")
+    assert order.order_date == "2026-07-09"  # "parent_order_time" epoch in rawData
     assert len(order.items) == 2
     screwdriver, ties = order.items
     assert screwdriver.name == "Mini Schraubendreher Set 25 in 1"
     assert screwdriver.quantity == 1
     assert screwdriver.unit_price == 3.48
     assert screwdriver.image_url.startswith("https://img.kwcdn.com/")
+    assert screwdriver.product_url == "https://www.temu.com/goods.html?goods_id=601099512345"
     assert ties.name == "Kabelbinder wiederverwendbar 100 Stück"
     assert ties.quantity == 2
+
+
+def test_temu_order_date_from_rendered_text():
+    """When rawData carries no usable timestamp, fall back to the rendered
+    German "Bestellzeit:" line (day-first)."""
+    html = """
+    <html><body>
+    <script>window.rawData = {"store":{"goods_list":[
+    {"goods_name":"Mechanikerhocker","goods_number":2}
+    ]}};</script>
+    <div><span>Bestellzeit:</span> <span>9. Jul 2026</span></div>
+    </body></html>
+    """
+    order = TemuScraper().parse(html, "PO-013-19245103158392955")
+    assert order.order_date == "2026-07-09"
+    assert order.items[0].quantity == 2
+
+
+def test_temu_ignores_numeric_cent_prices():
+    """Numeric price keys hold cent amounts — they must not be parsed as EUR."""
+    html = """
+    <html><body>
+    <script>window.rawData = {"goods_list":[
+    {"goods_name":"Hocker","goods_number":"2","goods_price":1993}
+    ]}};</script>
+    </body></html>
+    """
+    order = TemuScraper().parse(html, "PO-1")
+    (item,) = order.items
+    assert item.unit_price is None
+    assert item.quantity == 2
 
 
 def test_temu_parse_failed_on_empty_page():

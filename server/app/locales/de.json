@@ -5,6 +5,7 @@
   "nav_settings": "Einstellungen",
   "nav_logout": "Abmelden",
   "theme_toggle": "Dark Mode umschalten",
+  "footer_docs": "Dokumentation",
 
   "label_title": "Etikett aus Homebox-Link drucken",
   "label_subtitle": "Einen Homebox-Link oder eine Asset-ID einfügen — daraus wird ein QR-Etikett erzeugt und gedruckt.",

@@ -126,6 +126,23 @@ def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
     assert "Büro" in response.text and "Elektronik" in response.text
 
 
+def test_footer_shows_version_and_docs_link(logged_in):
+    import app
+
+    response = logged_in.get("/")
+    assert f"v{app.__version__}" in response.text
+    assert "github.com/skyhell/order2homebox" in response.text
+    assert 'class="footer"' in response.text
+
+
+def test_footer_present_on_login_page(client):
+    import app
+
+    response = client.get("/login")
+    assert 'class="footer"' in response.text
+    assert f"v{app.__version__}" in response.text
+
+
 def test_label_tool_page_renders(logged_in):
     response = logged_in.get("/label")
     assert response.status_code == 200

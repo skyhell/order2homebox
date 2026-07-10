@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from . import __version__
 from . import cookies as cookie_store
 from . import printer
 from .auth import (
@@ -26,6 +27,7 @@ from .models import Order, OrderItemDraft, Shop
 from .scrapers import ParseFailed, ScrapeError, SessionExpired, get_scraper
 
 BASE_DIR = Path(__file__).parent
+DOCS_URL = "https://github.com/skyhell/order2homebox#readme"
 ASSET_ID_RE = re.compile(r"^[0-9]{1,5}-[0-9]{1,5}$|^[0-9]{1,10}$")
 # Homebox asset deep link, e.g. .../a/000-629
 ASSET_IN_URL_RE = re.compile(r"/a/([0-9]{1,5}-[0-9]{1,5}|[0-9]{1,10})")
@@ -60,6 +62,8 @@ def render(request: Request, template: str, **context) -> HTMLResponse:
         t=lambda key, **kw: t(key, lang, **kw),
         shops=list(Shop),
         homebox_url=settings.qr_base_url,
+        version=__version__,
+        docs_url=DOCS_URL,
     )
     return templates.TemplateResponse(request, template, context)
 

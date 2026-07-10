@@ -5,6 +5,7 @@
   "nav_settings": "Settings",
   "nav_logout": "Sign out",
   "theme_toggle": "Toggle dark mode",
+  "footer_docs": "Documentation",
 
   "label_title": "Print a label from a Homebox link",
   "label_subtitle": "Paste a Homebox link or asset ID — a QR label is generated and printed.",

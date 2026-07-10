@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "order2homebox-printagent"
-version = "0.2.0"
+version = "0.3.0"
 description = "Print agent for order2homebox: prints PNG labels on a Brother QL-500 via brother_ql"
 requires-python = ">=3.9"
 license = { text = "MIT" }

@@ -60,6 +60,13 @@ def parse_price(text: str) -> tuple[float | None, str]:
         return None, currency
 
 
+async def _abort_heavy_resources(route) -> None:
+    if route.request.resource_type in ("image", "media", "font"):
+        await route.abort()
+    else:
+        await route.continue_()
+
+
 class Scraper:
     shop: ClassVar[Shop]
     ORDER_URL_TEMPLATE: ClassVar[str] = ""
@@ -93,6 +100,7 @@ class Scraper:
             async_playwright,
         )
 
+        timeout = settings.scraper_timeout_ms
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=settings.scraper_headless,
@@ -104,17 +112,21 @@ class Scraper:
                 )
                 await context.add_cookies(cookies)
                 page = await context.new_page()
-                await page.goto(
-                    url,
-                    wait_until="domcontentloaded",
-                    timeout=settings.scraper_timeout_ms,
-                )
+                # Images/fonts/media aren't needed for parsing (src attributes
+                # stay in the DOM) and shop pages load tracking assets forever.
+                await page.route("**/*", _abort_heavy_resources)
+                # "commit" returns as soon as the response starts — waiting for
+                # domcontentloaded timed out on slow-loading Amazon pages even
+                # though the content was long there. Readiness is handled by
+                # the selector wait below; parse() reports unusable pages.
                 try:
-                    await page.wait_for_selector(
-                        self.READY_SELECTOR, timeout=settings.scraper_timeout_ms
-                    )
+                    await page.goto(url, wait_until="commit", timeout=timeout)
                 except PlaywrightTimeout:
-                    pass  # parse whatever rendered — parse() reports if it's unusable
+                    pass  # a partial DOM may still be parseable
+                try:
+                    await page.wait_for_selector(self.READY_SELECTOR, timeout=timeout)
+                except PlaywrightTimeout:
+                    pass
                 final_url = page.url
                 if any(marker in final_url for marker in self.LOGIN_URL_PATTERNS):
                     raise SessionExpired(self.shop)

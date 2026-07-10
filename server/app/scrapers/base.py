@@ -130,6 +130,19 @@ class Scraper:
                 final_url = page.url
                 if any(marker in final_url for marker in self.LOGIN_URL_PATTERNS):
                     raise SessionExpired(self.shop)
-                return await page.content()
+                html = await page.content()
+                self._dump_debug_html(html)
+                return html
             finally:
                 await browser.close()
+
+    def _dump_debug_html(self, html: str) -> None:
+        """Keep the last fetched page in data/debug/ so outdated selectors can
+        be diagnosed against the real HTML."""
+        try:
+            debug_dir = settings.data_dir / "debug"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            path = debug_dir / f"{self.shop.value}-last-fetch.html"
+            path.write_text(html, encoding="utf-8")
+        except OSError:  # debugging aid only — never break the fetch
+            pass

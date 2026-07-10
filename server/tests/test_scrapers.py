@@ -179,19 +179,58 @@ def test_amazon_net_subtotal_not_used_when_vat_row_present():
 
 
 def test_aliexpress_parse():
+    """German page, prices split into per-character spans, Gesamt == row sum."""
     order = AliExpressScraper().parse(
         load_fixture("aliexpress_order.html"), "8123456789012345"
     )
-    assert order.order_date == "2026-07-03"
+    assert order.order_date == "2026-07-03"  # "Bestellung aufgegeben am: 3. Jul 2026"
     assert len(order.items) == 2
     esp, jst = order.items
     assert esp.name == "ESP32 Development Board WiFi Bluetooth"
-    assert esp.unit_price == 4.56
+    assert esp.unit_price == 4.56  # <span>4</span><span>.</span><span>5</span>…
     assert esp.quantity == 2
     assert esp.description == "Color: Type-C CH340"
     assert esp.product_url.startswith("https://www.aliexpress.com/item/")
     assert esp.image_url.startswith("https://")
     assert jst.quantity == 1
+    assert jst.unit_price == 2.99  # Gesamt matches the rows → no rescale
+
+
+def test_aliexpress_english_order_date():
+    html = """
+    <html><body>
+    <div class="order-info">Order date: Jul 3, 2026</div>
+    <div class="order-detail-item-content-wrap">
+      <div class="item-title"><a href="//www.aliexpress.com/item/1.html">Widget</a></div>
+      <div class="item-price">€ 2.99 x1</div>
+    </div>
+    </body></html>
+    """
+    order = AliExpressScraper().parse(html, "81234")
+    assert order.order_date == "2026-07-03"
+
+
+def test_aliexpress_rescales_to_paid_total():
+    """Coins/coupons reduce the paid total below the row prices — the item
+    price must be what the user actually paid (regression: real order showed
+    €33.85 x1, Gesamt €31.51)."""
+    html = """
+    <html><body>
+    <div class="order-info">Bestellung aufgegeben am: 7. Jul 2026</div>
+    <div class="order-detail-item-content-wrap">
+      <div class="item-title"><a href="//www.aliexpress.com/item/1005012652240868.html">Podofo Kühlsystem-Lecktester-Set</a></div>
+      <div class="item-sku-attr">Germany</div>
+      <div class="item-price"><span>€</span><span>3</span><span>3</span><span>.</span><span>8</span><span>5</span> <span>x1</span></div>
+    </div>
+    <div class="order-summary">Zwischensumme €33.85 Gesamt <span>€</span><span>3</span><span>1</span><span>.</span><span>5</span><span>1</span></div>
+    </body></html>
+    """
+    order = AliExpressScraper().parse(html, "3074598413332037")
+    assert order.order_date == "2026-07-07"
+    (item,) = order.items
+    assert item.unit_price == 31.51
+    assert item.quantity == 1
+    assert item.description == "Germany"  # ships-from is the page's SKU line
 
 
 # -- Temu -------------------------------------------------------------------------

@@ -26,14 +26,27 @@ PRICE_SELECTORS = [
     "[class*='item-price']",
 ]
 QTY_RE = re.compile(r"[x×]\s*(\d+)")
-# "Order date: Jul 3, 2026" (also present in the order-info block)
-ORDER_DATE_RE = re.compile(
-    r"(?:Order date|Bestelldatum)[:\s]+([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{4})"
-)
+# German page: "Bestellung aufgegeben am: 7. Jul 2026" (day first);
+# English page: "Order date: Jul 3, 2026" / "Order placed on: Jul 3, 2026"
+ORDER_DATE_RES = [
+    re.compile(
+        r"(?:Bestellung aufgegeben am|Bestelldatum|Bezahlt am)"
+        r"[:\s]+(?P<d>\d{1,2})\.\s*(?P<m>[A-Za-zäÄ]{3,9})\.?\s+(?P<y>\d{4})"
+    ),
+    re.compile(
+        r"(?:Order (?:date|placed(?: on)?)|Paid on)"
+        r"[:\s]+(?P<m>[A-Za-z]{3,9})\.?\s+(?P<d>\d{1,2}),\s*(?P<y>\d{4})"
+    ),
+]
 MONTHS_ABBR = {
-    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+    "jan": 1, "feb": 2, "mar": 3, "mär": 3, "mrz": 3, "apr": 4, "may": 5,
+    "mai": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "okt": 10,
+    "nov": 11, "dec": 12, "dez": 12,
 }
+# Paid order total ("Gesamt €31.51") — after coins/coupons, so row prices get
+# rescaled to it (same idea as the Amazon "Summe:" rescale). Matched against
+# the compact page text (no separators, see parse()).
+TOTAL_RE = re.compile(r"(?:Gesamt|Total)\s*:?\s*€?\s*(\d+(?:[.,]\d{1,2})?)")
 # ---------------------------------------------------------------------------
 
 
@@ -47,12 +60,16 @@ class AliExpressScraper(Scraper):
         soup = BeautifulSoup(html, "html.parser")
         order = Order(shop=self.shop, order_no=order_no)
 
-        date_match = ORDER_DATE_RE.search(soup.get_text(" ", strip=True))
-        if date_match:
-            mon, day, year = date_match.groups()
-            month = MONTHS_ABBR.get(mon.lower()[:3])
-            if month:
-                order.order_date = f"{year}-{month:02d}-{int(day):02d}"
+        page_text = soup.get_text(" ", strip=True)
+        for date_re in ORDER_DATE_RES:
+            date_match = date_re.search(page_text)
+            if date_match:
+                month = MONTHS_ABBR.get(date_match["m"].lower()[:3])
+                if month:
+                    order.order_date = (
+                        f"{date_match['y']}-{month:02d}-{int(date_match['d']):02d}"
+                    )
+                break
 
         nodes = []
         for selector in ITEM_SELECTORS:
@@ -80,7 +97,9 @@ class AliExpressScraper(Scraper):
             for selector in PRICE_SELECTORS:
                 price_el = node.select_one(selector)
                 if price_el is not None:
-                    text = price_el.get_text(" ", strip=True)
+                    # AliExpress splits prices into per-character <span>s —
+                    # join without separators so "€ 3 3 . 8 5" stays 33.85.
+                    text = price_el.get_text("", strip=True)
                     item.unit_price, item.currency = parse_price(text)
                     qty = QTY_RE.search(text)
                     if qty:
@@ -103,4 +122,27 @@ class AliExpressScraper(Scraper):
 
             if item.name:
                 order.items.append(item)
+
+        _rescale_to_order_total(order.items, soup.get_text("", strip=True))
         return order
+
+
+def _rescale_to_order_total(items: list[OrderItemDraft], compact_text: str) -> None:
+    """Rescale row prices to the paid "Gesamt" total (coins/coupon discounts).
+
+    ``compact_text`` must be the page text joined WITHOUT separators because of
+    the per-character price <span>s.
+    """
+    match = TOTAL_RE.search(compact_text)
+    if not match:
+        return
+    total, _ = parse_price(match.group(1))
+    priced = [item for item in items if item.unit_price]
+    row_sum = sum(item.unit_price * item.quantity for item in priced)
+    if not total or not row_sum or abs(row_sum - total) < 0.01:
+        return
+    factor = total / row_sum
+    if not 0.5 <= factor <= 1.5:  # implausible → keep the row prices
+        return
+    for item in priced:
+        item.unit_price = round(item.unit_price * factor, 2)

@@ -67,6 +67,65 @@ def test_amazon_parse_failed_on_empty_page():
         AmazonScraper().parse("<html><body>nix</body></html>", "123")
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Bestellung aufgegeben 7. Juli 2026", "2026-07-07"),  # real order-details page
+        ("Bestellt am 3. Juli 2026", "2026-07-03"),
+        ("Ordered on July 3, 2026", "2026-07-03"),
+        ("Order placed July 12, 2026", "2026-07-12"),
+        ("kein Datum hier", ""),
+    ],
+)
+def test_amazon_order_date_variants(text, expected):
+    from app.scrapers.amazon import _find_order_date
+
+    assert _find_order_date(text) == expected
+
+
+def test_amazon_price_skips_order_total_and_strike_price():
+    """Regression: the order total (Gesamtsumme) and struck-through list
+    prices must never land in the unit-price field."""
+    html = """
+    <html><body><div id="orderDetails">
+      <div class="yohtmlc-item">
+        <div id="od-subtotals">
+          <span class="a-color-price">18,14 €</span><!-- Gesamtsumme -->
+        </div>
+        <a class="a-link-normal" href="/dp/B0CNN846VX">MZHOU Spannungswandler</a>
+        <span class="a-price a-text-strike"><span class="a-offscreen">24,99 €</span></span>
+        <span class="a-color-price">17,99 €</span>
+      </div>
+    </div></body></html>
+    """
+    order = AmazonScraper().parse(html, "028-9097847-9224331")
+    assert len(order.items) == 1
+    assert order.items[0].unit_price == 17.99
+
+
+def test_amazon_price_rescaled_to_subtotal_for_foreign_vat():
+    """Regression: amazon.de shows rows with German VAT (17,99 €) but Austrian
+    customers pay 20% VAT — the subtotal (18,14 €) is what was charged."""
+    html = """
+    <html><body><div id="orderDetails">
+      <span>Bestellung aufgegeben 7. Juli 2026</span>
+      <div class="yohtmlc-item">
+        <a class="a-link-normal" href="/dp/B0CNN846VX">MZHOU Spannungswandler</a>
+        <span class="a-color-price">17,99 €</span>
+      </div>
+      <div id="od-subtotals">
+        <span>Zwischensumme: </span><span class="a-color-price">18,14 €</span>
+        <span>Verpackung &amp; Versand: </span><span class="a-color-price">0,00 €</span>
+        <span>Gesamtsumme: </span><span class="a-color-price">18,14 €</span>
+      </div>
+    </div></body></html>
+    """
+    order = AmazonScraper().parse(html, "028-9097847-9224331")
+    assert order.order_date == "2026-07-07"
+    assert len(order.items) == 1
+    assert order.items[0].unit_price == 18.14
+
+
 # -- AliExpress ------------------------------------------------------------------
 
 

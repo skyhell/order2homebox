@@ -36,13 +36,21 @@ PRICE_SELECTORS = [
 # Ancestors that mark a price as NOT the item price (order totals, shipping)
 SUMMARY_ID_MARKERS = ("subtotals", "ordersummary")
 SUMMARY_COMPONENT_MARKERS = ("orderSummary", "orderSubtotals", "shipmentTotal")
-# "Zwischensumme: 18,14 €" — the subtotal reflects the VAT actually charged
-# (e.g. Austrian 20% for AT customers), while the item rows show the price
-# with German VAT. Row prices are rescaled to this subtotal (see parse()).
+# Item rows on amazon.de show German VAT, but customers in other EU countries
+# (e.g. Austria, 20%) are charged their local VAT. Row prices are rescaled to
+# the order total actually charged (see _rescale_to_order_total). Reference,
+# in priority order:
+#   1. "Summe: 29,57 €"  — gross incl. the customer's VAT, before vouchers.
+#      Case-sensitive standalone word, so Zwischensumme/Gesamtsumme don't match.
+#   2. "Zwischensumme: 18,14 €" — only trustworthy when the page has no
+#      separate "Geschätzte USt." row (then Zwischensumme is net, not gross).
+_PRICE_PART = r"(EUR\s*[\d.,]+|[\d.,]+\s*€|€\s*[\d.,]+)"
+SUMME_RE = re.compile(r"(?<![A-Za-zäöüÄÖÜ])Summe\s*:?\s*" + _PRICE_PART)
 SUBTOTAL_RE = re.compile(
     r"(?:Zwischensumme|Artikelsumme|Item\(s\) Subtotal|Items Subtotal)\s*:?\s*"
-    r"(EUR\s*[\d.,]+|[\d.,]+\s*€|€\s*[\d.,]+)"
+    + _PRICE_PART
 )
+VAT_ROW_RE = re.compile(r"Geschätzte USt|Estimated (?:tax|VAT)", re.IGNORECASE)
 QTY_SELECTORS = [
     ".od-item-view-qty",
     "[data-component='itemQuantity']",
@@ -110,34 +118,49 @@ class AmazonScraper(Scraper):
             if item.name:
                 order.items.append(item)
 
-        _rescale_to_subtotal(order.items, page_text)
+        _rescale_to_order_total(order.items, page_text)
         return order
 
 
-def _rescale_to_subtotal(items, page_text: str) -> None:
-    """Rescale row prices to the order subtotal ("Zwischensumme").
+def _rescale_to_order_total(items, page_text: str) -> None:
+    """Rescale row prices to what the customer was actually charged.
 
-    amazon.de shows item rows with German VAT, but customers in other EU
-    countries (e.g. Austria, 20%) are charged their local VAT — only the
-    subtotal reflects what was actually paid. Rescaling proportionally fixes
-    single-item orders exactly and multi-item orders to a close approximation.
+    See the comment at SUMME_RE: rows carry German VAT, the "Summe" row the
+    customer's real VAT. Rescaling proportionally fixes single-item orders
+    exactly and multi-item orders to a close approximation (items can have
+    different VAT rates; the values stay editable in the UI anyway).
     """
-    match = SUBTOTAL_RE.search(page_text)
-    if not match or not items:
-        return
-    subtotal, _ = parse_price(match.group(1))
-    if not subtotal:
+    target = _order_total(page_text)
+    if not target or not items:
         return
     if any(item.unit_price is None for item in items):
         return
     row_total = sum(item.unit_price * item.quantity for item in items)
     if row_total <= 0:
         return
-    factor = subtotal / row_total
+    factor = target / row_total
     if not 0.7 <= factor <= 1.3:  # sanity guard against mismatched numbers
         return
     for item in items:
         item.unit_price = round(item.unit_price * factor, 2)
+
+
+def _order_total(page_text: str) -> float | None:
+    match = SUMME_RE.search(page_text)
+    if match:
+        value, _ = parse_price(match.group(1))
+        if value:
+            return value
+    # Zwischensumme is gross only when there is no separate VAT row —
+    # with one it is the net amount and must not be used as the target.
+    if VAT_ROW_RE.search(page_text):
+        return None
+    match = SUBTOTAL_RE.search(page_text)
+    if match:
+        value, _ = parse_price(match.group(1))
+        if value:
+            return value
+    return None
 
 
 def _price_for(node) -> tuple[float | None, str]:

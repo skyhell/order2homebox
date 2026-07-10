@@ -77,5 +77,6 @@
   "err_session_expired": "The {shop} session has expired or no cookies were imported yet. Please refresh the cookies in the settings.",
   "err_parse_failed": "No items were recognized on the {shop} order page (page layout changed?). You can enter the data manually.",
   "err_homebox": "Homebox error",
-  "err_nothing_created": "Nothing was created — at least one item needs a name."
+  "err_nothing_created": "Nothing was created — at least one item needs a name.",
+  "err_scrape_crashed": "Unexpected error while fetching the {shop} order: {error} — details: journalctl -u order2homebox"
 }

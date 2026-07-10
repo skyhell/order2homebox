@@ -1,4 +1,5 @@
 """order2homebox web app: fetch order → edit → create Homebox items → print labels."""
+import logging
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,6 +27,8 @@ from .scrapers import ParseFailed, ScrapeError, SessionExpired, get_scraper
 
 BASE_DIR = Path(__file__).parent
 ASSET_ID_RE = re.compile(r"^[0-9]{1,5}-[0-9]{1,5}$|^[0-9]{1,10}$")
+
+logger = logging.getLogger("order2homebox")
 
 homebox = HomeboxClient()
 
@@ -142,6 +145,13 @@ async def fetch_order(
         warning = t("err_parse_failed", lang, shop=shop.display_name)
     except ScrapeError as exc:
         return render(request, "index.html", error=str(exc))
+    except Exception as exc:  # noqa: BLE001 — never show a bare 500 for a scrape
+        logger.exception("scrape failed for %s order %s", shop.value, order_no)
+        return render(
+            request,
+            "index.html",
+            error=t("err_scrape_crashed", lang, shop=shop.display_name, error=str(exc)),
+        )
     return await _edit_page(request, order, warning=warning)
 
 

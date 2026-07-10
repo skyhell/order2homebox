@@ -77,5 +77,6 @@
   "err_session_expired": "Die {shop}-Sitzung ist abgelaufen oder es wurden noch keine Cookies importiert. Bitte in den Einstellungen die Cookies erneuern.",
   "err_parse_failed": "Auf der {shop}-Bestellseite wurden keine Artikel erkannt (Seitenaufbau geändert?). Die Daten können manuell eingegeben werden.",
   "err_homebox": "Homebox-Fehler",
-  "err_nothing_created": "Es wurde kein Artikel angelegt — mindestens ein Artikel braucht einen Namen."
+  "err_nothing_created": "Es wurde kein Artikel angelegt — mindestens ein Artikel braucht einen Namen.",
+  "err_scrape_crashed": "Unerwarteter Fehler beim Abrufen der {shop}-Bestellung: {error} — Details: journalctl -u order2homebox"
 }

@@ -126,6 +126,55 @@ def test_amazon_price_rescaled_to_subtotal_for_foreign_vat():
     assert order.items[0].unit_price == 18.14
 
 
+def test_amazon_multi_item_order_rescales_to_summe_not_net_subtotal():
+    """Regression (multi-item AT order): with a separate VAT row,
+    'Zwischensumme' is the NET amount — 'Summe' (gross before vouchers) is
+    the right rescale target. Rows 16,14+13,19 (DE VAT) → Summe 29,57 (AT VAT)."""
+    html = """
+    <html><body><div id="orderDetails">
+      <span>Bestellung aufgegeben 7. Juli 2026</span>
+      <div>Zwischensumme: 24,64 € Verpackung &amp; Versand: 0,00 €
+           Gesamt vor USt.: 24,64 € Geschätzte USt.: 4,93 € Summe: 29,57 €
+           Gutschein eingelöst: -2,96 € Gesamtsumme: 26,61 €</div>
+      <div class="yohtmlc-item">
+        <a class="a-link-normal" href="/dp/B0AAA11111">BYANE 3er-Pack Sägekette 40 cm</a>
+        <span class="a-color-price">16,14 €</span>
+      </div>
+      <div class="yohtmlc-item">
+        <a class="a-link-normal" href="/dp/B0BBB22222">QUARKZMAN 2 Stück 80mm Lüfter</a>
+        <span class="a-color-price">13,19 €</span>
+      </div>
+    </div></body></html>
+    """
+    order = AmazonScraper().parse(html, "028-1674448-8402738")
+    assert len(order.items) == 2
+    saw_chain, fans = order.items
+    # 29,57 / 29,33 rescale: exact per-item AT-VAT prices
+    assert saw_chain.unit_price == 16.27
+    assert fans.unit_price == 13.30
+    assert round(saw_chain.unit_price + fans.unit_price, 2) == 29.57
+
+
+def test_amazon_net_subtotal_not_used_when_vat_row_present():
+    """Without a 'Summe' row but WITH a VAT row, no rescaling may happen —
+    Zwischensumme would be the net amount and shrink the prices."""
+    html = """
+    <html><body><div id="orderDetails">
+      <div>Zwischensumme: 24,64 € Geschätzte USt.: 4,93 €</div>
+      <div class="yohtmlc-item">
+        <a class="a-link-normal" href="/dp/B0AAA11111">Sägekette</a>
+        <span class="a-color-price">16,14 €</span>
+      </div>
+      <div class="yohtmlc-item">
+        <a class="a-link-normal" href="/dp/B0BBB22222">Lüfter</a>
+        <span class="a-color-price">13,19 €</span>
+      </div>
+    </div></body></html>
+    """
+    order = AmazonScraper().parse(html, "028-1")
+    assert [i.unit_price for i in order.items] == [16.14, 13.19]
+
+
 # -- AliExpress ------------------------------------------------------------------
 
 

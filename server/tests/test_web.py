@@ -51,3 +51,19 @@ def test_login_page_available(client):
     response = client.get("/login")
     assert response.status_code == 200
     assert "order2homebox" in response.text
+
+
+def test_fetch_crash_shows_error_banner_not_500(logged_in, monkeypatch):
+    """Unexpected scraper exceptions must render an error banner, not a 500."""
+    import app.main as main
+
+    class ExplodingScraper:
+        async def fetch_order(self, order_no):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(main, "get_scraper", lambda shop: ExplodingScraper())
+    response = logged_in.post(
+        "/fetch", data={"shop": "amazon", "order_no": "028-1674448-8402738"}
+    )
+    assert response.status_code == 200
+    assert "boom" in response.text

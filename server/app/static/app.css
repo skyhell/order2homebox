@@ -94,7 +94,7 @@ html[data-theme="light"] .icon-sun { display: none; }
 
 /* Little pop of the sun/moon icon when the theme switches. */
 @media (prefers-reduced-motion: no-preference) {
-  .icon-btn.icon-anim svg { animation: icon-pop .5s ease; }
+  .icon-btn.icon-anim svg { animation: icon-pop .8s ease; }
 }
 @keyframes icon-pop {
   0%   { transform: rotate(-120deg) scale(0.4); opacity: 0; }
@@ -119,8 +119,8 @@ html[data-theme="light"] .icon-sun { display: none; }
 .theme-transition *,
 .theme-transition *::before,
 .theme-transition *::after {
-  transition: background-color .38s ease, color .38s ease,
-    border-color .38s ease, fill .38s ease, box-shadow .38s ease !important;
+  transition: background-color .8s ease, color .8s ease,
+    border-color .8s ease, fill .8s ease, box-shadow .8s ease !important;
 }
 
 /* ---- layout ---- */

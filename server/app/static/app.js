@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'circle(' + endRadius + 'px at ' + x + 'px ' + y + 'px)'
               ]
             },
-            { duration: 480, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
+            { duration: 900, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
           );
         });
         return;
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Fallback: brief color cross-fade of all surfaces.
       if (!reduce) {
         root.classList.add('theme-transition');
-        window.setTimeout(function () { root.classList.remove('theme-transition'); }, 400);
+        window.setTimeout(function () { root.classList.remove('theme-transition'); }, 820);
       }
       setTheme(next);
     });

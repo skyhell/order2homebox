@@ -26,6 +26,20 @@ class HomeboxError(Exception):
     """User-facing Homebox API error."""
 
 
+# Homebox schema limits. Overlong values (AliExpress titles easily exceed 255
+# chars) fail with an opaque HTTP 500 "Unknown Error" on the entities API, so
+# clip client-side.
+NAME_MAX = 255
+DESCRIPTION_MAX = 1000
+
+
+def _clip(text: str | None, limit: int) -> str:
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
 class HomeboxClient:
     def __init__(
         self,
@@ -209,8 +223,8 @@ class HomeboxClient:
             "POST",
             "/api/v1/items",
             json={
-                "name": draft.name,
-                "description": draft.description,
+                "name": _clip(draft.name, NAME_MAX),
+                "description": _clip(draft.description, DESCRIPTION_MAX),
                 "locationId": location_id,
                 "labelIds": label_ids,
             },
@@ -280,8 +294,8 @@ class HomeboxClient:
             "POST",
             "/api/v1/entities",
             json={
-                "name": draft.name,
-                "description": draft.description,
+                "name": _clip(draft.name, NAME_MAX),
+                "description": _clip(draft.description, DESCRIPTION_MAX),
                 "quantity": draft.quantity,
                 "parentId": location_id,
                 "tagIds": label_ids,

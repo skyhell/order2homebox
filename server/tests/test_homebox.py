@@ -245,6 +245,35 @@ async def test_entities_create_item_full_flow(respx_mock, hb):
 
 
 @respx.mock(base_url=BASE)
+async def test_overlong_name_is_clipped(respx_mock, hb):
+    """AliExpress titles exceed Homebox's 255-char name limit, which the
+    entities API answers with an opaque HTTP 500 — clip client-side."""
+    mock_login(respx_mock)
+    mock_entities_probe(respx_mock)
+    post_route = respx_mock.post("/api/v1/entities").mock(
+        return_value=Response(201, json={"id": "ent1"})
+    )
+    entity_state = {"id": "ent1", "name": "X", "assetId": "000-1", "quantity": 1,
+                    "parent": {"id": "loc1"}, "tags": [], "fields": []}
+    respx_mock.get("/api/v1/entities/ent1").mock(
+        return_value=Response(200, json=entity_state)
+    )
+    respx_mock.put("/api/v1/entities/ent1").mock(
+        return_value=Response(200, json=entity_state)
+    )
+
+    order = Order(shop=Shop.aliexpress, order_no="3074598413332037")
+    draft = OrderItemDraft(name="Podofo Kühlsystem-Lecktester-Set " * 12)
+    await hb.create_item(draft, order, "loc1", [])
+
+    body = json.loads(post_route.calls.last.request.content)
+    assert len(body["name"]) <= 255
+    assert body["name"].endswith("…")
+    assert body["name"].startswith("Podofo")
+    await hb.close()
+
+
+@respx.mock(base_url=BASE)
 async def test_order_no_falls_back_to_notes_when_fields_rejected(respx_mock, hb):
     """When the PUT with custom fields fails, the retry must carry the order
     number in the notes so it isn't lost."""

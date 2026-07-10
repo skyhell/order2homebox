@@ -107,6 +107,28 @@ Everything is configured via `.env` (prefix `O2H_`) — see
 
 Label geometry details: [docs/label-layout.md](docs/label-layout.md).
 
+### Encrypting secrets in `.env`
+
+The web-login password is stored as a one-way bcrypt hash, but the Homebox
+password (and the print-agent key) must be usable in clear text at runtime, so
+they cannot be hashed. You can still keep them out of a plain-text `.env`:
+
+```sh
+cd server
+python -m app.encrypt            # prompts for the secret, prints an enc:… token
+```
+
+Paste the `enc:…` value into `O2H_HOMEBOX_PASSWORD` (or
+`O2H_PRINT_AGENT_API_KEY`) and restart the service. The Fernet key lives in
+`server/data/secret.key` (chmod 600), **never** in `.env` — so a leaked or
+committed `.env` alone does not reveal the password. Fresh installs done with
+`install-in-lxc.sh` encrypt these values automatically. Plain-text values keep
+working, so this is opt-in.
+
+> Note: this protects against accidental disclosure (backups, git, sharing the
+> file), not against an attacker who already has read access to the container —
+> they can read the key file too.
+
 ## Development
 
 ```sh

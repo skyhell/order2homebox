@@ -19,6 +19,7 @@ dependencies = [
     "pydantic-settings>=2.3",
     "itsdangerous>=2.2",
     "bcrypt>=4.1",
+    "cryptography>=42.0",
     "python-multipart>=0.0.9",
     "beautifulsoup4>=4.12",
     "playwright>=1.45",

@@ -56,14 +56,24 @@ else
 
   WEB_HASH=$("$VENV/bin/python" -m app.hashpw "$WEB_PASS")
   SECRET=$("$VENV/bin/python" -c "import secrets; print(secrets.token_hex(32))")
+  # Encrypt the Homebox password (and print-agent key) with a Fernet key kept
+  # in server/data/secret.key — so a leaked .env alone does not reveal them.
+  cd "$APP_DIR/server"
+  HB_PASS_ENC=$("$VENV/bin/python" -m app.encrypt "$HB_PASS")
+  if [ -n "$PA_KEY" ]; then
+    PA_KEY_ENC=$("$VENV/bin/python" -m app.encrypt "$PA_KEY")
+  else
+    PA_KEY_ENC=""
+  fi
+  cd - >/dev/null
 
   cat > "$ENV_FILE" <<EOF
 O2H_HOMEBOX_URL=$HB_URL
 O2H_HOMEBOX_PUBLIC_URL=
 O2H_HOMEBOX_USERNAME=$HB_USER
-O2H_HOMEBOX_PASSWORD=$HB_PASS
+O2H_HOMEBOX_PASSWORD=$HB_PASS_ENC
 O2H_PRINT_AGENT_URL=$PA_URL
-O2H_PRINT_AGENT_API_KEY=$PA_KEY
+O2H_PRINT_AGENT_API_KEY=$PA_KEY_ENC
 O2H_WEB_USER=$WEB_USER
 O2H_WEB_PASSWORD_HASH=$WEB_HASH
 O2H_SECRET_KEY=$SECRET

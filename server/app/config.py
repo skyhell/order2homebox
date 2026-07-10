@@ -1,6 +1,7 @@
 """Application settings, loaded from environment variables / .env (prefix O2H_)."""
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +43,18 @@ class Settings(BaseSettings):
     scraper_headless: bool = True
     scraper_timeout_ms: int = 30000
     amazon_domain: str = "www.amazon.de"
+
+    @model_validator(mode="after")
+    def _decrypt_secrets(self) -> "Settings":
+        """Decrypt any ``enc:``-prefixed secrets. Plain values pass through, so
+        existing installs keep working. Done here (not in field validators) so
+        data_dir is already set when the key file is resolved."""
+        from .secrets import decrypt_maybe
+
+        key_path = self.data_dir / "secret.key"
+        self.homebox_password = decrypt_maybe(self.homebox_password, key_path)
+        self.print_agent_api_key = decrypt_maybe(self.print_agent_api_key, key_path)
+        return self
 
     @property
     def qr_base_url(self) -> str:

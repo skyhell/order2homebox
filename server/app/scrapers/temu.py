@@ -48,6 +48,11 @@ MONTHS_ABBR = {
     "mai": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "okt": 10,
     "nov": 11, "dec": 12, "dez": 12,
 }
+# Display price next to the item name ("19,93€" / "€19.93") — rawData often
+# carries prices only as cent integers, so the rendered row is the source.
+DOM_PRICE_RE = re.compile(r"€\s*\d{1,4}(?:[.,]\d{2})|\d{1,4}(?:[.,]\d{2})\s*€")
+# Paid order total from the payment details block
+TOTAL_RE = re.compile(r"(?:Gesamtsumme|Order total|Total)\s*:?\s*€?\s*(\d{1,5}(?:[.,]\d{2}))\s*€?")
 # DOM fallback (used when the JSON structure changed)
 DOM_ITEM_SELECTORS = ["[class*='goodsWrapper']", "[class*='goods-item']"]
 DOM_TITLE_SELECTORS = ["[class*='goodsName']", "[class*='goods-name']"]
@@ -66,28 +71,72 @@ class TemuScraper(Scraper):
 
     def parse(self, html: str, order_no: str) -> Order:
         order = Order(shop=self.shop, order_no=order_no)
-        order.items = _parse_from_json(html) or _parse_from_dom(html)
+        soup = BeautifulSoup(html, "html.parser")
+        order.items = _parse_from_json(html) or _parse_from_dom(soup)
         if not order.items:
             raise ParseFailed("Temu: no order items found (page structure changed?)")
-        order.order_date = _parse_order_date(html)
+        _fill_prices_from_dom(order.items, soup)
+        page_text = soup.get_text(" ", strip=True)
+        _rescale_to_order_total(order.items, page_text)
+        order.order_date = _parse_order_date(html, page_text)
         return order
 
 
-def _parse_order_date(page_html: str) -> str | None:
+def _parse_order_date(page_html: str, page_text: str) -> str | None:
     match = ORDER_TIME_JSON_RE.search(page_html)
     if match:
         epoch = int(match.group(1))
         if epoch >= 10**12:  # milliseconds
             epoch //= 1000
         return datetime.fromtimestamp(epoch).strftime("%Y-%m-%d")
-    text = BeautifulSoup(page_html, "html.parser").get_text(" ", strip=True)
     for date_re in ORDER_DATE_TEXT_RES:
-        date_match = date_re.search(text)
+        date_match = date_re.search(page_text)
         if date_match:
             month = MONTHS_ABBR.get(date_match["m"].lower()[:3])
             if month:
                 return f"{date_match['y']}-{month:02d}-{int(date_match['d']):02d}"
     return None
+
+
+def _fill_prices_from_dom(items: list[OrderItemDraft], soup: BeautifulSoup) -> None:
+    """For items whose rawData blob had no price string, take the display
+    price rendered next to the item name (climbing a few parents until the
+    row container includes one)."""
+    for item in items:
+        if item.unit_price is not None or not item.name:
+            continue
+        prefix = item.name[:24]
+        for node in soup.find_all(string=lambda s, p=prefix: s and p in s):
+            if node.find_parent(["script", "style"]):
+                continue
+            el = node.parent
+            for _ in range(5):
+                if el is None or el.name in ("body", "html"):
+                    break
+                match = DOM_PRICE_RE.search(el.get_text(" ", strip=True))
+                if match:
+                    item.unit_price, item.currency = parse_price(match.group(0))
+                    break
+                el = el.parent
+            break  # only the first non-script occurrence of the name
+
+
+def _rescale_to_order_total(items: list[OrderItemDraft], page_text: str) -> None:
+    """Rescale row prices to the paid "Gesamtsumme" so discounts end up in the
+    purchase price (same idea as the Amazon/AliExpress rescale)."""
+    match = TOTAL_RE.search(page_text)
+    if not match:
+        return
+    total, _ = parse_price(match.group(1))
+    priced = [item for item in items if item.unit_price]
+    row_sum = sum(item.unit_price * item.quantity for item in priced)
+    if not total or not row_sum or abs(row_sum - total) < 0.01:
+        return
+    factor = total / row_sum
+    if not 0.5 <= factor <= 1.5:  # implausible → keep the row prices
+        return
+    for item in priced:
+        item.unit_price = round(item.unit_price * factor, 2)
 
 
 def _parse_from_json(page_html: str) -> list[OrderItemDraft]:
@@ -130,8 +179,7 @@ def _parse_from_json(page_html: str) -> list[OrderItemDraft]:
     return items
 
 
-def _parse_from_dom(page_html: str) -> list[OrderItemDraft]:
-    soup = BeautifulSoup(page_html, "html.parser")
+def _parse_from_dom(soup: BeautifulSoup) -> list[OrderItemDraft]:
     nodes = []
     for selector in DOM_ITEM_SELECTORS:
         nodes = soup.select(selector)

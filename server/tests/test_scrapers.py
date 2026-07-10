@@ -281,6 +281,50 @@ def test_temu_ignores_numeric_cent_prices():
     assert item.quantity == 2
 
 
+def test_temu_price_from_rendered_row():
+    """rawData carries prices only as cent integers — the display price next
+    to the item name must be used instead (regression: real order showed an
+    empty price for '19,93€ ×2'). The coupon banner's '5,00€' must not win."""
+    html = """
+    <html><body>
+    <div class="banner">Bestellgarantie | 5,00€ Gutschrift bei verspäteter Lieferung</div>
+    <script>window.rawData = {"store":{"parent_order_time":1783598400,"goods_list":[
+    {"goods_id":601099770001,"goods_name":"VEVOR Mechanikerhocker, 250 LBS Rollender Pneumatischer Werkstattstuhl, Höhenverstellbar","goods_number":2,"goods_price":1993}
+    ]}};</script>
+    <div class="order-goods-row">
+      <div><span>VEVOR Mechanikerhocker, 250 LBS Rollender Pneumatischer Werkstattstuhl, Höhenverstel...</span></div>
+      <div><span>19,93€</span><span>×2</span></div>
+    </div>
+    <div class="payment">Zahlungsdetails Gesamtsumme: 39,86€ Artikel gesamt: 54,18€ Artikel-Rabatt: -14,32€</div>
+    </body></html>
+    """
+    order = TemuScraper().parse(html, "PO-013-19245103158392955")
+    (item,) = order.items
+    assert item.unit_price == 19.93
+    assert item.quantity == 2
+    assert order.order_date == "2026-07-09"
+    assert item.product_url == "https://www.temu.com/goods.html?goods_id=601099770001"
+
+
+def test_temu_rescales_to_paid_total():
+    """When the row still shows the pre-discount price, rescale to the paid
+    Gesamtsumme (27,09€ × 2 = 54,18€ → 39,86€ paid → 19,93€ each)."""
+    html = """
+    <html><body>
+    <script>window.rawData = {"goods_list":[
+    {"goods_name":"VEVOR Mechanikerhocker, 250 LBS Rollender Werkstattstuhl","goods_number":2}
+    ]}};</script>
+    <div class="order-goods-row">
+      <span>VEVOR Mechanikerhocker, 250 LBS Rollender Werkstattstuhl</span>
+      <span>27,09€</span>
+    </div>
+    <div class="payment">Gesamtsumme: 39,86€</div>
+    </body></html>
+    """
+    order = TemuScraper().parse(html, "PO-1")
+    assert order.items[0].unit_price == 19.93
+
+
 def test_temu_parse_failed_on_empty_page():
     with pytest.raises(ParseFailed):
         TemuScraper().parse("<html><body></body></html>", "PO-1")

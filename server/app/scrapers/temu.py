@@ -21,8 +21,11 @@ ORDER_URL_TEMPLATE = "https://www.temu.com/bgt_order_detail.html?parent_order_sn
 JSON_NAME_KEYS = ("goods_name", "goodsName")
 JSON_QTY_KEYS = ("goods_number", "goodsNumber", "quantity")
 # Only string-valued price keys: numeric keys hold cent amounts and would be
-# misread (3348 → 3348.00 €).
+# misread (1993 → 1993.00 €). goodsRetailPrice* is the strike-through price —
+# never list it here. Verified against a real dump: goodsPriceWithSymbolDisplay
+# = "19,93€", goodsPriceDisplay = "19.93".
 JSON_PRICE_KEYS = (
+    "goodsPriceWithSymbolDisplay", "goodsPriceDisplay",
     "goods_price_str", "goodsPriceStr", "price_str", "priceStr",
     "unit_price_str", "unitPriceStr", "display_amount", "displayAmount",
 )
@@ -140,43 +143,47 @@ def _rescale_to_order_total(items: list[OrderItemDraft], page_text: str) -> None
 
 
 def _parse_from_json(page_html: str) -> list[OrderItemDraft]:
-    """Extract flat goods objects out of the embedded rawData JSON."""
-    items: list[OrderItemDraft] = []
-    seen: set[str] = set()
+    """Extract flat goods objects out of the embedded rawData JSON.
+
+    Temu spreads one order line over several blobs (one carries the price,
+    another the thumbnail), so blobs with the same name are merged."""
+    items: dict[str, OrderItemDraft] = {}
     for blob in _GOODS_BLOB_RE.findall(page_html):
         try:
             data = json.loads(blob)
         except json.JSONDecodeError:
             continue
         name = _first_key(data, JSON_NAME_KEYS)
-        if not name or name in seen:
+        if not name:
             continue
-        seen.add(name)
-        item = OrderItemDraft(name=html_module.unescape(str(name)))
+        name = html_module.unescape(str(name))
+        item = items.setdefault(name, OrderItemDraft(name=name))
         qty = _first_key(data, JSON_QTY_KEYS)
         if isinstance(qty, str) and qty.isdigit():
             qty = int(qty)
         if isinstance(qty, (int, float)) and qty >= 1:
             item.quantity = int(qty)
-        price = _first_key(data, JSON_PRICE_KEYS)
-        if isinstance(price, str) and price.strip():
-            item.unit_price, item.currency = parse_price(price)
-        thumb = _first_key(data, JSON_THUMB_KEYS)
-        if thumb:
-            item.image_url = str(thumb)
-        link = _first_key(data, JSON_LINK_KEYS)
-        goods_id = _first_key(data, JSON_GOODS_ID_KEYS)
-        if link:
-            link = str(link)
-            if link.startswith("//"):
-                link = f"https:{link}"
-            elif link.startswith("/"):
-                link = f"https://www.temu.com{link}"
-            item.product_url = link
-        elif goods_id:
-            item.product_url = GOODS_URL_TEMPLATE.format(goods_id=goods_id)
-        items.append(item)
-    return items
+        if item.unit_price is None:
+            price = _first_key(data, JSON_PRICE_KEYS)
+            if isinstance(price, str) and price.strip():
+                item.unit_price, item.currency = parse_price(price)
+        if not item.image_url:
+            thumb = _first_key(data, JSON_THUMB_KEYS)
+            if thumb:
+                item.image_url = str(thumb)
+        if not item.product_url:
+            link = _first_key(data, JSON_LINK_KEYS)
+            goods_id = _first_key(data, JSON_GOODS_ID_KEYS)
+            if link:
+                link = str(link)
+                if link.startswith("//"):
+                    link = f"https:{link}"
+                elif link.startswith("/"):
+                    link = f"https://www.temu.com{link}"
+                item.product_url = link
+            elif goods_id:
+                item.product_url = GOODS_URL_TEMPLATE.format(goods_id=goods_id)
+    return list(items.values())
 
 
 def _parse_from_dom(soup: BeautifulSoup) -> list[OrderItemDraft]:

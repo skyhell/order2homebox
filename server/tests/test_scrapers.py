@@ -281,6 +281,26 @@ def test_temu_ignores_numeric_cent_prices():
     assert item.quantity == 2
 
 
+def test_temu_merges_split_goods_blobs():
+    """Structure taken from a real dump: one blob carries orderTime + the
+    display price (goodsPriceWithSymbolDisplay), a second one the thumbnail.
+    The strike-through goodsRetailPrice* must not win, and both blobs must be
+    merged into one item."""
+    html = """
+    <html><body><script>window.rawData = {"a":[
+    {"orderSn":"013-19245061215352955","orderTime":1783632103,"orderTimeFormat":"9. Jul. 2026, 23:21 Uhr","goodsId":604235240415538,"skuId":60844654244219,"goodsRetailPrice":3713,"goodsRetailPriceDisplay":"37.13","goodsRetailPriceWithSymbolDisplay":"37,13€","goodsAmount":3986,"goodsPrice":1993,"goodsPriceDisplay":"19.93","goodsPriceWithSymbolDisplay":"19,93€","symbol":"€","goodsNumber":2,"goodsName":"VEVOR Mechanikerhocker, 250 LBS Rollender Pneumatischer Werkstattstuhl"},
+    {"goodsId":604235240415538,"goodsSkuId":60844654244219,"quantity":2,"thumbUrl":"https://img-eu.kwcdn.com/local-goods-img/test.jpg","goodsName":"VEVOR Mechanikerhocker, 250 LBS Rollender Pneumatischer Werkstattstuhl"}
+    ]};</script></body></html>
+    """
+    order = TemuScraper().parse(html, "PO-013-19245103158392955")
+    (item,) = order.items
+    assert item.unit_price == 19.93
+    assert item.quantity == 2
+    assert item.image_url == "https://img-eu.kwcdn.com/local-goods-img/test.jpg"
+    assert item.product_url == "https://www.temu.com/goods.html?goods_id=604235240415538"
+    assert order.order_date == "2026-07-09"  # orderTime epoch
+
+
 def test_temu_price_from_rendered_row():
     """rawData carries prices only as cent integers — the display price next
     to the item name must be used instead (regression: real order showed an

@@ -111,7 +111,8 @@ async def test_legacy_create_item_full_flow(respx_mock, hb):
     assert update["purchaseTime"] == "2026-07-03"
     assert update["locationId"] == "loc1"
     assert update["labelIds"] == ["lab1"]
-    assert "302-111" in update["notes"]
+    # Order number lives ONLY in the custom field — notes carry the URL
+    assert update["notes"] == "https://www.amazon.de/dp/B0TEST123"
     assert any(f.get("textValue") == "302-111" for f in update["fields"])
     await hb.close()
 
@@ -238,8 +239,29 @@ async def test_entities_create_item_full_flow(respx_mock, hb):
     assert update["parentId"] == "loc1"
     assert update["entityTypeId"] == "type-item"
     assert update["tagIds"] == ["t1"]
-    assert "PO-211-999" in update["notes"]
+    assert "PO-211-999" not in update.get("notes", "")
     assert any(f.get("textValue") == "PO-211-999" for f in update["fields"])
+    await hb.close()
+
+
+@respx.mock(base_url=BASE)
+async def test_order_no_falls_back_to_notes_when_fields_rejected(respx_mock, hb):
+    """When the PUT with custom fields fails, the retry must carry the order
+    number in the notes so it isn't lost."""
+    mock_login(respx_mock)
+    mock_legacy_locations(respx_mock)
+    respx_mock.post("/api/v1/items").mock(return_value=Response(201, json={"id": "i1"}))
+    item_state = {"id": "i1", "name": "X", "assetId": "000-9", "quantity": 1,
+                  "location": {"id": "loc1"}, "labels": [], "fields": []}
+    respx_mock.get("/api/v1/items/i1").mock(return_value=Response(200, json=item_state))
+    put_route = respx_mock.put("/api/v1/items/i1").mock(
+        side_effect=[Response(422), Response(200, json=item_state)]
+    )
+    order = Order(shop=Shop.amazon, order_no="302-999")
+    await hb.create_item(OrderItemDraft(name="X"), order, "loc1", [])
+    retry_body = json.loads(put_route.calls.last.request.content)
+    assert "fields" not in retry_body
+    assert "302-999" in retry_body["notes"]
     await hb.close()
 
 

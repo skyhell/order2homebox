@@ -234,6 +234,7 @@ class HomeboxClient:
         if r.status_code not in (200, 201):
             # Some Homebox versions are picky about custom fields — retry without.
             update.pop("fields", None)
+            update["notes"] = self._notes_with_order_no(update, order)
             r = await self._request("PUT", f"/api/v1/items/{item['id']}", json=update)
         self._ok(r, "update item")
         return await self.get_item(item["id"])
@@ -304,6 +305,7 @@ class HomeboxClient:
         r = await self._request("PUT", f"/api/v1/entities/{item['id']}", json=update)
         if r.status_code not in (200, 201):
             update.pop("fields", None)
+            update["notes"] = self._notes_with_order_no(update, order)
             r = await self._request("PUT", f"/api/v1/entities/{item['id']}", json=update)
         self._ok(r, "update item")
         return await self.get_item(item["id"])
@@ -351,12 +353,18 @@ class HomeboxClient:
 
     @staticmethod
     def _notes(draft: OrderItemDraft, order: Order) -> str:
-        notes = []
-        if order.order_no:
-            notes.append(f"Order: {order.order_no}")
-        if draft.product_url:
-            notes.append(draft.product_url)
-        return "\n".join(notes)
+        # The order number lives in the "Order Number" custom field — notes
+        # only carry the product URL to avoid duplication.
+        return draft.product_url
+
+    @staticmethod
+    def _notes_with_order_no(update: dict, order: Order) -> str:
+        """Fallback when custom fields are rejected: keep the order number in
+        the notes so it isn't lost entirely."""
+        parts = [f"Order: {order.order_no}"] if order.order_no else []
+        if update.get("notes"):
+            parts.append(update["notes"])
+        return "\n".join(parts)
 
     @staticmethod
     def _order_fields(order: Order) -> list[dict]:

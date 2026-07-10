@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-narrow">
+  <h1 class="page-title">{{ t('label_title') }}</h1>
+  <p class="page-subtitle">{{ t('label_subtitle') }}</p>
+
+  <form class="card" hx-post="/label/resolve" hx-target="#label-result-wrap" hx-swap="innerHTML">
+    <label class="field">
+      <span>{{ t('label_input_label') }}</span>
+      <input class="input input-mono" type="text" name="link" placeholder="{{ t('label_input_placeholder') }}" required autofocus>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit">{{ t('label_resolve_button') }}</button>
+  </form>
+
+  <div id="label-result-wrap"></div>
+</div>
+{% endblock %}

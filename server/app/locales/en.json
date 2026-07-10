@@ -1,9 +1,19 @@
 {
   "app_name": "order2homebox",
   "nav_new": "New order",
+  "nav_label": "Print label",
   "nav_settings": "Settings",
   "nav_logout": "Sign out",
   "theme_toggle": "Toggle dark mode",
+
+  "label_title": "Print a label from a Homebox link",
+  "label_subtitle": "Paste a Homebox link or asset ID — a QR label is generated and printed.",
+  "label_input_label": "Homebox link or asset ID",
+  "label_input_placeholder": "e.g. https://box.example.com/a/000-629 or 000-629",
+  "label_resolve_button": "Show preview",
+  "err_label_empty": "Please enter a Homebox link or asset ID.",
+  "err_label_unrecognized": "Could not read an asset ID from that. Allowed: /a/… or /item/… links, or an asset ID like 000-629.",
+  "err_label_no_asset": "This Homebox item has no asset ID yet.",
 
   "login_title": "Sign in",
   "login_username": "Username",

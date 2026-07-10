@@ -126,6 +126,78 @@ def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
     assert "Büro" in response.text and "Elektronik" in response.text
 
 
+def test_label_tool_page_renders(logged_in):
+    response = logged_in.get("/label")
+    assert response.status_code == 200
+    assert 'hx-post="/label/resolve"' in response.text
+    assert 'name="link"' in response.text
+
+
+def test_label_resolve_from_asset_deep_link(logged_in):
+    response = logged_in.post(
+        "/label/resolve", data={"link": "https://box.example.com/a/000-629"}
+    )
+    assert response.status_code == 200
+    assert "000-629" in response.text
+    assert 'hx-post="/print"' in response.text  # ready-to-print controls
+    assert "/label/000-629.png" in response.text  # preview image
+
+
+def test_label_resolve_from_bare_asset_id(logged_in):
+    response = logged_in.post("/label/resolve", data={"link": "000-629"})
+    assert response.status_code == 200
+    assert 'value="000-629"' in response.text
+
+
+def test_label_resolve_from_item_url_looks_up_asset(logged_in, monkeypatch):
+    import app.main as main
+
+    captured = {}
+
+    async def fake_get_item(item_id):
+        captured["id"] = item_id
+        return {"id": item_id, "assetId": "000-042"}
+
+    monkeypatch.setattr(main.homebox, "get_item", fake_get_item)
+    uuid = "a23e834c-861a-42c4-b57c-59aa607e78c3"
+    response = logged_in.post(
+        "/label/resolve", data={"link": f"https://box.example.com/item/{uuid}"}
+    )
+    assert response.status_code == 200
+    assert captured["id"] == uuid
+    assert "000-042" in response.text
+
+
+def test_label_resolve_item_without_asset_id_shows_error(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_get_item(item_id):
+        return {"id": item_id, "assetId": "000-000"}  # unassigned
+
+    monkeypatch.setattr(main.homebox, "get_item", fake_get_item)
+    uuid = "a23e834c-861a-42c4-b57c-59aa607e78c3"
+    response = logged_in.post("/label/resolve", data={"link": f"/item/{uuid}"})
+    assert response.status_code == 200
+    assert "banner-error" in response.text
+    assert "Asset-ID" in response.text  # German default
+
+
+def test_label_resolve_unrecognized_input_shows_error(logged_in):
+    response = logged_in.post("/label/resolve", data={"link": "not a link"})
+    assert response.status_code == 200
+    assert "banner-error" in response.text
+
+
+def test_label_resolve_requires_login(client):
+    response = client.post(
+        "/label/resolve",
+        data={"link": "000-1"},
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 401
+    assert response.headers["HX-Redirect"] == "/login"
+
+
 def test_fetch_crash_shows_error_banner_not_500(logged_in, monkeypatch):
     """Unexpected scraper exceptions must render an error banner, not a 500."""
     import app.main as main

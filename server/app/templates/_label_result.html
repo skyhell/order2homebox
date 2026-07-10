@@ -1,0 +1,30 @@
+<div class="card result-card" id="label-result">
+  <div class="result-grid">
+    <div class="result-info">
+      <p class="asset-line">
+        <span class="asset-badge">{{ t('asset_id_label') }} {{ asset_id }}</span>
+        <a class="subtle-link" href="{{ homebox_url }}/a/{{ asset_id }}" target="_blank" rel="noopener">{{ t('open_in_homebox') }} ↗</a>
+      </p>
+      <div class="print-controls" id="label-print">
+        <input type="hidden" name="asset_id" value="{{ asset_id }}">
+        <label class="field-inline-sm">
+          <span>{{ t('print_copies') }}</span>
+          <input class="input input-sm" type="number" name="copies" value="1" min="1" max="20">
+        </label>
+        <label class="check">
+          <input type="checkbox" name="show_text" value="true" {% if show_asset_id_default %}checked{% endif %}>
+          <span>{{ t('print_with_id') }}</span>
+        </label>
+        <button type="button" class="btn btn-primary"
+                hx-post="/print"
+                hx-include="#label-print input"
+                hx-target="#label-print-status"
+                hx-swap="innerHTML">{{ t('print_button') }}</button>
+        <span id="label-print-status"></span>
+      </div>
+    </div>
+    <div class="result-preview">
+      <img src="/label/{{ asset_id }}.png?text={{ 1 if show_asset_id_default else 0 }}" alt="Label preview" class="label-preview">
+    </div>
+  </div>
+</div>

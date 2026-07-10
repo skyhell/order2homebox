@@ -1,9 +1,19 @@
 {
   "app_name": "order2homebox",
   "nav_new": "Neue Bestellung",
+  "nav_label": "Etikett drucken",
   "nav_settings": "Einstellungen",
   "nav_logout": "Abmelden",
   "theme_toggle": "Dark Mode umschalten",
+
+  "label_title": "Etikett aus Homebox-Link drucken",
+  "label_subtitle": "Einen Homebox-Link oder eine Asset-ID einfügen — daraus wird ein QR-Etikett erzeugt und gedruckt.",
+  "label_input_label": "Homebox-Link oder Asset-ID",
+  "label_input_placeholder": "z. B. https://box.example.com/a/000-629 oder 000-629",
+  "label_resolve_button": "Vorschau erzeugen",
+  "err_label_empty": "Bitte einen Homebox-Link oder eine Asset-ID eingeben.",
+  "err_label_unrecognized": "Daraus konnte keine Asset-ID gelesen werden. Erlaubt sind /a/…- oder /item/…-Links sowie eine Asset-ID wie 000-629.",
+  "err_label_no_asset": "Dieses Homebox-Item hat noch keine Asset-ID.",
 
   "login_title": "Anmelden",
   "login_username": "Benutzername",

@@ -27,6 +27,7 @@
     </a>
     <div class="nav-links">
       <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}">{{ t('nav_new') }}</a>
+      <a href="/label" class="nav-link{% if request.url.path == '/label' %} active{% endif %}">{{ t('nav_label') }}</a>
       <a href="/settings" class="nav-link{% if request.url.path == '/settings' %} active{% endif %}">{{ t('nav_settings') }}</a>
     </div>
     <div class="nav-actions">

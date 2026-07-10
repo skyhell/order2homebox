@@ -15,6 +15,9 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
 - 🏷️ **QR labels** — DK-22211 (29 mm endless), exactly 306 px wide, two identical
   QR codes side by side (cut in half → two labels per asset), optional asset ID
   text. QR content is Homebox's native `…/a/{asset_id}` deep link.
+- 🔗 **Reprint from a link** — paste any Homebox link (an `…/a/{asset_id}` deep
+  link, an `…/item/{uuid}` page URL, or just an asset ID like `000-629`) on the
+  *Print label* page and reprint its QR label without going through an order.
 - 🖨️ **Print agent** on a Raspberry Pi (Brother QL-500 via USB, `brother_ql`),
   secured with an API key; dry-run mode for development without a printer.
 - 🍎 **Apple-style web UI** with dark mode, German/English toggle and a

@@ -27,6 +27,12 @@ from .scrapers import ParseFailed, ScrapeError, SessionExpired, get_scraper
 
 BASE_DIR = Path(__file__).parent
 ASSET_ID_RE = re.compile(r"^[0-9]{1,5}-[0-9]{1,5}$|^[0-9]{1,10}$")
+# Homebox asset deep link, e.g. .../a/000-629
+ASSET_IN_URL_RE = re.compile(r"/a/([0-9]{1,5}-[0-9]{1,5}|[0-9]{1,10})")
+# Item page URL carries the item UUID, e.g. .../item/a23e834c-861a-...
+UUID_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
 
 logger = logging.getLogger("order2homebox")
 
@@ -342,6 +348,69 @@ async def create_single_item(request: Request, user: str = Depends(require_login
         "_item_result.html",
         r=entry,
         idx=idx,
+        show_asset_id_default=settings.label_show_asset_id,
+    )
+
+
+# -- print from a Homebox link ------------------------------------------------
+
+
+class LabelRefError(Exception):
+    """Input could not be resolved to an asset ID; ``key`` is a locale key."""
+
+    def __init__(self, key: str):
+        self.key = key
+        super().__init__(key)
+
+
+async def resolve_asset_id(raw: str) -> str:
+    """Turn a pasted Homebox link or asset ID into a Homebox asset ID.
+
+    Accepts an ``/a/{assetId}`` deep link, an ``/item/{uuid}`` page URL (looked
+    up via the API), or a bare asset ID like ``000-629``. Raises
+    ``LabelRefError`` (locale key) or ``HomeboxError`` on failure."""
+    raw = (raw or "").strip()
+    if not raw:
+        raise LabelRefError("err_label_empty")
+    in_url = ASSET_IN_URL_RE.search(raw)
+    if in_url:
+        return in_url.group(1)
+    uuid = UUID_RE.search(raw)
+    if uuid:
+        item = await homebox.get_item(uuid.group(0))
+        asset = str(item.get("assetId") or "").strip()
+        if not asset or asset in ("0", "000-000") or not ASSET_ID_RE.match(asset):
+            raise LabelRefError("err_label_no_asset")
+        return asset
+    if ASSET_ID_RE.match(raw):
+        return raw
+    raise LabelRefError("err_label_unrecognized")
+
+
+@app.get("/label", response_class=HTMLResponse)
+async def label_tool(request: Request, user: str = Depends(require_login)):
+    return render(request, "label.html")
+
+
+@app.post("/label/resolve", response_class=HTMLResponse)
+async def label_resolve(
+    request: Request, link: str = Form(""), user: str = Depends(require_login)
+):
+    lang = get_lang(request)
+    try:
+        asset_id = await resolve_asset_id(link)
+    except LabelRefError as exc:
+        return HTMLResponse(
+            f'<div class="banner banner-error">{t(exc.key, lang)}</div>'
+        )
+    except HomeboxError as exc:
+        return HTMLResponse(
+            f'<div class="banner banner-error">{t("err_homebox", lang)}: {exc}</div>'
+        )
+    return render(
+        request,
+        "_label_result.html",
+        asset_id=asset_id,
         show_asset_id_default=settings.label_show_asset_id,
     )
 

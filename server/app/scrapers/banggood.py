@@ -15,12 +15,17 @@ import re
 from bs4 import BeautifulSoup
 
 from ..models import Order, OrderItemDraft, Shop
-from .base import ParseFailed, Scraper, parse_price
+from .base import OrderNotFound, ParseFailed, Scraper, parse_price
 
 # ---------------------------------------------------------------- selectors
-# order_no is the numeric Banggood order id shown as "Order Number" / URL order_id.
+# order_no is the numeric Banggood order id (e.g. "116598360"), shown as the
+# ordersId in the account order list/detail URLs. Note the plural spellings
+# (t=ordersDetail, ordersId) and the required version=2 — verified against a
+# real account page (the singular t=orderDetail&order_id form just redirects to
+# the orders list).
 ORDER_URL_TEMPLATE = (
-    "https://www.banggood.com/index.php?com=account&t=orderDetail&order_id={order_no}"
+    "https://www.banggood.com/index.php"
+    "?com=account&t=ordersDetail&ordersId={order_no}&version=2&status=0"
 )
 # One row per ordered product.
 ITEM_SELECTORS = [
@@ -43,6 +48,10 @@ PRICE_SELECTORS = [
     "[class*='price']",
 ]
 STRIKE_MARKERS = ("del", "old_price", "market_price", "line-through", "strike")
+# Banggood redirects an unknown/foreign order id (and an expired session that
+# still has *some* cookies) back to the account order LIST instead of a detail
+# page. These markers identify that list page so we can report a clear error.
+ORDER_LIST_MARKERS = ("account-index-transport", "com=account&amp;t=ordersList")
 # Quantity ("x2" / "Qty: 2" / a bare number in the qty cell).
 QTY_SELECTORS = [
     ".product_num",
@@ -93,6 +102,11 @@ class BanggoodScraper(Scraper):
 
         nodes = _first_match_all(soup, ITEM_SELECTORS)
         if not nodes:
+            if any(marker in html for marker in ORDER_LIST_MARKERS):
+                raise OrderNotFound(
+                    "Banggood returned the order list, not a single order — "
+                    "check the order number, or refresh the cookies in settings."
+                )
             raise ParseFailed("Banggood: no order items found (selectors outdated?)")
 
         for node in nodes:

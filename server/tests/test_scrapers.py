@@ -386,3 +386,16 @@ def test_banggood_rescales_to_grand_total():
 def test_banggood_parse_failed_on_empty_page():
     with pytest.raises(ParseFailed):
         BanggoodScraper().parse("<html><body></body></html>", "1")
+
+
+def test_banggood_redirect_to_order_list_raises_not_found():
+    # An unknown order id / half-expired session lands on the account order
+    # list; that must be a clear OrderNotFound, not a generic ParseFailed.
+    from app.scrapers.base import OrderNotFound
+
+    html = (
+        "<html><body><div class='account-index-transport'>"
+        "<ul class='information'></ul></div></body></html>"
+    )
+    with pytest.raises(OrderNotFound):
+        BanggoodScraper().parse(html, "116598360")

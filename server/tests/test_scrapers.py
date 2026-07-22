@@ -356,31 +356,31 @@ def test_temu_parse_failed_on_empty_page():
 
 
 def test_banggood_parse():
-    order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "108123456789")
-    assert order.order_no == "108123456789"
-    assert order.order_date == "2026-07-03"
-    assert len(order.items) == 2
+    order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "116598360")
+    assert order.order_no == "116598360"
+    assert order.order_date == "2026-05-20"
+    assert len(order.items) == 2  # the header row must not be picked up
 
     meter, iron = order.items
-    assert meter.name == "Digital Multimeter True RMS Auto Ranging"
+    assert meter.name == "Tuya WIFI Smart CO2 Meter Air Quality Monitor"
     assert meter.quantity == 2
     assert meter.currency == "EUR"
-    # Struck-through list price (€24.90) must be ignored in favour of now_price.
-    assert meter.product_url == "https://www.banggood.com/Digital-Multimeter-True-RMS-p-1234567.html"
-    assert meter.image_url == "https://img.banggood.com/thumb/large/test1.jpg"
-    assert "Black" in meter.description
+    # ?rmmds= tracking param stripped from the product URL.
+    assert meter.product_url == "https://www.banggood.com/Tuya-CO2-Meter-p-1948202.html"
+    assert meter.image_url == "https://imgaz3.staticbg.com/thumb/large/test1.jpg.webp"
+    assert "EU-Smart-Steckdose" in meter.description
 
-    # Protocol-relative product URL is normalised to https.
-    assert iron.product_url == "https://www.banggood.com/Soldering-Iron-Kit-p-7654321.html"
+    assert iron.name == "Soldering Iron Kit 60W Adjustable"
     assert iron.quantity == 1
 
 
-def test_banggood_rescales_to_grand_total():
-    # Rows: 18.99*2 + 12.50 = 50.48; Grand Total 45.48 → factor 0.90095.
-    order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "108123456789")
+def test_banggood_rescales_to_goods_total_excluding_shipping():
+    # Sub-Total 92.50 − Allowance Discount 9.25 = 83.25 goods total (shipping
+    # 3.00 and the grand Total 86.25 are ignored). Rows sum to 92.50 → factor 0.9.
+    order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "116598360")
     meter, iron = order.items
-    assert meter.unit_price == 17.11
-    assert iron.unit_price == 11.26
+    assert meter.unit_price == 36.00
+    assert iron.unit_price == 11.25
 
 
 def test_banggood_parse_failed_on_empty_page():

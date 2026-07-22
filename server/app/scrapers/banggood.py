@@ -6,9 +6,7 @@ like Temu. All selectors live in the constants below; when Banggood changes its
 page, this file is the only place to touch. Selector lists are tried in order,
 the first one that matches wins.
 
-The selectors here were written against Banggood's account order-detail markup
-and should be re-verified against a real dump (data/debug/banggood-last-fetch.html)
-if a shop update breaks them.
+Selectors were verified against a real "Orders Detail" page (2026).
 """
 import re
 
@@ -27,61 +25,39 @@ ORDER_URL_TEMPLATE = (
     "https://www.banggood.com/index.php"
     "?com=account&t=ordersDetail&ordersId={order_no}&version=2&status=0"
 )
-# One row per ordered product.
+# One row per ordered product. The header row lives in .product-list-hd, so the
+# item rows must be scoped to the body block .product-list-bd.
 ITEM_SELECTORS = [
-    ".order_product_list .product_item",
-    ".orderProductList tr.product",
-    "[class*='order'] [class*='product_item']",
-    ".pro_list li",
+    ".product-list-bd .list-row",
+    ".order-detail-product .product-list-bd .list-row",
 ]
 TITLE_SELECTORS = [
-    ".product_name a",
-    ".pro_name a",
-    "a.title",
+    ".list-item-detail .title a",
+    ".title a",
     "a[href*='-p-']",
 ]
-# Item unit price ("€12.34" / "12,34 €"); struck-through list prices are skipped.
+# Item unit price ("86,26€"); the .list-item-amount cell is the line total
+# (unit × qty) and serves as a fallback.
 PRICE_SELECTORS = [
-    ".product_price .now_price",
-    ".product_price",
-    ".pro_price",
-    "[class*='price']",
+    ".price-info .price",
+    ".list-item-amount .text-wrap",
 ]
 STRIKE_MARKERS = ("del", "old_price", "market_price", "line-through", "strike")
+QTY_SELECTORS = [
+    ".list-item-status .text-wrap",
+    ".list-item-status",
+]
+# Variant / SKU shown under the title ("Typ: Mit EU-Smart-Steckdose").
+ATTR_SELECTORS = [".poa-list", ".attr-item"]
+# Order timestamp: "Order Time: 2026-05-20 13:45:19" (already ISO) —
+# German pages render "Bestellzeit:" with the same yyyy-mm-dd date.
+ORDER_DATE_RE = re.compile(
+    r"(?:Order Time|Order Date|Bestellzeit|Bestelldatum)\s*:?\s*(\d{4})-(\d{2})-(\d{2})"
+)
 # Banggood redirects an unknown/foreign order id (and an expired session that
 # still has *some* cookies) back to the account order LIST instead of a detail
 # page. These markers identify that list page so we can report a clear error.
 ORDER_LIST_MARKERS = ("account-index-transport", "com=account&amp;t=ordersList")
-# Quantity ("x2" / "Qty: 2" / a bare number in the qty cell).
-QTY_SELECTORS = [
-    ".product_num",
-    ".pro_num",
-    "[class*='quantity']",
-    "[class*='_num']",
-]
-QTY_RE = re.compile(r"(?:x|×|Qty[:\s]*|Menge[:\s]*)\s*(\d+)", re.IGNORECASE)
-# "Order Date: Jul 3, 2026" (English) / "Bestelldatum: 3. Juli 2026" (German).
-ORDER_DATE_RES = [
-    re.compile(
-        r"(?:Order Date|Order Time|Date of Order)\s*:?\s*"
-        r"(?P<m>[A-Za-z]{3,9})\.?\s+(?P<d>\d{1,2}),\s*(?P<y>\d{4})"
-    ),
-    re.compile(
-        r"(?:Bestelldatum|Bestelldatum|Bestellzeit|Bestellung aufgegeben am)\s*:?\s*"
-        r"(?P<d>\d{1,2})\.\s*(?P<m>[A-Za-zäöü]{3,9})\.?\s+(?P<y>\d{4})"
-    ),
-]
-MONTHS = {
-    "jan": 1, "feb": 2, "mar": 3, "mär": 3, "mrz": 3, "apr": 4, "may": 5,
-    "mai": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "okt": 10,
-    "nov": 11, "dec": 12, "dez": 12,
-}
-# Paid order total after coupons/points ("Grand Total: €31.51" /
-# "Order Total: 31,51 €") — row prices are rescaled to it, like the other shops.
-TOTAL_RE = re.compile(
-    r"(?:Grand Total|Order Total|Total Paid|Gesamtbetrag|Gesamtsumme)\s*:?\s*"
-    r"(?:€\s*)?(?P<num>\d{1,4}(?:[.,]\d{3})*(?:[.,]\d{2})|\d+(?:[.,]\d{2})?)\s*€?"
-)
 # ---------------------------------------------------------------------------
 
 
@@ -89,9 +65,7 @@ class BanggoodScraper(Scraper):
     shop = Shop.banggood
     ORDER_URL_TEMPLATE = ORDER_URL_TEMPLATE
     LOGIN_URL_PATTERNS = ("com=account&t=login", "/login", "account-login")
-    READY_SELECTOR = (
-        ".order_product_list, .orderProductList, .pro_list, [class*='product_item']"
-    )
+    READY_SELECTOR = ".order-detail-product, .product-list-bd, .account-index-transport"
 
     def parse(self, html: str, order_no: str) -> Order:
         soup = BeautifulSoup(html, "html.parser")
@@ -129,15 +103,14 @@ class BanggoodScraper(Scraper):
                 src = img.get("data-src") or img.get("src", "")
                 item.image_url = f"https:{src}" if src.startswith("//") else src
 
-            # SKU / variant (colour, plug type, …) is useful in the description.
-            variant = node.select_one("[class*='sku'], [class*='attr'], .product_poa")
+            variant = _first_match(node, ATTR_SELECTORS)
             if variant is not None:
                 item.description = variant.get_text(" ", strip=True)
 
             if item.name:
                 order.items.append(item)
 
-        _rescale_to_order_total(order.items, page_text)
+        _rescale_to_goods_total(order.items, soup)
         return order
 
 
@@ -167,42 +140,68 @@ def _is_strike(el) -> bool:
 def _qty_for(node) -> int:
     qty_el = _first_match(node, QTY_SELECTORS)
     if qty_el is not None:
-        text = qty_el.get_text(" ", strip=True)
-        match = QTY_RE.search(text) or re.search(r"\d+", text)
+        match = re.search(r"\d+", qty_el.get_text(" ", strip=True))
         if match:
-            return int(match.group(match.lastindex or 0))
-    match = QTY_RE.search(node.get_text(" ", strip=True))
-    if match:
-        return int(match.group(1))
+            return int(match.group())
     return 1
 
 
 def _find_order_date(text: str) -> str:
-    for date_re in ORDER_DATE_RES:
-        match = date_re.search(text)
-        if match:
-            month = MONTHS.get(match["m"].lower()[:3])
-            if month:
-                return f"{match['y']}-{month:02d}-{int(match['d']):02d}"
+    match = ORDER_DATE_RE.search(text)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
     return ""
 
 
-def _rescale_to_order_total(items: list[OrderItemDraft], page_text: str) -> None:
-    """Rescale row prices to the paid total so coupon/points discounts end up in
-    the purchase price (same idea as the Amazon/AliExpress/Temu rescale)."""
-    match = TOTAL_RE.search(page_text)
-    if not match:
+def _rescale_to_goods_total(items: list[OrderItemDraft], soup: BeautifulSoup) -> None:
+    """Rescale row prices to the goods total actually paid (sub-total minus
+    coupon/allowance/points discounts), so discounts end up in the purchase
+    price. Shipping and the grand total are deliberately ignored — shipping is
+    not part of an item's value (same intent as the Amazon/AliExpress/Temu
+    rescale, adapted to Banggood's total breakdown)."""
+    target = _goods_total(soup)
+    if target is None:
         return
-    total, _ = parse_price(match.group("num"))
     priced = [item for item in items if item.unit_price]
     row_sum = sum(item.unit_price * item.quantity for item in priced)
-    if not total or not row_sum or abs(row_sum - total) < 0.01:
+    if not target or not row_sum or abs(row_sum - target) < 0.01:
         return
-    factor = total / row_sum
+    factor = target / row_sum
     if not 0.5 <= factor <= 1.5:  # implausible → keep the row prices
         return
     for item in priced:
         item.unit_price = round(item.unit_price * factor, 2)
+
+
+def _goods_total(soup: BeautifulSoup) -> float | None:
+    """Sub-total plus any negative adjustment lines (discounts/coupons/points).
+
+    The ``.order-detail-total`` block lists Sub-Total, discounts (negative),
+    shipping (positive) and the grand Total. We start at Sub-Total and add the
+    negative lines only — shipping and the derived grand Total are skipped.
+    """
+    sub_total: float | None = None
+    adjustments = 0.0
+    for row in soup.select(".order-detail-total .total-list-item"):
+        name_el = row.select_one(".name")
+        price_el = row.select_one(".price")
+        if name_el is None or price_el is None:
+            continue
+        label = name_el.get_text(" ", strip=True).lower()
+        raw = price_el.get_text(" ", strip=True)
+        value, _ = parse_price(raw)
+        if value is None:
+            continue
+        if "sub-total" in label or "subtotal" in label:
+            sub_total = value
+        elif "total" in label:
+            continue  # grand total — derived from the lines above
+        elif raw.lstrip().startswith("-"):
+            adjustments -= value  # discount / coupon / points
+        # positive non-subtotal lines (shipping) are not part of item value
+    if sub_total is None:
+        return None
+    return round(sub_total + adjustments, 2)
 
 
 def _first_match(node, selectors: list[str]):

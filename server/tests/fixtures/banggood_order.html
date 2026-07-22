@@ -1,34 +1,58 @@
-<!-- Minimal fixture mirroring the selectors in app/scrapers/banggood.py -->
+<!-- Minimal fixture mirroring the selectors in app/scrapers/banggood.py,
+     modelled on a real Banggood "Orders Detail" page. -->
 <html><body>
-<div class="order_info">
-  <span>Order Number: 108123456789</span>
-  <span>Order Date: Jul 3, 2026</span>
-</div>
-<div class="order_product_list">
-  <div class="product_item">
-    <img data-src="//img.banggood.com/thumb/large/test1.jpg" src="//img.banggood.com/loading.gif">
-    <div class="product_name">
-      <a href="/Digital-Multimeter-True-RMS-p-1234567.html?rmmds=detail">Digital Multimeter True RMS Auto Ranging</a>
-    </div>
-    <div class="product_poa">Color: Black, Plug: EU</div>
-    <div class="product_price">
-      <del class="old_price">€24.90</del>
-      <span class="now_price">€18.99</span>
-    </div>
-    <div class="product_num">x2</div>
+<div class="account-order-detail">
+  <div class="order-info">
+    <span class="order-no">Order NO: 116598360</span>
+    <span class="order-time">Order Time: 2026-05-20 13:45:19</span>
   </div>
-  <div class="product_item">
-    <img data-src="//img.banggood.com/thumb/large/test2.jpg" src="//img.banggood.com/loading.gif">
-    <div class="product_name">
-      <a href="//www.banggood.com/Soldering-Iron-Kit-p-7654321.html">Soldering Iron Kit 60W Adjustable</a>
+  <div class="order-detail-product">
+    <div class="product-list">
+      <div class="product-list-table">
+        <div class="product-list-block product-list-hd">
+          <div class="list-row">
+            <div class="list-item list-item-detail">Product</div>
+            <div class="list-item list-item-status">Quantity</div>
+            <div class="list-item list-item-amount">Amount</div>
+          </div>
+        </div>
+        <div class="product-list-block product-list-bd">
+          <div class="list-row">
+            <div class="list-item list-item-img">
+              <a href="https://www.banggood.com/Tuya-CO2-Meter-p-1948202.html">
+                <img src="//imgaz3.staticbg.com/thumb/large/test1.jpg.webp"></a>
+            </div>
+            <div class="list-item list-item-detail">
+              <span class="title"><a href="https://www.banggood.com/Tuya-CO2-Meter-p-1948202.html?rmmds=detail">Tuya WIFI Smart CO2 Meter Air Quality Monitor</a></span>
+              <span class="poa-list"><span class="attr-item">Typ: Mit EU-Smart-Steckdose</span></span>
+              <span class="price-info"><span class="price">40,00€</span></span>
+            </div>
+            <div class="list-item list-item-status"><span class="text-wrap">2</span></div>
+            <div class="list-item list-item-amount"><span class="text-wrap">80,00€</span></div>
+          </div>
+          <div class="list-row">
+            <div class="list-item list-item-img">
+              <a href="https://www.banggood.com/Soldering-Iron-Kit-p-7654321.html">
+                <img src="//imgaz3.staticbg.com/thumb/large/test2.jpg.webp"></a>
+            </div>
+            <div class="list-item list-item-detail">
+              <span class="title"><a href="https://www.banggood.com/Soldering-Iron-Kit-p-7654321.html">Soldering Iron Kit 60W Adjustable</a></span>
+              <span class="price-info"><span class="price">12,50€</span></span>
+            </div>
+            <div class="list-item list-item-status"><span class="text-wrap">1</span></div>
+            <div class="list-item list-item-amount"><span class="text-wrap">12,50€</span></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="product_price"><span class="now_price">€12.50</span></div>
-    <div class="product_num">x1</div>
+    <div class="order-detail-total">
+      <div class="total-list">
+        <div class="total-list-item"><span class="name">Sub-Total:</span><span class="price">92,50€</span></div>
+        <div class="total-list-item"><span class="name">Allowance Discount:</span><span class="price">-9,25€</span></div>
+        <div class="total-list-item"><span class="name">Shipping Fee:</span><span class="price">3,00€</span></div>
+        <div class="total-list-item"><span class="name total">Total:</span><span class="price light">86,25€</span></div>
+      </div>
+    </div>
   </div>
-</div>
-<div class="order_amount">
-  <span>Subtotal: €50.48</span>
-  <span>Coupon: -€5.00</span>
-  <span>Grand Total: €45.48</span>
 </div>
 </body></html>

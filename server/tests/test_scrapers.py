@@ -374,13 +374,13 @@ def test_banggood_parse():
     assert iron.quantity == 1
 
 
-def test_banggood_uses_displayed_item_price():
-    # The displayed item price is the purchase price as-is; order-level
-    # discounts/shipping in the totals block must NOT change it.
+def test_banggood_rescales_to_grand_total_including_shipping():
+    # Rows sum to 40*2 + 10 = 90; grand Total 99 (after -1 discount, +10
+    # shipping) → factor 1.1. The paid total is split across the items.
     order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "116598360")
     meter, iron = order.items
-    assert meter.unit_price == 40.00
-    assert iron.unit_price == 12.50
+    assert meter.unit_price == 44.00
+    assert iron.unit_price == 11.00
 
 
 def test_banggood_parse_failed_on_empty_page():

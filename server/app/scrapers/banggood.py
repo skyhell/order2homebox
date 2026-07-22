@@ -110,6 +110,7 @@ class BanggoodScraper(Scraper):
             if item.name:
                 order.items.append(item)
 
+        _rescale_to_grand_total(order.items, soup)
         return order
 
 
@@ -150,6 +151,42 @@ def _find_order_date(text: str) -> str:
     if match:
         return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
     return ""
+
+
+def _rescale_to_grand_total(items: list[OrderItemDraft], soup: BeautifulSoup) -> None:
+    """Rescale row prices so their sum equals the grand Total actually paid —
+    everything included: after discounts/coupons and WITH shipping. For a
+    single-item order the item price becomes exactly the Total; for several
+    items the Total (incl. shipping) is split proportionally to the row prices.
+    """
+    target = _grand_total(soup)
+    priced = [item for item in items if item.unit_price]
+    row_sum = sum(item.unit_price * item.quantity for item in priced)
+    if not target or not row_sum or abs(row_sum - target) < 0.01:
+        return
+    factor = target / row_sum
+    if not 0.5 <= factor <= 2.0:  # implausible → keep the row prices
+        return
+    for item in priced:
+        item.unit_price = round(item.unit_price * factor, 2)
+
+
+def _grand_total(soup: BeautifulSoup) -> float | None:
+    """The "Total:" line from the order-detail totals block (incl. shipping).
+
+    The grand-total row carries the ``total`` class on its name span
+    (``<span class="name total">Total:</span>``), which distinguishes it from
+    Sub-Total, discounts and shipping lines.
+    """
+    name_el = soup.select_one(".order-detail-total .total-list-item .name.total")
+    if name_el is None:
+        return None
+    row = name_el.find_parent(class_="total-list-item")
+    price_el = row.select_one(".price") if row is not None else None
+    if price_el is None:
+        return None
+    value, _ = parse_price(price_el.get_text(" ", strip=True))
+    return value
 
 
 def _first_match(node, selectors: list[str]):

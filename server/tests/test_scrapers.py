@@ -6,6 +6,7 @@ from app.models import Shop
 from app.scrapers import ParseFailed, get_scraper
 from app.scrapers.aliexpress import AliExpressScraper
 from app.scrapers.amazon import AmazonScraper
+from app.scrapers.banggood import BanggoodScraper
 from app.scrapers.base import parse_price
 from app.scrapers.temu import TemuScraper
 
@@ -42,6 +43,7 @@ def test_registry_returns_correct_scraper():
     assert isinstance(get_scraper(Shop.amazon), AmazonScraper)
     assert isinstance(get_scraper(Shop.aliexpress), AliExpressScraper)
     assert isinstance(get_scraper(Shop.temu), TemuScraper)
+    assert isinstance(get_scraper(Shop.banggood), BanggoodScraper)
 
 
 # -- Amazon --------------------------------------------------------------------
@@ -348,3 +350,39 @@ def test_temu_rescales_to_paid_total():
 def test_temu_parse_failed_on_empty_page():
     with pytest.raises(ParseFailed):
         TemuScraper().parse("<html><body></body></html>", "PO-1")
+
+
+# -- Banggood ---------------------------------------------------------------------
+
+
+def test_banggood_parse():
+    order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "108123456789")
+    assert order.order_no == "108123456789"
+    assert order.order_date == "2026-07-03"
+    assert len(order.items) == 2
+
+    meter, iron = order.items
+    assert meter.name == "Digital Multimeter True RMS Auto Ranging"
+    assert meter.quantity == 2
+    assert meter.currency == "EUR"
+    # Struck-through list price (€24.90) must be ignored in favour of now_price.
+    assert meter.product_url == "https://www.banggood.com/Digital-Multimeter-True-RMS-p-1234567.html"
+    assert meter.image_url == "https://img.banggood.com/thumb/large/test1.jpg"
+    assert "Black" in meter.description
+
+    # Protocol-relative product URL is normalised to https.
+    assert iron.product_url == "https://www.banggood.com/Soldering-Iron-Kit-p-7654321.html"
+    assert iron.quantity == 1
+
+
+def test_banggood_rescales_to_grand_total():
+    # Rows: 18.99*2 + 12.50 = 50.48; Grand Total 45.48 → factor 0.90095.
+    order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "108123456789")
+    meter, iron = order.items
+    assert meter.unit_price == 17.11
+    assert iron.unit_price == 11.26
+
+
+def test_banggood_parse_failed_on_empty_page():
+    with pytest.raises(ParseFailed):
+        BanggoodScraper().parse("<html><body></body></html>", "1")

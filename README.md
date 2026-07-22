@@ -1,6 +1,6 @@
 # order2homebox
 
-Turn **Amazon / AliExpress / Temu orders into [Homebox](https://homebox.software) inventory items** — and print their QR labels on a **Brother QL-500** in one flow.
+Turn **Amazon / AliExpress / Temu / Banggood orders into [Homebox](https://homebox.software) inventory items** — and print their QR labels on a **Brother QL-500** in one flow.
 
 Enter an order number, review the scraped items, pick (or create) a storage location, click *Create in Homebox* — and a 29 mm label with two QR codes and the asset ID comes out of the printer.
 
@@ -152,7 +152,8 @@ O2H_DRY_RUN=1 uvicorn printagent.main:app --port 8010   # writes PNGs instead
 Each scraper is one file with all URL templates and CSS selectors as constants at
 the top: [`server/app/scrapers/amazon.py`](server/app/scrapers/amazon.py),
 [`aliexpress.py`](server/app/scrapers/aliexpress.py),
-[`temu.py`](server/app/scrapers/temu.py). Adjust the selectors, update the HTML
+[`temu.py`](server/app/scrapers/temu.py),
+[`banggood.py`](server/app/scrapers/banggood.py). Adjust the selectors, update the HTML
 fixture in `server/tests/fixtures/`, run `pytest`.
 
 ## Security notes

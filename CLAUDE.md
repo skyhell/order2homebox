@@ -1,6 +1,6 @@
 # order2homebox
 
-Create Homebox inventory items from Amazon/AliExpress/Temu orders and print QR labels
+Create Homebox inventory items from Amazon/AliExpress/Temu/Banggood orders and print QR labels
 on a Brother QL-500 (DK-22211, 29 mm endless) attached to a Raspberry Pi.
 
 ## Architecture

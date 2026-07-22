@@ -7,6 +7,7 @@ SHOP_DISPLAY_NAMES = {
     "amazon": "Amazon",
     "aliexpress": "AliExpress",
     "temu": "Temu",
+    "banggood": "Banggood",
 }
 
 
@@ -14,6 +15,7 @@ class Shop(str, Enum):
     amazon = "amazon"
     aliexpress = "aliexpress"
     temu = "temu"
+    banggood = "banggood"
 
     @property
     def display_name(self) -> str:

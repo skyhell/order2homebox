@@ -2,6 +2,7 @@
 from ..models import Shop
 from .aliexpress import AliExpressScraper
 from .amazon import AmazonScraper
+from .banggood import BanggoodScraper
 from .base import (
     OrderNotFound,
     ParseFailed,
@@ -15,6 +16,7 @@ _SCRAPERS: dict[Shop, type[Scraper]] = {
     Shop.amazon: AmazonScraper,
     Shop.aliexpress: AliExpressScraper,
     Shop.temu: TemuScraper,
+    Shop.banggood: BanggoodScraper,
 }
 
 

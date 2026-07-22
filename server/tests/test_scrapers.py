@@ -374,13 +374,13 @@ def test_banggood_parse():
     assert iron.quantity == 1
 
 
-def test_banggood_rescales_to_goods_total_excluding_shipping():
-    # Sub-Total 92.50 − Allowance Discount 9.25 = 83.25 goods total (shipping
-    # 3.00 and the grand Total 86.25 are ignored). Rows sum to 92.50 → factor 0.9.
+def test_banggood_uses_displayed_item_price():
+    # The displayed item price is the purchase price as-is; order-level
+    # discounts/shipping in the totals block must NOT change it.
     order = BanggoodScraper().parse(load_fixture("banggood_order.html"), "116598360")
     meter, iron = order.items
-    assert meter.unit_price == 36.00
-    assert iron.unit_price == 11.25
+    assert meter.unit_price == 40.00
+    assert iron.unit_price == 12.50
 
 
 def test_banggood_parse_failed_on_empty_page():

@@ -110,7 +110,6 @@ class BanggoodScraper(Scraper):
             if item.name:
                 order.items.append(item)
 
-        _rescale_to_goods_total(order.items, soup)
         return order
 
 
@@ -151,57 +150,6 @@ def _find_order_date(text: str) -> str:
     if match:
         return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
     return ""
-
-
-def _rescale_to_goods_total(items: list[OrderItemDraft], soup: BeautifulSoup) -> None:
-    """Rescale row prices to the goods total actually paid (sub-total minus
-    coupon/allowance/points discounts), so discounts end up in the purchase
-    price. Shipping and the grand total are deliberately ignored — shipping is
-    not part of an item's value (same intent as the Amazon/AliExpress/Temu
-    rescale, adapted to Banggood's total breakdown)."""
-    target = _goods_total(soup)
-    if target is None:
-        return
-    priced = [item for item in items if item.unit_price]
-    row_sum = sum(item.unit_price * item.quantity for item in priced)
-    if not target or not row_sum or abs(row_sum - target) < 0.01:
-        return
-    factor = target / row_sum
-    if not 0.5 <= factor <= 1.5:  # implausible → keep the row prices
-        return
-    for item in priced:
-        item.unit_price = round(item.unit_price * factor, 2)
-
-
-def _goods_total(soup: BeautifulSoup) -> float | None:
-    """Sub-total plus any negative adjustment lines (discounts/coupons/points).
-
-    The ``.order-detail-total`` block lists Sub-Total, discounts (negative),
-    shipping (positive) and the grand Total. We start at Sub-Total and add the
-    negative lines only — shipping and the derived grand Total are skipped.
-    """
-    sub_total: float | None = None
-    adjustments = 0.0
-    for row in soup.select(".order-detail-total .total-list-item"):
-        name_el = row.select_one(".name")
-        price_el = row.select_one(".price")
-        if name_el is None or price_el is None:
-            continue
-        label = name_el.get_text(" ", strip=True).lower()
-        raw = price_el.get_text(" ", strip=True)
-        value, _ = parse_price(raw)
-        if value is None:
-            continue
-        if "sub-total" in label or "subtotal" in label:
-            sub_total = value
-        elif "total" in label:
-            continue  # grand total — derived from the lines above
-        elif raw.lstrip().startswith("-"):
-            adjustments -= value  # discount / coupon / points
-        # positive non-subtotal lines (shipping) are not part of item value
-    if sub_total is None:
-        return None
-    return round(sub_total + adjustments, 2)
 
 
 def _first_match(node, selectors: list[str]):

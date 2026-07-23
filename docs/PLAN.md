@@ -17,7 +17,7 @@ Neues Greenfield-Projekt in `C:\Users\johan\claude\order2homebox`. Ziel: Bestell
 - `brother_ql` (pklaus) unterstützt QL-500; 29-mm-Endlos = Label-Typ `"29"`, **306 px druckbare Breite** bei 300 dpi, variable Länge. QL-500 hat keinen Auto-Cutter.
 - Homebox-QR-Codes kodieren `{base_url}/a/{asset_id}` (z. B. `/a/000-001`).
 - Homebox-API: `POST /api/v1/users/login` (Bearer-Token), `GET/POST /api/v1/locations`, `GET /api/v1/labels`, `POST /api/v1/items`, `PUT /api/v1/items/{id}` für Kaufinfos (purchasePrice, purchaseFrom, purchaseTime). Asset-ID wird automatisch vergeben (`assetId`). (Feldnamen bei Implementierung gegen Swagger `/swagger/index.html` der Live-Instanz verifizieren.)
-- Amazon/AliExpress/Temu haben keine öffentliche Bestell-API → Scraping mit Session-Cookies; Bot-Erkennung (bes. Amazon) erfordert echten Browser → **Playwright headless Chromium**.
+- Amazon/AliExpress/Temu/Banggood haben keine öffentliche Bestell-API → Scraping mit Session-Cookies; Bot-Erkennung (bes. Amazon) erfordert echten Browser → **Playwright headless Chromium**.
 
 ## Architektur
 
@@ -75,7 +75,8 @@ order2homebox/
 │   │   │   │                 # (SessionExpired → UI: „Cookies erneuern“, OrderNotFound)
 │   │   │   ├── amazon.py     # Order-URL-Template + DOM-Selektoren, alles in 1 Datei,
 │   │   │   ├── aliexpress.py #  Selektoren als Konstanten am Dateianfang, gut kommentiert
-│   │   │   └── temu.py       #  → bei Seiten-Änderung leicht anzupassen
+│   │   │   ├── temu.py       #  → bei Seiten-Änderung leicht anzupassen
+│   │   │   └── banggood.py   #  (v0.4.0 ergänzt)
 │   │   ├── cookies.py        # Import/Speicherung der Shop-Cookies (JSON aus Cookie-Editor),
 │   │   │                     # Validierung, Status je Shop (vorhanden/abgelaufen)
 │   │   ├── labels.py         # PNG: 306 px breit, 2× QR (segno) nebeneinander,

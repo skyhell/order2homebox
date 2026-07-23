@@ -26,6 +26,21 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   standalone in-container installer, Raspberry Pi installer, and quick
   `update.sh` scripts for both.
 
+## Screenshots
+
+| Capture an order | Review & edit |
+| --- | --- |
+| [![New order](docs/screenshot-new-order.png)](docs/screenshot-new-order.png) | [![Review and edit items](docs/screenshot-edit.png)](docs/screenshot-edit.png) |
+
+Pick a shop and enter the order number; the scraped items are shown for review —
+name, price, quantity, storage location and Homebox labels — before they are
+created in Homebox and their QR labels printed.
+
+![Settings](docs/screenshot-settings.png)
+
+The settings page shows the Homebox and print-agent connection status and holds
+the per-shop session cookies.
+
 ## Architecture
 
 ```

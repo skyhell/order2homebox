@@ -13,9 +13,9 @@ def test_two_identical_qr_codes_side_by_side():
     cell = LABEL_WIDTH // 2
     left = label.crop((0, 0, cell, label.height))
     right = label.crop((cell, 0, 2 * cell, label.height))
-    assert list(left.getdata()) == list(right.getdata())
+    assert left.tobytes() == right.tobytes()
     # and the cells actually contain black QR modules
-    assert min(left.getdata()) == 0
+    assert min(left.tobytes()) == 0
 
 
 def test_qr_matches_reference_rendering():
@@ -25,7 +25,7 @@ def test_qr_matches_reference_rendering():
     qr = _qr_image(QR_URL, cell - 12)
     x = (cell - qr.width) // 2
     region = label.crop((x, 6, x + qr.width, 6 + qr.height))
-    assert list(region.getdata()) == list(qr.getdata())
+    assert region.tobytes() == qr.tobytes()
 
 
 def test_asset_id_text_adds_height():
@@ -38,7 +38,7 @@ def test_asset_id_text_adds_height():
 def test_single_qr_layout():
     label = render_label("000-123", QR_URL, show_asset_id=False, qr_per_row=1)
     assert label.width == LABEL_WIDTH
-    assert min(label.getdata()) == 0
+    assert min(label.tobytes()) == 0
 
 
 def test_render_is_deterministic_png():

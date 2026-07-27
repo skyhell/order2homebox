@@ -504,6 +504,13 @@ async def import_cookies(
     return RedirectResponse("/settings?msg=cookies_saved", status_code=303)
 
 
+@app.get("/settings/agent-status", response_class=HTMLResponse)
+async def agent_status_fragment(request: Request, user: str = Depends(require_login)):
+    """Polled by the settings page so the print-agent row goes green again by
+    itself after the Pi was shut down from here and switched back on."""
+    return render(request, "_agent_status.html", agent_status=await printer.health())
+
+
 @app.post("/settings/test-print")
 async def test_print(request: Request, user: str = Depends(require_login)):
     lang = get_lang(request)

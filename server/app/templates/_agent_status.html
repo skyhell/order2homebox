@@ -1,0 +1,13 @@
+{# Polls itself so the row recovers on its own once the Pi is back up (it can be
+   shut down from this very page). Only the agent row polls — homebox.status()
+   does a full login per call and must not run on a timer. The buttons and their
+   messages live outside this fragment so a refresh does not wipe them. #}
+<div class="status-row" id="agent-row"
+     hx-get="/settings/agent-status"
+     hx-trigger="every 10s"
+     hx-swap="outerHTML">
+  <span class="status-dot {{ 'ok' if agent_status.ok else 'err' }}"></span>
+  <span class="status-name">{{ t('printagent_label') }}</span>
+  <span class="status-detail">{% if agent_status.ok and agent_status.get('dry_run') %}(dry-run){% endif %}{% if not agent_status.ok %}{{ agent_status.get('error', '') }}{% endif %}</span>
+  <span class="status-text">{{ t('status_ok') if agent_status.ok else t('status_error') }}</span>
+</div>

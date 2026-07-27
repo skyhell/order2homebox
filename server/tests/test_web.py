@@ -311,3 +311,36 @@ def test_settings_page_offers_the_shutdown_button(logged_in, monkeypatch):
     response = logged_in.get("/settings")
     assert 'hx-post="/settings/shutdown-agent"' in response.text
     assert "hx-confirm=" in response.text  # never power off on a stray click
+
+
+def test_agent_status_fragment_keeps_polling_itself(logged_in, monkeypatch):
+    """The settings page must recover on its own after the Pi is switched back
+    on, so the swapped-in fragment has to carry the poll trigger again."""
+    import app.main as main
+
+    async def fake_health():
+        return {"ok": True, "dry_run": False}
+
+    monkeypatch.setattr(main.printer, "health", fake_health)
+    response = logged_in.get("/settings/agent-status")
+    assert response.status_code == 200
+    assert 'hx-get="/settings/agent-status"' in response.text
+    assert 'hx-trigger="every 10s"' in response.text
+    assert "status-dot ok" in response.text
+
+
+def test_agent_status_fragment_shows_the_pi_as_down(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_health():
+        return {"ok": False, "error": "Connection refused"}
+
+    monkeypatch.setattr(main.printer, "health", fake_health)
+    response = logged_in.get("/settings/agent-status")
+    assert "status-dot err" in response.text
+    assert "Connection refused" in response.text
+
+
+def test_agent_status_fragment_requires_login(client):
+    response = client.get("/settings/agent-status", headers={"HX-Request": "true"})
+    assert response.status_code == 401

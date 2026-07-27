@@ -88,6 +88,36 @@ def test_create_single_item_returns_result_fragment(logged_in, monkeypatch):
     }
 
 
+def test_result_card_print_controls_carry_no_form_field_names(logged_in, monkeypatch):
+    """The result card is swapped into #create-form, and htmx adds the enclosing
+    form's fields to every POST — they even override hx-include. Named inputs
+    would collide across cards, so each card's button printed the LAST card's
+    asset id. Values must travel via hx-vals instead."""
+    import app.main as main
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    response = logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "USB Hub", "item-1-quantity": "1",
+    })
+    body = response.text
+    for name in ("asset_id", "copies", "show_text"):
+        assert f'name="{name}"' not in body
+    assert 'id="copies-1"' in body and 'id="show-text-1"' in body
+    assert 'asset_id: "000-007"' in body  # the card's own id, not a shared field
+    # the preview must follow the checkbox, else it shows a label that is not printed
+    assert 'id="preview-1"' in body
+    assert "labelPreview('preview-1', '000-007', this.checked)" in body
+
+
 def test_create_single_item_without_name_keeps_card(logged_in, monkeypatch):
     import app.main as main
 

@@ -8,26 +8,31 @@
       </p>
       {% if r.printed %}<p class="ok-text">{{ t('printed_auto') }} ✓</p>{% endif %}
       {% if r.print_error %}<p class="error-text">{{ t('print_failed') }}: {{ r.print_error }}</p>{% endif %}
+      {# The card sits inside #create-form on the edit page, and htmx always adds
+         the enclosing form's fields to a POST — where they even override
+         hx-include. Named inputs would therefore collide across cards (every
+         card sends asset_id/copies/show_text and the last one wins), so these
+         controls are nameless and read per id via hx-vals. #}
       <div class="print-controls" id="print-{{ idx }}">
-        <input type="hidden" name="asset_id" value="{{ r.item.assetId }}">
         <label class="field-inline-sm">
           <span>{{ t('print_copies') }}</span>
-          <input class="input input-sm" type="number" name="copies" value="1" min="1" max="20">
+          <input class="input input-sm" type="number" id="copies-{{ idx }}" value="1" min="1" max="20">
         </label>
         <label class="check">
-          <input type="checkbox" name="show_text" value="true" {% if show_asset_id_default %}checked{% endif %}>
+          <input type="checkbox" id="show-text-{{ idx }}" {% if show_asset_id_default %}checked{% endif %}
+                 onchange="labelPreview('preview-{{ idx }}', '{{ r.item.assetId }}', this.checked)">
           <span>{{ t('print_with_id') }}</span>
         </label>
         <button type="button" class="btn btn-primary"
                 hx-post="/print"
-                hx-include="#print-{{ idx }} input"
+                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("show-text-{{ idx }}").checked}'
                 hx-target="#print-status-{{ idx }}"
                 hx-swap="innerHTML">{{ t('print_button') }}</button>
         <span id="print-status-{{ idx }}"></span>
       </div>
     </div>
     <div class="result-preview">
-      <img src="/label/{{ r.item.assetId }}.png?text={{ 1 if show_asset_id_default else 0 }}" alt="Label preview" class="label-preview">
+      <img id="preview-{{ idx }}" src="/label/{{ r.item.assetId }}.png?text={{ 1 if show_asset_id_default else 0 }}" alt="Label preview" class="label-preview">
     </div>
   </div>
 </div>

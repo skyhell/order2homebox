@@ -67,3 +67,10 @@ function removeItemCard(idx) {
   var card = document.getElementById('item-card-' + idx);
   if (card) card.remove();
 }
+
+// Keep a label preview in sync with its "print asset ID" checkbox, so the
+// picture always shows what the printer would produce.
+function labelPreview(imgId, assetId, showText) {
+  var img = document.getElementById(imgId);
+  if (img) img.src = '/label/' + assetId + '.png?text=' + (showText ? 1 : 0);
+}

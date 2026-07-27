@@ -376,3 +376,56 @@ def test_settings_page_does_not_wait_for_the_pi(logged_in, monkeypatch):
     assert response.status_code == 200
     assert 'hx-trigger="load, every 10s"' in response.text  # asks right away
     assert "status-dot pending" in response.text
+
+
+def test_settings_page_waits_for_neither_connection(logged_in, monkeypatch):
+    """Both checks talk to hosts that may be down, and a dead host answers with
+    nothing — the page must not sit out either timeout."""
+    import app.main as main
+
+    async def exploding_status():
+        raise AssertionError("settings page must not block on Homebox")
+
+    async def exploding_health():
+        raise AssertionError("settings page must not block on the print agent")
+
+    monkeypatch.setattr(main.homebox, "status", exploding_status)
+    monkeypatch.setattr(main.printer, "health", exploding_health)
+
+    response = logged_in.get("/settings")
+    assert response.status_code == 200
+    assert response.text.count("status-dot pending") == 2
+    assert 'hx-get="/settings/homebox-status"' in response.text
+
+
+def test_homebox_status_fragment_does_not_poll_when_connected(logged_in, monkeypatch):
+    """Every check costs a full login, so a healthy row must stay quiet."""
+    import app.main as main
+
+    async def fake_status():
+        return None
+
+    monkeypatch.setattr(main.homebox, "status", fake_status)
+    response = logged_in.get("/settings/homebox-status")
+    assert response.status_code == 200
+    assert "status-dot ok" in response.text
+    assert "hx-trigger" not in response.text
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_homebox_status_fragment_retries_while_broken(logged_in, monkeypatch):
+    import app.main as main
+
+    async def failing_status():
+        raise main.HomeboxError("Homebox unreachable: timed out")
+
+    monkeypatch.setattr(main.homebox, "status", failing_status)
+    response = logged_in.get("/settings/homebox-status")
+    assert "status-dot err" in response.text
+    assert "timed out" in response.text
+    assert 'hx-trigger="every 30s"' in response.text  # recovers on its own
+
+
+def test_homebox_status_fragment_requires_login(client):
+    response = client.get("/settings/homebox-status", headers={"HX-Request": "true"})
+    assert response.status_code == 401

@@ -477,21 +477,27 @@ async def settings_page(
 ):
     lang = get_lang(request)
     shop_status = {shop: cookie_store.cookie_status(shop) for shop in Shop}
+    # Neither connection is checked here: an unreachable host answers with
+    # nothing at all, so the check sits out its full timeout before any HTML is
+    # sent. Both rows fetch their own state once the page has loaded.
+    return render(
+        request,
+        "settings.html",
+        shop_status=shop_status,
+        msg=t(msg, lang) if msg else "",
+    )
+
+
+@app.get("/settings/homebox-status", response_class=HTMLResponse)
+async def homebox_status_fragment(request: Request, user: str = Depends(require_login)):
     try:
         await homebox.status()
         hb_status = {"ok": True, "url": settings.homebox_url}
     except HomeboxError as exc:
         hb_status = {"ok": False, "error": str(exc), "url": settings.homebox_url}
-    # Deliberately no printer.health() here: with the Pi switched off nothing
-    # answers and the check burns its full timeout. The agent row fetches its
-    # own state right after the page has loaded.
-    return render(
-        request,
-        "settings.html",
-        shop_status=shop_status,
-        hb_status=hb_status,
-        msg=t(msg, lang) if msg else "",
-    )
+    response = render(request, "_homebox_status.html", hb_status=hb_status)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.post("/settings/cookies/{shop}")

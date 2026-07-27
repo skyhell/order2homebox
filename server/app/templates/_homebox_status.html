@@ -1,0 +1,15 @@
+{# Loaded after the page, never during it: homebox.status() does a full login,
+   and with Homebox down that call sits out its timeout before any HTML is sent.
+
+   Unlike the print-agent row this one only retries while it is BROKEN. Each
+   check costs a login, so there is no reason to keep asking a connection that
+   just answered — a page reload re-checks it. #}
+<div class="status-row" id="homebox-row"
+     {% if not hb_status.ok %}hx-get="/settings/homebox-status"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML"{% endif %}>
+  <span class="status-dot {{ 'ok' if hb_status.ok else 'err' }}"></span>
+  <span class="status-name">{{ t('homebox_label') }}</span>
+  <span class="status-detail">{{ hb_status.url }}{% if not hb_status.ok %} — {{ hb_status.error }}{% endif %}</span>
+  <span class="status-text">{{ t('status_ok') if hb_status.ok else t('status_error') }}</span>
+</div>

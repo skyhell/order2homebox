@@ -7,11 +7,14 @@
 
   <h2 class="section-title">{{ t('section_connections') }}</h2>
   <div class="card">
-    <div class="status-row">
-      <span class="status-dot {{ 'ok' if hb_status.ok else 'err' }}"></span>
+    <div class="status-row" id="homebox-row"
+         hx-get="/settings/homebox-status"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <span class="status-dot pending"></span>
       <span class="status-name">{{ t('homebox_label') }}</span>
-      <span class="status-detail">{{ hb_status.url }}{% if not hb_status.ok %} — {{ hb_status.error }}{% endif %}</span>
-      <span class="status-text">{{ t('status_ok') if hb_status.ok else t('status_error') }}</span>
+      <span class="status-detail"></span>
+      <span class="status-text">{{ t('status_checking') }}</span>
     </div>
     <div class="status-row" id="agent-row"
          hx-get="/settings/agent-status"

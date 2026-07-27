@@ -450,3 +450,33 @@ def test_agent_row_clears_the_shutdown_note_once_the_pi_is_down(logged_in, monke
     alive = logged_in.get("/settings/agent-status")
     # still shutting down: the agent answers, so the note has to stay
     assert "hx-swap-oob" not in alive.text
+
+
+def test_agent_controls_are_hidden_while_the_pi_does_not_answer(logged_in, monkeypatch):
+    """Test print and shutdown can only fail while the agent is unreachable."""
+    import app.main as main
+
+    async def down():
+        return {"ok": False, "error": "Connection refused"}
+
+    async def up():
+        return {"ok": True, "dry_run": False}
+
+    monkeypatch.setattr(main.printer, "health", down)
+    assert "agent-offline" in logged_in.get("/settings/agent-status").text
+
+    monkeypatch.setattr(main.printer, "health", up)
+    assert "agent-offline" not in logged_in.get("/settings/agent-status").text
+
+    # unknown state on page load counts as offline — no flash of dead buttons
+    async def exploding():
+        raise AssertionError("page must not block on the agent")
+
+    async def fake_status():
+        return None
+
+    monkeypatch.setattr(main.printer, "health", exploding)
+    monkeypatch.setattr(main.homebox, "status", fake_status)
+    page = logged_in.get("/settings").text
+    assert 'class="status-row agent-offline"' in page
+    assert page.count("agent-actions") == 2  # button row + hint follow the rule

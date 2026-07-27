@@ -16,7 +16,8 @@
       <span class="status-detail"></span>
       <span class="status-text">{{ t('status_checking') }}</span>
     </div>
-    <div class="status-row" id="agent-row"
+    {# starts out hidden-buttons: the state is unknown until the row answers #}
+    <div class="status-row agent-offline" id="agent-row"
          hx-get="/settings/agent-status"
          hx-trigger="load, every 10s"
          hx-swap="outerHTML">
@@ -25,7 +26,7 @@
       <span class="status-detail"></span>
       <span class="status-text">{{ t('status_checking') }}</span>
     </div>
-    <div class="status-row">
+    <div class="status-row agent-actions">
       <button class="btn btn-secondary btn-small"
               hx-post="/settings/test-print"
               hx-target="#test-print-status"
@@ -38,7 +39,7 @@
               hx-swap="innerHTML">{{ t('shutdown_button') }}</button>
       <span id="shutdown-status"></span>
     </div>
-    <p class="hint">{{ t('shutdown_hint') }}</p>
+    <p class="hint agent-actions">{{ t('shutdown_hint') }}</p>
   </div>
 
   <h2 class="section-title">{{ t('section_cookies') }}</h2>

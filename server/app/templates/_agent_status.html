@@ -6,7 +6,9 @@
    The settings page ships a "pending" placeholder instead of this rendered
    fragment: with the Pi off nobody answers and the health check burns its full
    timeout, which the page load must not wait for. #}
-<div class="status-row" id="agent-row"
+{# .agent-offline hides the buttons below (CSS sibling rule) — printing or
+   shutting down cannot work while nobody answers. #}
+<div class="status-row{% if not agent_status.ok %} agent-offline{% endif %}" id="agent-row"
      hx-get="/settings/agent-status"
      hx-trigger="every 10s"
      hx-swap="outerHTML">

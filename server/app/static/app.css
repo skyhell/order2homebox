@@ -222,6 +222,9 @@ html[data-theme="light"] .icon-sun { display: none; }
 .status-dot.err { background: var(--err); }
 /* Not yet known — the row asks for the real state right after the page loads. */
 .status-dot.pending { background: var(--text-secondary); opacity: 0.4; }
+/* Test print and shutdown need an agent that answers. The row marks itself
+   .agent-offline while it does not, and the controls below it follow. */
+#agent-row.agent-offline ~ .agent-actions { display: none; }
 .status-name { font-weight: 600; }
 .status-detail { color: var(--text-secondary); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-text { color: var(--text-secondary); font-size: 13px; }

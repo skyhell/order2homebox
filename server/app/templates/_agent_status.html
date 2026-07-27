@@ -1,7 +1,11 @@
 {# Polls itself so the row recovers on its own once the Pi is back up (it can be
    shut down from this very page). Only the agent row polls — homebox.status()
    does a full login per call and must not run on a timer. The buttons and their
-   messages live outside this fragment so a refresh does not wipe them. #}
+   messages live outside this fragment so a refresh does not wipe them.
+
+   The settings page ships a "pending" placeholder instead of this rendered
+   fragment: with the Pi off nobody answers and the health check burns its full
+   timeout, which the page load must not wait for. #}
 <div class="status-row" id="agent-row"
      hx-get="/settings/agent-status"
      hx-trigger="every 10s"

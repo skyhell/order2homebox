@@ -482,13 +482,14 @@ async def settings_page(
         hb_status = {"ok": True, "url": settings.homebox_url}
     except HomeboxError as exc:
         hb_status = {"ok": False, "error": str(exc), "url": settings.homebox_url}
-    agent_status = await printer.health()
+    # Deliberately no printer.health() here: with the Pi switched off nothing
+    # answers and the check burns its full timeout. The agent row fetches its
+    # own state right after the page has loaded.
     return render(
         request,
         "settings.html",
         shop_status=shop_status,
         hb_status=hb_status,
-        agent_status=agent_status,
         msg=t(msg, lang) if msg else "",
     )
 

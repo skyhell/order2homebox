@@ -84,6 +84,7 @@
   "printagent_label": "Print-Agent (Raspberry Pi)",
   "status_ok": "Verbunden",
   "status_error": "Nicht erreichbar",
+  "status_checking": "Prüfe …",
   "test_print_button": "Testdruck",
   "test_print_sent": "Testetikett gesendet ✓",
   "shutdown_hint": "Raspberry Pi sauber herunterfahren, bevor der Strom getrennt wird",

@@ -84,6 +84,7 @@
   "printagent_label": "Print agent (Raspberry Pi)",
   "status_ok": "Connected",
   "status_error": "Unreachable",
+  "status_checking": "Checking …",
   "test_print_button": "Test print",
   "test_print_sent": "Test label sent ✓",
   "shutdown_hint": "Shut the Raspberry Pi down cleanly before cutting its power",

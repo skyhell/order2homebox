@@ -356,3 +356,23 @@ def test_agent_status_fragment_is_never_cached(logged_in, monkeypatch):
     monkeypatch.setattr(main.printer, "health", fake_health)
     response = logged_in.get("/settings/agent-status")
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_settings_page_does_not_wait_for_the_pi(logged_in, monkeypatch):
+    """With the Pi off the health check burns its full timeout, so the page
+    load must not touch it — the row fetches its own state afterwards."""
+    import app.main as main
+
+    async def fake_status():
+        return None
+
+    async def exploding_health():
+        raise AssertionError("settings page must not block on the print agent")
+
+    monkeypatch.setattr(main.homebox, "status", fake_status)
+    monkeypatch.setattr(main.printer, "health", exploding_health)
+
+    response = logged_in.get("/settings")
+    assert response.status_code == 200
+    assert 'hx-trigger="load, every 10s"' in response.text  # asks right away
+    assert "status-dot pending" in response.text

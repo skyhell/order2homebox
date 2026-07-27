@@ -13,8 +13,15 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homeb
 
 The script installs everything (clone → venv → udev rule → systemd service) and
 prints the generated **API key** at the end. Enter that key on the server as
-`O2H_PRINT_AGENT_API_KEY` (in `/opt/order2homebox/server/.env`), then restart the
-server: `systemctl restart order2homebox`.
+`O2H_PRINT_AGENT_API_KEY` (in `/opt/order2homebox/server/.env`) together with
+`O2H_PRINT_AGENT_URL=http://<pi>:8010`, then restart the server:
+`systemctl restart order2homebox`.
+
+Give the Pi a fixed address before you write that URL — a DHCP reservation in
+your router, then either its IP or its hostname works. Plain `.local` (mDNS)
+usually does **not** resolve from a minimal Debian LXC, which has no
+`libnss-mdns`; check with `curl http://<pi>:8010/health` from inside the
+container before relying on a name.
 
 ## Update
 
@@ -24,6 +31,10 @@ sudo bash /opt/order2homebox/printagent/deploy/update-pi.sh
 
 ## Troubleshooting
 
+- **First run ends with „agent did not respond on /health"** — harmless on a
+  slower Pi: the script waits only 2 s, while the venv is often still building
+  its wheels. Simply run the installer again. It keeps the existing `.env`, so
+  the API key stays the same and is printed again.
 - **`/dev/usb/lp0` missing** — check cable/power, then `dmesg | grep -i usblp`.
   The `usblp` kernel module must be loaded (it is by default on Raspberry Pi OS).
 - **Permission denied on the device** — re-plug the printer after installation so

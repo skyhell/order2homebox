@@ -82,7 +82,9 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/skyhell/order2homeb
 ```
 
 Copy the printed **API key** into the server's `/opt/order2homebox/server/.env`
-(`O2H_PRINT_AGENT_API_KEY=…`) and `systemctl restart order2homebox`.
+(`O2H_PRINT_AGENT_API_KEY=…`), point `O2H_PRINT_AGENT_URL` at the Pi and
+`systemctl restart order2homebox`. Give the Pi a DHCP reservation first, so that
+address keeps working after a reboot.
 Details & troubleshooting: [printagent/deploy/install-pi.md](printagent/deploy/install-pi.md).
 
 ### 3. Shop cookies

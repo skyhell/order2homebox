@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import __version__
 from . import cookies as cookie_store
+from . import prefs
 from . import printer
 from .auth import (
     SESSION_COOKIE,
@@ -192,6 +193,9 @@ async def _edit_page(request: Request, order: Order, warning: str = "") -> HTMLR
         locations=locations,
         hb_labels=labels,
         warning=warning,
+        # Pre-select the location last used, for every item: an order usually
+        # goes to one and the same place.
+        selected_location_id=prefs.get_last_location_id(),
     )
 
 
@@ -294,9 +298,10 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         if parsed is None or not parsed[0].name:
             continue  # card removed or already created via its own button
         draft, location_id, label_ids, want_print = parsed
-        results.append(
-            await _create_and_print(draft, order, location_id, label_ids, want_print)
-        )
+        entry = await _create_and_print(draft, order, location_id, label_ids, want_print)
+        if entry["item"]:
+            prefs.set_last_location_id(location_id)
+        results.append(entry)
 
     if not results:
         return render(request, "index.html", error=t("err_nothing_created", lang))
@@ -347,6 +352,7 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     entry = await _create_and_print(draft, order, location_id, label_ids, want_print)
     if entry["error"]:
         return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
+    prefs.set_last_location_id(location_id)
     return render(
         request,
         "_item_result.html",

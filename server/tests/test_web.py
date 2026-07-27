@@ -480,3 +480,83 @@ def test_agent_controls_are_hidden_while_the_pi_does_not_answer(logged_in, monke
     page = logged_in.get("/settings").text
     assert 'class="status-row agent-offline"' in page
     assert page.count("agent-actions") == 2  # button row + hint follow the rule
+
+
+def test_last_location_is_remembered_and_preselected_for_every_item(logged_in, monkeypatch):
+    """Most orders go to one and the same place, so the location last used is
+    pre-selected — on every card, not just the first."""
+    import app.main as main
+    from app import prefs
+    from app.models import Order, OrderItemDraft, Shop
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    logged_in.post("/create-item", data={
+        "idx": "0", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "1", "item-0-name": "USB Hub", "item-0-quantity": "1",
+        "item-0-location": "loc2",
+    })
+    assert prefs.get_last_location_id() == "loc2"
+
+    async def fake_locations():
+        return [{"id": "loc1", "name": "Büro"}, {"id": "loc2", "name": "Werkstatt"}]
+
+    async def fake_labels():
+        return []
+
+    class TwoItemScraper:
+        async def fetch_order(self, order_no):
+            return Order(
+                shop=Shop.amazon, order_no=order_no, order_date="",
+                items=[OrderItemDraft(name="A", quantity=1),
+                       OrderItemDraft(name="B", quantity=1)],
+            )
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_labels)
+    monkeypatch.setattr(main, "get_scraper", lambda shop: TwoItemScraper())
+
+    page = logged_in.post(
+        "/fetch", data={"shop": "amazon", "order_no": "028-1674448-8402738"}
+    ).text
+    assert page.count('value="loc2" selected') == 2
+    assert 'value="loc1" selected' not in page
+
+
+def test_a_failed_creation_does_not_change_the_remembered_location(logged_in, monkeypatch):
+    import app.main as main
+    from app import prefs
+    from app.homebox import HomeboxError
+
+    prefs.set_last_location_id("loc-good")
+
+    async def failing_create(draft, order, location_id, label_ids):
+        raise HomeboxError("nope")
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "create_item", failing_create)
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    logged_in.post("/create-item", data={
+        "idx": "0", "shop": "amazon", "order_no": "", "order_date": "",
+        "item_count": "1", "item-0-name": "Thing", "item-0-quantity": "1",
+        "item-0-location": "loc-bad",
+    })
+    assert prefs.get_last_location_id() == "loc-good"
+
+
+def test_prefs_survive_a_corrupt_file(tmp_path, monkeypatch):
+    """A broken preference file must never take the app down with it."""
+    from app import prefs
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    (tmp_path / "prefs.json").write_text("{not json", encoding="utf-8")
+    assert prefs.get_last_location_id() == ""
+    prefs.set_last_location_id("loc9")
+    assert prefs.get_last_location_id() == "loc9"

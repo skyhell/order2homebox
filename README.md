@@ -11,7 +11,8 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
 - 🔎 **Order scraping** — one self-contained scraper per shop (Playwright + your
   browser session cookies). When a shop changes its page, you only fix one file.
 - ✏️ **Review before create** — every scraped item is editable; locations are read
-  live from Homebox and new locations can be created inline.
+  live from Homebox and new locations can be created inline. The location you
+  last used is pre-selected for every item of the next order.
 - 🏷️ **QR labels** — DK-22211 (29 mm endless), exactly 306 px wide, two identical
   QR codes side by side (cut in half → two labels per asset), optional asset ID
   text. QR content is Homebox's native `…/a/{asset_id}` deep link.

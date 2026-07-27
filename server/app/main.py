@@ -508,7 +508,11 @@ async def import_cookies(
 async def agent_status_fragment(request: Request, user: str = Depends(require_login)):
     """Polled by the settings page so the print-agent row goes green again by
     itself after the Pi was shut down from here and switched back on."""
-    return render(request, "_agent_status.html", agent_status=await printer.health())
+    response = render(request, "_agent_status.html", agent_status=await printer.health())
+    # A poll served from the browser cache would show a state that is minutes
+    # old — the one thing this endpoint must never do.
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.post("/settings/test-print")

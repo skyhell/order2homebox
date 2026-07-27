@@ -344,3 +344,15 @@ def test_agent_status_fragment_shows_the_pi_as_down(logged_in, monkeypatch):
 def test_agent_status_fragment_requires_login(client):
     response = client.get("/settings/agent-status", headers={"HX-Request": "true"})
     assert response.status_code == 401
+
+
+def test_agent_status_fragment_is_never_cached(logged_in, monkeypatch):
+    """A polled fragment served from the browser cache would show a stale Pi."""
+    import app.main as main
+
+    async def fake_health():
+        return {"ok": True, "dry_run": False}
+
+    monkeypatch.setattr(main.printer, "health", fake_health)
+    response = logged_in.get("/settings/agent-status")
+    assert response.headers["cache-control"] == "no-store"

@@ -429,3 +429,24 @@ def test_homebox_status_fragment_retries_while_broken(logged_in, monkeypatch):
 def test_homebox_status_fragment_requires_login(client):
     response = client.get("/settings/homebox-status", headers={"HX-Request": "true"})
     assert response.status_code == 401
+
+
+def test_agent_row_clears_the_shutdown_note_once_the_pi_is_down(logged_in, monkeypatch):
+    """Otherwise "Pi is shutting down" is still on screen next to a Pi that is
+    long back up — the note is only true until the Pi is actually gone."""
+    import app.main as main
+
+    async def down():
+        return {"ok": False, "error": "Connection refused"}
+
+    async def up():
+        return {"ok": True, "dry_run": False}
+
+    monkeypatch.setattr(main.printer, "health", down)
+    gone = logged_in.get("/settings/agent-status")
+    assert 'id="shutdown-status" hx-swap-oob="true"' in gone.text
+
+    monkeypatch.setattr(main.printer, "health", up)
+    alive = logged_in.get("/settings/agent-status")
+    # still shutting down: the agent answers, so the note has to stay
+    assert "hx-swap-oob" not in alive.text

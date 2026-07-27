@@ -15,3 +15,10 @@
   <span class="status-detail">{% if agent_status.ok and agent_status.get('dry_run') %}(dry-run){% endif %}{% if not agent_status.ok %}{{ agent_status.get('error', '') }}{% endif %}</span>
   <span class="status-text">{{ t('status_ok') if agent_status.ok else t('status_error') }}</span>
 </div>
+{% if not agent_status.ok %}
+{# The Pi is confirmed down, so "is shutting down" has done its job — the red
+   row says the rest. Without this the note would still sit there hours later,
+   next to a Pi that is long back up. It survives the shutdown itself: while the
+   Pi is still going down the agent keeps answering and this does not fire. #}
+<span id="shutdown-status" hx-swap-oob="true"></span>
+{% endif %}

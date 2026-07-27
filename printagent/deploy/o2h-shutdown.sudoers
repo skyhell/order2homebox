@@ -1,0 +1,4 @@
+# Let the print agent power the (headless) Raspberry Pi down from the web UI.
+# Exactly this one command, nothing else — no shell, no reboot, no arguments
+# of the caller's choosing. Installed to /etc/sudoers.d/o2h-shutdown (0440).
+o2h ALL=(root) NOPASSWD: /usr/sbin/shutdown -h now

@@ -20,6 +20,9 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   *Print label* page and reprint its QR label without going through an order.
 - 🖨️ **Print agent** on a Raspberry Pi (Brother QL-500 via USB, `brother_ql`),
   secured with an API key; dry-run mode for development without a printer.
+- ⏻ **Shut the Pi down from the web UI** — the print agent is headless, so the
+  settings page has a confirmed *Shut down Pi* button instead of you having to
+  pull the plug (and eventually corrupt the SD card).
 - 🍎 **Apple-style web UI** with dark mode, German/English toggle and a
   single-user login.
 - 📦 **One-command installs** — Proxmox host script that creates the LXC,

@@ -23,6 +23,25 @@ usually does **not** resolve from a minimal Debian LXC, which has no
 `libnss-mdns`; check with `curl http://<pi>:8010/health` from inside the
 container before relying on a name.
 
+## Shutting the Pi down
+
+The settings page of the server has a **Shut down Pi** button (with a
+confirmation prompt) that calls `POST /shutdown` on the agent. Wait until the
+green LED stays off before cutting the power.
+
+The installer allows this by dropping `/etc/sudoers.d/o2h-shutdown`, which lets
+the service user run exactly one command as root:
+
+```
+o2h ALL=(root) NOPASSWD: /usr/sbin/shutdown -h now
+```
+
+No shell, no reboot, no caller-supplied arguments. `update-pi.sh` installs the
+rule as well, so an agent set up before this feature picks it up on the next
+update. If the button reports a failure, check that the file exists and that
+`shutdown` really lives at `/usr/sbin/shutdown` on your image — the path in the
+sudoers rule and in `O2H_SHUTDOWN_CMD` must match exactly.
+
 ## Update
 
 ```sh

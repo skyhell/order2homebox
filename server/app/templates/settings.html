@@ -24,6 +24,15 @@
               hx-swap="innerHTML">{{ t('test_print_button') }}</button>
       <span id="test-print-status"></span>
     </div>
+    <div class="status-row">
+      <span class="status-detail">{{ t('shutdown_hint') }}</span>
+      <button class="btn btn-secondary btn-small"
+              hx-post="/settings/shutdown-agent"
+              hx-confirm="{{ t('shutdown_confirm') }}"
+              hx-target="#shutdown-status"
+              hx-swap="innerHTML">{{ t('shutdown_button') }}</button>
+      <span id="shutdown-status"></span>
+    </div>
   </div>
 
   <h2 class="section-title">{{ t('section_cookies') }}</h2>

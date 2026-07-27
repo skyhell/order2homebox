@@ -147,6 +147,7 @@ order2homebox/
 
 ### Print-Agent (Raspberry Pi)
 - `POST /print`: PNG + `copies`, geschützt per statischem `X-Api-Key`; `brother_ql.conversion.convert` (model `QL-500`, label `29`) → Backend `linux_kernel` → `/dev/usb/lp0`.
+- `POST /shutdown` (v0.5.0 ergänzt): fährt den headless Pi sauber herunter, gleicher `X-Api-Key`; der Service-User darf per `/etc/sudoers.d/o2h-shutdown` genau `/usr/sbin/shutdown -h now` als root ausführen. Knopf mit Rückfrage auf der Settings-Seite.
 - `GET /health` für Statusanzeige in Settings. `--dry-run`-Modus schreibt PNG in Datei (Entwicklung ohne Drucker).
 
 ### Web-Flow

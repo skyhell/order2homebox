@@ -259,3 +259,55 @@ def test_fetch_crash_shows_error_banner_not_500(logged_in, monkeypatch):
     )
     assert response.status_code == 200
     assert "boom" in response.text
+
+
+def test_shutdown_agent_reports_success(logged_in, monkeypatch):
+    """The Pi is headless — the settings page must be able to power it down."""
+    import app.main as main
+
+    called = {}
+
+    async def fake_shutdown():
+        called["yes"] = True
+        return {"status": "shutting_down"}
+
+    monkeypatch.setattr(main.printer, "shutdown", fake_shutdown)
+    response = logged_in.post("/settings/shutdown-agent")
+    assert response.status_code == 200
+    assert called == {"yes": True}
+    assert "fährt herunter" in response.text  # German default
+
+
+def test_shutdown_agent_shows_error_instead_of_500(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_shutdown():
+        raise main.printer.PrintError("Print agent unreachable")
+
+    monkeypatch.setattr(main.printer, "shutdown", fake_shutdown)
+    response = logged_in.post("/settings/shutdown-agent")
+    assert response.status_code == 200
+    assert "error-text" in response.text
+    assert "unreachable" in response.text
+
+
+def test_shutdown_agent_requires_login(client):
+    response = client.post("/settings/shutdown-agent", headers={"HX-Request": "true"})
+    assert response.status_code == 401
+    assert response.headers["HX-Redirect"] == "/login"
+
+
+def test_settings_page_offers_the_shutdown_button(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_status():
+        return None
+
+    async def fake_health():
+        return {"ok": True, "dry_run": False}
+
+    monkeypatch.setattr(main.homebox, "status", fake_status)
+    monkeypatch.setattr(main.printer, "health", fake_health)
+    response = logged_in.get("/settings")
+    assert 'hx-post="/settings/shutdown-agent"' in response.text
+    assert "hx-confirm=" in response.text  # never power off on a stray click

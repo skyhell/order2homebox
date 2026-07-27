@@ -24,6 +24,22 @@ async def print_png(png: bytes, copies: int = 1) -> dict:
     return r.json()
 
 
+async def shutdown() -> dict:
+    """Ask the agent to power its Pi down. The box may drop the connection
+    while going down, which is a success, not an error."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                f"{settings.print_agent_url.rstrip('/')}/shutdown",
+                headers={"X-Api-Key": settings.print_agent_api_key},
+            )
+    except httpx.HTTPError as exc:
+        raise PrintError(f"Print agent unreachable: {exc}") from exc
+    if r.status_code != 200:
+        raise PrintError(f"Print agent error (HTTP {r.status_code}): {r.text[:200]}")
+    return r.json()
+
+
 async def health() -> dict:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:

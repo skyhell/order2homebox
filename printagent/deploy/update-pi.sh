@@ -11,6 +11,17 @@ OLD_REV=$(git rev-parse HEAD)
 git pull --ff-only
 NEW_REV=$(git rev-parse HEAD)
 
+# Idempotent, and runs before the up-to-date exit so installs from before the
+# shutdown button get the rule too.
+if [ -f "$APP_DIR/printagent/deploy/o2h-shutdown.sudoers" ]; then
+  install -m 0440 -o root -g root \
+    "$APP_DIR/printagent/deploy/o2h-shutdown.sudoers" /etc/sudoers.d/o2h-shutdown
+  if ! visudo -cf /etc/sudoers.d/o2h-shutdown >/dev/null; then
+    rm -f /etc/sudoers.d/o2h-shutdown
+    echo "WARNING: sudoers rule rejected — the shutdown button will not work" >&2
+  fi
+fi
+
 if [ "$OLD_REV" = "$NEW_REV" ]; then
   echo "Already up to date ($(git log --oneline -1))."
   exit 0

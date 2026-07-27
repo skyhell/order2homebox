@@ -86,6 +86,11 @@
   "status_error": "Nicht erreichbar",
   "test_print_button": "Testdruck",
   "test_print_sent": "Testetikett gesendet ✓",
+  "shutdown_hint": "Raspberry Pi sauber herunterfahren, bevor der Strom getrennt wird",
+  "shutdown_button": "Pi herunterfahren",
+  "shutdown_confirm": "Den Raspberry Pi jetzt herunterfahren? Er lässt sich danach nur durch Trennen und erneutes Anstecken der Stromversorgung wieder starten.",
+  "shutdown_sent": "Pi fährt herunter ✓ — Strom erst trennen, wenn die grüne LED aus bleibt",
+  "shutdown_failed": "Herunterfahren fehlgeschlagen",
 
   "err_session_expired": "Die {shop}-Sitzung ist abgelaufen oder es wurden noch keine Cookies importiert. Bitte in den Einstellungen die Cookies erneuern.",
   "err_parse_failed": "Auf der {shop}-Bestellseite wurden keine Artikel erkannt (Seitenaufbau geändert?). Die Daten können manuell eingegeben werden.",

@@ -522,3 +522,18 @@ async def test_print(request: Request, user: str = Depends(require_login)):
     return HTMLResponse(
         f'<span class="print-status ok-text">{t("test_print_sent", lang)}</span>'
     )
+
+
+@app.post("/settings/shutdown-agent")
+async def shutdown_agent(request: Request, user: str = Depends(require_login)):
+    """Power the Raspberry Pi down cleanly (it is headless)."""
+    lang = get_lang(request)
+    try:
+        await printer.shutdown()
+    except printer.PrintError as exc:
+        return HTMLResponse(
+            f'<span class="print-status error-text">{t("shutdown_failed", lang)}: {exc}</span>'
+        )
+    return HTMLResponse(
+        f'<span class="print-status ok-text">{t("shutdown_sent", lang)}</span>'
+    )

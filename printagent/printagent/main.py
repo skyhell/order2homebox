@@ -10,11 +10,14 @@ Configuration via environment variables:
   O2H_PRINTER_BACKEND default linux_kernel
   O2H_DRY_RUN         set to 1 to write PNGs to disk instead of printing
   O2H_DRY_RUN_DIR     where dry-run PNGs go (default: current directory)
+  O2H_SHUTDOWN_CMD    command behind POST /shutdown (see the constant below)
 
 brother_ql is imported lazily so the agent can be developed on machines
 without the printer stack installed (dry-run mode).
 """
 import os
+import shlex
+import subprocess
 import time
 from io import BytesIO
 from pathlib import Path
@@ -29,6 +32,11 @@ PRINTER_DEVICE = os.environ.get("O2H_PRINTER_DEVICE", "/dev/usb/lp0")
 PRINTER_BACKEND = os.environ.get("O2H_PRINTER_BACKEND", "linux_kernel")
 DRY_RUN = os.environ.get("O2H_DRY_RUN", "").lower() not in ("", "0", "false")
 DRY_RUN_DIR = Path(os.environ.get("O2H_DRY_RUN_DIR", "."))
+# The service user may run exactly this one command as root — see
+# deploy/o2h-shutdown.sudoers, which must list the same absolute path.
+SHUTDOWN_CMD = os.environ.get(
+    "O2H_SHUTDOWN_CMD", "/usr/bin/sudo -n /usr/sbin/shutdown -h now"
+)
 
 MAX_COPIES = 20
 
@@ -50,6 +58,32 @@ def health() -> dict:
         "model": PRINTER_MODEL,
         "label": LABEL_TYPE,
     }
+
+
+@app.post("/shutdown")
+def shutdown(x_api_key: str = Header(default="")) -> dict:
+    """Power the Pi down cleanly — it is headless, so pulling the plug is the
+    only alternative and that eventually corrupts the SD card."""
+    _check_api_key(x_api_key)
+    if DRY_RUN:
+        return {"status": "dry_run", "command": SHUTDOWN_CMD}
+    try:
+        # `shutdown` only signals init and returns at once, so the response
+        # still makes it out before the system goes down.
+        proc = subprocess.run(
+            shlex.split(SHUTDOWN_CMD),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise HTTPException(status_code=500, detail=f"shutdown failed: {exc}") from exc
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        raise HTTPException(
+            status_code=500, detail=f"shutdown failed ({proc.returncode}): {detail}"
+        )
+    return {"status": "shutting_down"}
 
 
 @app.post("/print")

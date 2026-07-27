@@ -13,7 +13,7 @@ VENV="$APP_DIR/printagent/.venv"
 echo "== Installing packages =="
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
-  git python3 python3-venv python3-pip curl ca-certificates >/dev/null
+  git python3 python3-venv python3-pip curl ca-certificates sudo >/dev/null
 
 echo "== Cloning $REPO_URL =="
 if [ -d "$APP_DIR/.git" ]; then
@@ -33,6 +33,18 @@ usermod -aG plugdev o2h
 cp "$APP_DIR/printagent/deploy/99-brother-ql.rules" /etc/udev/rules.d/
 udevadm control --reload-rules
 udevadm trigger || true
+
+echo "== Shutdown permission (sudoers) =="
+install_sudoers() {
+  install -m 0440 -o root -g root \
+    "$APP_DIR/printagent/deploy/o2h-shutdown.sudoers" /etc/sudoers.d/o2h-shutdown
+  # A broken drop-in would lock sudo for everyone — validate, keep only if sane.
+  if ! visudo -cf /etc/sudoers.d/o2h-shutdown >/dev/null; then
+    rm -f /etc/sudoers.d/o2h-shutdown
+    echo "WARNING: sudoers rule rejected — the shutdown button will not work" >&2
+  fi
+}
+install_sudoers
 
 ENV_FILE="$APP_DIR/printagent/.env"
 if [ -f "$ENV_FILE" ]; then

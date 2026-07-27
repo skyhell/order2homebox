@@ -86,6 +86,11 @@
   "status_error": "Unreachable",
   "test_print_button": "Test print",
   "test_print_sent": "Test label sent ✓",
+  "shutdown_hint": "Shut the Raspberry Pi down cleanly before cutting its power",
+  "shutdown_button": "Shut down Pi",
+  "shutdown_confirm": "Shut the Raspberry Pi down now? It can only be started again by unplugging and re-plugging its power.",
+  "shutdown_sent": "Pi is shutting down ✓ — wait for the green LED to stay off before cutting power",
+  "shutdown_failed": "Shutdown failed",
 
   "err_session_expired": "The {shop} session has expired or no cookies were imported yet. Please refresh the cookies in the settings.",
   "err_parse_failed": "No items were recognized on the {shop} order page (page layout changed?). You can enter the data manually.",

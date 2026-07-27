@@ -22,7 +22,9 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   secured with an API key; dry-run mode for development without a printer.
 - ⏻ **Shut the Pi down from the web UI** — the print agent is headless, so the
   settings page has a confirmed *Shut down Pi* button instead of you having to
-  pull the plug (and eventually corrupt the SD card).
+  pull the plug (and eventually corrupt the SD card). The connection rows keep
+  themselves up to date, and the printer controls disappear while the agent is
+  unreachable.
 - 🍎 **Apple-style web UI** with dark mode, German/English toggle and a
   single-user login.
 - 📦 **One-command installs** — Proxmox host script that creates the LXC,

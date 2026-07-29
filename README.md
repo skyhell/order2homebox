@@ -123,6 +123,9 @@ sudo bash /opt/order2homebox/printagent/deploy/update-pi.sh
 Both scripts pull, reinstall dependencies only when needed, restart the service
 and run a health check. `.env` and `data/` are never touched.
 
+What changed in each version: [CHANGELOG.md](CHANGELOG.md). The print agent only
+needs updating when a release says so.
+
 ## Configuration
 
 Everything is configured via `.env` (prefix `O2H_`) — see

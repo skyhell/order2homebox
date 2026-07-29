@@ -31,6 +31,9 @@ on a Brother QL-500 (DK-22211, 29 mm endless) attached to a Raspberry Pi.
   scratch in `.scratch/`, runtime data in `data/`).
 - UI strings live in `server/app/locales/{de,en}.json` — never hardcode UI text in
   templates; German is the default language.
+- Every release adds a section to `CHANGELOG.md` (same content as the GitHub
+  release notes, condensed — name the root cause, not just the symptom) in the
+  content commit, before the "Bump version to X" commit.
 
 ## Commands
 

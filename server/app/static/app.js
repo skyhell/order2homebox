@@ -62,6 +62,40 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+// An order usually goes to one and the same place, so picking a location on any
+// card applies it to all the others. A location that was just created is only
+// swapped into the card it was created from (POST /locations re-renders that one
+// select), so the other cards get the option added before it is selected —
+// otherwise they would silently keep their old location.
+function applyLocationToAllCards(source) {
+  var picked = source.options[source.selectedIndex];
+  if (!picked) return;
+  document.querySelectorAll('select[id^="loc-select-"]').forEach(function (sel) {
+    if (sel === source) return;
+    var known = Array.prototype.some.call(sel.options, function (o) {
+      return o.value === picked.value;
+    });
+    if (!known) sel.add(new Option(picked.text, picked.value));
+    sel.value = picked.value;
+  });
+}
+
+document.addEventListener('change', function (event) {
+  var el = event.target;
+  if (el && el.matches && el.matches('select[id^="loc-select-"]')) {
+    applyLocationToAllCards(el);
+  }
+});
+
+// htmx:load fires on content htmx just put into the DOM — here the select that
+// POST /locations swapped in with the new location already selected.
+document.addEventListener('htmx:load', function (event) {
+  var el = event.target;
+  if (el && el.matches && el.matches('select[id^="loc-select-"]')) {
+    applyLocationToAllCards(el);
+  }
+});
+
 // Remove an item card on the edit page; /create skips missing indexes.
 function removeItemCard(idx) {
   var card = document.getElementById('item-card-' + idx);

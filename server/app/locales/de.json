@@ -49,6 +49,8 @@
   "new_location_placeholder": "Name des neuen Lagerorts",
   "new_location_button": "+ Neuer Lagerort",
   "new_location_create": "Anlegen",
+  "apply_location_all": "Auf alle Karten übernehmen",
+  "apply_location_done": "Übernommen ✓",
   "item_create_button": "Diesen Artikel anlegen",
   "create_submit": "Alle Artikel in Homebox anlegen",
   "creating": "Wird angelegt …",

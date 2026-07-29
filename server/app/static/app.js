@@ -62,10 +62,51 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+// "Apply to all cards": copy this card's location to every other card. A
+// location created inline only reaches the card it was created from (POST
+// /locations re-renders that one select), so cards that do not know the option
+// yet get it added — otherwise they would silently keep their old location.
+function applyLocationToAllCards(idx, button) {
+  var source = document.getElementById('loc-select-' + idx);
+  if (!source) return;
+  var picked = source.options[source.selectedIndex];
+  if (!picked) return;
+  document.querySelectorAll('select[id^="loc-select-"]').forEach(function (sel) {
+    if (sel === source) return;
+    var known = Array.prototype.some.call(sel.options, function (o) {
+      return o.value === picked.value;
+    });
+    if (!known) sel.add(new Option(picked.text, picked.value));
+    sel.value = picked.value;
+  });
+  if (!button || button.dataset.original) return;
+  // The cards it changed are usually off screen, so say that it happened.
+  button.dataset.original = button.textContent;
+  button.textContent = button.dataset.done;
+  window.setTimeout(function () {
+    button.textContent = button.dataset.original;
+    delete button.dataset.original;
+  }, 1600);
+}
+
+// The button is pointless with a single card, and cards can be removed.
+function updateApplyAllButtons() {
+  var many = document.querySelectorAll('select[id^="loc-select-"]').length > 1;
+  document.querySelectorAll('.apply-all').forEach(function (btn) {
+    btn.classList.toggle('hidden', !many);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', updateApplyAllButtons);
+// A card swapped in by htmx (a result card, or one re-rendered with an error)
+// changes how many location selects are left.
+document.addEventListener('htmx:load', updateApplyAllButtons);
+
 // Remove an item card on the edit page; /create skips missing indexes.
 function removeItemCard(idx) {
   var card = document.getElementById('item-card-' + idx);
   if (card) card.remove();
+  updateApplyAllButtons();
 }
 
 // Keep a label preview in sync with its "print asset ID" checkbox, so the

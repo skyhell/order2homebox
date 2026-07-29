@@ -37,6 +37,9 @@
       {% include "_location_select.html" %}
       <div class="newloc">
         <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('newloc-form-{{ idx }}').classList.toggle('hidden')">{{ t('new_location_button') }}</button>
+        <button type="button" class="btn btn-ghost btn-small apply-all hidden"
+                data-done="{{ t('apply_location_done') }}"
+                onclick="applyLocationToAllCards({{ idx }}, this)">{{ t('apply_location_all') }}</button>
         <div class="newloc-form hidden" id="newloc-form-{{ idx }}">
           <input class="input" type="text" name="name" id="newloc-name-{{ idx }}" placeholder="{{ t('new_location_placeholder') }}">
           <button type="button" class="btn btn-secondary btn-small"

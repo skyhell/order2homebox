@@ -627,6 +627,56 @@ def test_last_location_is_remembered_and_preselected_for_every_item(logged_in, m
     assert 'value="loc1" selected' not in page
 
 
+def test_each_card_offers_applying_its_location_to_all_cards(logged_in, monkeypatch):
+    """The button copies this card's location to the others (app.js,
+    applyLocationToAllCards). It is hidden until a second card exists, and it
+    finds the selects by their loc-select-{idx} id."""
+    import app.main as main
+    from app.models import Order, OrderItemDraft, Shop
+
+    async def fake_locations():
+        return [{"id": "loc1", "name": "Büro"}, {"id": "loc2", "name": "Werkstatt"}]
+
+    async def fake_labels():
+        return []
+
+    class TwoItemScraper:
+        async def fetch_order(self, order_no):
+            return Order(
+                shop=Shop.amazon, order_no=order_no, order_date="",
+                items=[OrderItemDraft(name="A", quantity=1),
+                       OrderItemDraft(name="B", quantity=1)],
+            )
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_labels)
+    monkeypatch.setattr(main, "get_scraper", lambda shop: TwoItemScraper())
+
+    page = logged_in.post(
+        "/fetch", data={"shop": "amazon", "order_no": "028-1674448-8402738"}
+    ).text
+    assert page.count("applyLocationToAllCards(") == 2
+    assert 'id="loc-select-0"' in page and 'id="loc-select-1"' in page
+    # rendered hidden; app.js reveals it once a second card is there
+    assert page.count('class="btn btn-ghost btn-small apply-all hidden"') == 2
+    assert "Auf alle Karten übernehmen" in page  # from the locale, German default
+
+    script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
+    assert "function applyLocationToAllCards" in script
+    assert "function updateApplyAllButtons" in script
+
+
+def test_apply_location_strings_exist_in_both_languages():
+    import json
+
+    from app.main import BASE_DIR
+
+    for lang in ("de", "en"):
+        strings = json.loads((BASE_DIR / "locales" / f"{lang}.json").read_text("utf-8"))
+        assert strings["apply_location_all"]
+        assert strings["apply_location_done"]
+
+
 def test_a_failed_creation_does_not_change_the_remembered_location(logged_in, monkeypatch):
     import app.main as main
     from app import prefs

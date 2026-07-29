@@ -49,6 +49,8 @@
   "new_location_placeholder": "Name of the new location",
   "new_location_button": "+ New location",
   "new_location_create": "Create",
+  "apply_location_all": "Apply to all cards",
+  "apply_location_done": "Applied ✓",
   "item_create_button": "Create this item",
   "create_submit": "Create all items in Homebox",
   "creating": "Creating …",

@@ -14,7 +14,7 @@
 | QR content | `{O2H_HOMEBOX_PUBLIC_URL or O2H_HOMEBOX_URL}/a/{asset_id}` |
 | Error correction | M |
 | Quiet zone | 2 modules |
-| Asset ID text | optional (`O2H_LABEL_SHOW_ASSET_ID`, per-print checkbox in the UI) |
+| Asset ID text | optional — `O2H_LABEL_SHOW_ASSET_ID` is only the default; every item card and every print button in the UI has its own checkbox |
 
 Both QR codes on one row are identical: cut the strip in half to get two labels
 for the same asset (e.g. one on the box, one on the part). The QL-500 has no

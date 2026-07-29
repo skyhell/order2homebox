@@ -142,7 +142,7 @@ order2homebox/
 ### Label-Rendering (`server/app/labels.py`)
 - Canvas 306 px breit (29 mm @ 300 dpi), Länge dynamisch (~190 px ≈ 16 mm).
 - 2 identische QR-Codes nebeneinander, je ~140 px inkl. Rand; Inhalt `{HOMEBOX_URL}/a/{assetId}` (~30 Zeichen → QR v2–3, ~4 px/Modul, gut scanbar).
-- Optional (Checkbox, Default an): Asset-ID (`000-123`) zentriert unter jedem QR.
+- Optional (Checkbox, Default an): Asset-ID (`000-123`) zentriert unter jedem QR. `O2H_LABEL_SHOW_ASSET_ID` liefert nur die Vorbelegung — entschieden wird je Artikel auf seiner Karte (v0.7.0) bzw. je Druck auf der Result-Seite.
 - Vorschau-Route `GET /label/{assetId}.png` für die Result-Seite.
 
 ### Print-Agent (Raspberry Pi)
@@ -152,7 +152,7 @@ order2homebox/
 
 ### Web-Flow
 1. `GET /` — Shop wählen + Bestellnummer eingeben → `POST /fetch` startet Scraper (htmx-Spinner).
-2. Edit-Seite: Formular je Artikel (Name, Beschreibung, Menge, Preis, Bestellnr., Shop→`purchaseFrom`), **Lagerort-Dropdown live aus Homebox**, „+ Neuer Lagerort“ (Inline-Feld, htmx-`POST /locations` → in Homebox anlegen, vorauswählen, Formulardaten bleiben erhalten), Homebox-Labels, Checkbox „drucken“.
+2. Edit-Seite: Formular je Artikel (Name, Beschreibung, Menge, Preis, Bestellnr., Shop→`purchaseFrom`), **Lagerort-Dropdown live aus Homebox**, „+ Neuer Lagerort“ (Inline-Feld, htmx-`POST /locations` → in Homebox anlegen, vorauswählen, Formulardaten bleiben erhalten), Homebox-Labels, Checkboxen „drucken“ und „Asset-ID aufs Etikett“ (je Artikel).
 3. `POST /create` — Items anlegen (POST + PUT Kaufinfos), Result-Seite: Asset-IDs, Label-Vorschau, Druck (Kopienzahl, Asset-ID an/aus).
 4. Fehlerpfade: SessionExpired → Link zu Settings; Homebox/Print-Agent offline → klare Meldung, Formulardaten bleiben erhalten.
 

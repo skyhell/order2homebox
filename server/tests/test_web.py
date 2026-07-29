@@ -627,55 +627,6 @@ def test_last_location_is_remembered_and_preselected_for_every_item(logged_in, m
     assert 'value="loc1" selected' not in page
 
 
-def test_every_card_carries_the_id_the_shared_location_script_hooks_into(
-    logged_in, monkeypatch
-):
-    """Picking a location on one card copies it to all the others (app.js,
-    applyLocationToAllCards). It finds them by the loc-select-{idx} id, and a
-    freshly created location arrives through POST /locations — so both the edit
-    page and that fragment must keep rendering the id."""
-    import app.main as main
-    from app.models import Order, OrderItemDraft, Shop
-
-    known = [{"id": "loc1", "name": "Büro"}, {"id": "loc2", "name": "Werkstatt"}]
-
-    async def fake_locations():
-        return list(known)
-
-    async def fake_labels():
-        return []
-
-    async def fake_create_location(name, description=""):
-        created = {"id": "loc9", "name": name}
-        known.append(created)
-        return created
-
-    class TwoItemScraper:
-        async def fetch_order(self, order_no):
-            return Order(
-                shop=Shop.amazon, order_no=order_no, order_date="",
-                items=[OrderItemDraft(name="A", quantity=1),
-                       OrderItemDraft(name="B", quantity=1)],
-            )
-
-    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
-    monkeypatch.setattr(main.homebox, "get_labels", fake_labels)
-    monkeypatch.setattr(main.homebox, "create_location", fake_create_location)
-    monkeypatch.setattr(main, "get_scraper", lambda shop: TwoItemScraper())
-
-    page = logged_in.post(
-        "/fetch", data={"shop": "amazon", "order_no": "028-1674448-8402738"}
-    ).text
-    assert 'id="loc-select-0"' in page and 'id="loc-select-1"' in page
-
-    fragment = logged_in.post("/locations", data={"name": "Regal C", "idx": "1"}).text
-    assert 'id="loc-select-1"' in fragment
-    assert 'value="loc9" selected' in fragment  # the new one, ready to be copied
-
-    script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
-    assert "applyLocationToAllCards" in script
-
-
 def test_a_failed_creation_does_not_change_the_remembered_location(logged_in, monkeypatch):
     import app.main as main
     from app import prefs

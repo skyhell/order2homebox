@@ -240,6 +240,24 @@ def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
     assert "Büro" in response.text and "Elektronik" in response.text
 
 
+def test_static_assets_are_stamped_so_an_update_reaches_the_browser(logged_in):
+    """Without a stamp the browser may keep the old app.js for hours after an
+    update — and the app version cannot serve as one, fixes ship between
+    releases."""
+    import re
+
+    import app.main as main
+
+    body = logged_in.get("/").text
+    for name in ("app.css", "app.js", "htmx.min.js"):
+        assert re.search(rf"/static/{re.escape(name)}\?v=\d+", body), name
+
+    js = main.asset_url("app.js")
+    (main.BASE_DIR / "static" / "app.js").touch()
+    assert main.asset_url("app.js") != js  # a changed file gets a new URL
+    assert main.asset_url("does-not-exist.js") == "/static/does-not-exist.js"
+
+
 def test_footer_shows_version_and_docs_link(logged_in):
     import app
 

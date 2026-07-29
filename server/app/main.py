@@ -55,6 +55,18 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
+def asset_url(name: str) -> str:
+    """Static URL stamped with the file's mtime. Starlette sends no
+    Cache-Control for static files, so a browser may keep an old app.js for
+    hours after an update — and the app version is no help, fixes ship between
+    releases. git rewrites the mtime of every file a pull changes."""
+    try:
+        stamp = int((BASE_DIR / "static" / name).stat().st_mtime)
+    except OSError:
+        return f"/static/{name}"
+    return f"/static/{name}?v={stamp}"
+
+
 def render(request: Request, template: str, **context) -> HTMLResponse:
     lang = get_lang(request)
     context.update(
@@ -66,6 +78,7 @@ def render(request: Request, template: str, **context) -> HTMLResponse:
         version=__version__,
         docs_url=DOCS_URL,
         show_asset_id_default=settings.label_show_asset_id,
+        asset=asset_url,
     )
     return templates.TemplateResponse(request, template, context)
 

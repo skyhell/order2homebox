@@ -12,7 +12,9 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   browser session cookies). When a shop changes its page, you only fix one file.
 - ✏️ **Review before create** — every scraped item is editable; locations are read
   live from Homebox and new locations can be created inline. The location you
-  last used is pre-selected for every item of the next order.
+  last used is pre-selected for every item of the next order, and one button
+  applies a card's location to all the other cards — an order usually goes to
+  one and the same place.
 - 🏷️ **QR labels** — DK-22211 (29 mm endless), exactly 306 px wide, two identical
   QR codes side by side (cut in half → two labels per asset), optional asset ID
   text — switchable per item right on its card, so a single item can get a bare

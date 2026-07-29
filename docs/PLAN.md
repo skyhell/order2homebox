@@ -152,7 +152,7 @@ order2homebox/
 
 ### Web-Flow
 1. `GET /` — Shop wählen + Bestellnummer eingeben → `POST /fetch` startet Scraper (htmx-Spinner).
-2. Edit-Seite: Formular je Artikel (Name, Beschreibung, Menge, Preis, Bestellnr., Shop→`purchaseFrom`), **Lagerort-Dropdown live aus Homebox**, „+ Neuer Lagerort“ (Inline-Feld, htmx-`POST /locations` → in Homebox anlegen, vorauswählen, Formulardaten bleiben erhalten), Homebox-Labels, Checkboxen „drucken“ und „Asset-ID aufs Etikett“ (je Artikel).
+2. Edit-Seite: Formular je Artikel (Name, Beschreibung, Menge, Preis, Bestellnr., Shop→`purchaseFrom`), **Lagerort-Dropdown live aus Homebox**, „+ Neuer Lagerort“ (Inline-Feld, htmx-`POST /locations` → in Homebox anlegen, vorauswählen, Formulardaten bleiben erhalten), „Auf alle Karten übernehmen“ (v0.8.0, nur ab der zweiten Karte sichtbar), Homebox-Labels, Checkboxen „drucken“ und „Asset-ID aufs Etikett“ (je Artikel).
 3. `POST /create` — Items anlegen (POST + PUT Kaufinfos), Result-Seite: Asset-IDs, Label-Vorschau, Druck (Kopienzahl, Asset-ID an/aus).
 4. Fehlerpfade: SessionExpired → Link zu Settings; Homebox/Print-Agent offline → klare Meldung, Formulardaten bleiben erhalten.
 

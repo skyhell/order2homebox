@@ -19,7 +19,7 @@
           <input class="input input-sm" type="number" id="copies-{{ idx }}" value="1" min="1" max="20">
         </label>
         <label class="check">
-          <input type="checkbox" id="show-text-{{ idx }}" {% if show_asset_id_default %}checked{% endif %}
+          <input type="checkbox" id="show-text-{{ idx }}" {% if r.show_asset_id %}checked{% endif %}
                  onchange="labelPreview('preview-{{ idx }}', '{{ r.item.assetId }}', this.checked)">
           <span>{{ t('print_with_id') }}</span>
         </label>
@@ -32,7 +32,7 @@
       </div>
     </div>
     <div class="result-preview">
-      <img id="preview-{{ idx }}" src="/label/{{ r.item.assetId }}.png?text={{ 1 if show_asset_id_default else 0 }}" alt="Label preview" class="label-preview">
+      <img id="preview-{{ idx }}" src="/label/{{ r.item.assetId }}.png?text={{ 1 if r.show_asset_id else 0 }}" alt="Label preview" class="label-preview">
     </div>
   </div>
 </div>

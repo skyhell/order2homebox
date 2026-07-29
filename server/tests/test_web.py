@@ -88,6 +88,90 @@ def test_create_single_item_returns_result_fragment(logged_in, monkeypatch):
     }
 
 
+def _stub_create_and_print(monkeypatch, rendered):
+    """Homebox + printer stubbed out; records how the label was rendered."""
+    import app.main as main
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        rendered["show_asset_id"] = show_asset_id
+        return b"PNG"
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+
+
+def test_item_card_asset_id_checkbox_controls_the_printed_label(logged_in, monkeypatch):
+    """Per item: unticking the asset-ID box must print a bare QR code, and the
+    result card must then show that same label — not the configured default."""
+    rendered = {}
+    _stub_create_and_print(monkeypatch, rendered)
+
+    data = {
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "USB Hub", "item-1-quantity": "1",
+        "item-1-print": "on",
+    }
+    response = logged_in.post("/create-item", data=data)  # no item-1-showid
+    assert rendered["show_asset_id"] is False
+    assert "?text=0" in response.text
+    assert 'id="show-text-1" checked' not in response.text
+
+    response = logged_in.post("/create-item", data={**data, "item-1-showid": "on"})
+    assert rendered["show_asset_id"] is True
+    assert "?text=1" in response.text
+    assert 'id="show-text-1" checked' in response.text
+
+
+def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, monkeypatch):
+    calls = []
+    import app.main as main
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-00%d" % len(calls)}
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        calls.append(show_asset_id)
+        return b"PNG"
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+
+    logged_in.post("/create", data={
+        "shop": "amazon", "order_no": "028-111", "order_date": "", "item_count": "2",
+        "item-0-name": "With id", "item-0-quantity": "1",
+        "item-0-print": "on", "item-0-showid": "on",
+        "item-1-name": "Without id", "item-1-quantity": "1", "item-1-print": "on",
+    })
+    assert calls == [True, False]
+
+
+def test_edit_page_offers_the_asset_id_checkbox_per_item(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    body = logged_in.get("/manual").text
+    assert 'name="item-0-print"' in body
+    assert 'name="item-0-showid"' in body
+    # follows LABEL_SHOW_ASSET_ID, which defaults to on
+    assert "checked" in body.split('name="item-0-showid"')[1].split("</label>")[0]
+
+
 def test_result_card_print_controls_carry_no_form_field_names(logged_in, monkeypatch):
     """The result card is swapped into #create-form, and htmx adds the enclosing
     form's fields to every POST — they even override hx-include. Named inputs

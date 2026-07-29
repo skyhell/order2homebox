@@ -247,6 +247,7 @@ html[data-theme="light"] .icon-sun { display: none; }
   border-top: 1px solid var(--border); padding-top: 14px;
 }
 .item-actions .check { margin: 0; }
+.item-checks { display: flex; align-items: center; gap: 8px 20px; flex-wrap: wrap; }
 
 .result-grid { display: flex; gap: 24px; align-items: flex-start; }
 .result-info { flex: 1; }

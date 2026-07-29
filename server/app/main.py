@@ -65,6 +65,7 @@ def render(request: Request, template: str, **context) -> HTMLResponse:
         homebox_url=settings.qr_base_url,
         version=__version__,
         docs_url=DOCS_URL,
+        show_asset_id_default=settings.label_show_asset_id,
     )
     return templates.TemplateResponse(request, template, context)
 
@@ -234,8 +235,8 @@ def _order_from_form(form) -> Order:
 
 
 def _item_from_form(form, i: int):
-    """Item fields for index i → (draft, location_id, label_ids, want_print),
-    or None when the card was removed in the UI."""
+    """Item fields for index i → (draft, location_id, label_ids, want_print,
+    show_id), or None when the card was removed in the UI."""
     if f"item-{i}-name" not in form:
         return None
     try:
@@ -257,13 +258,28 @@ def _item_from_form(form, i: int):
     location_id = str(form.get(f"item-{i}-location", ""))
     label_ids = [str(v) for v in form.getlist(f"item-{i}-labels")]
     want_print = form.get(f"item-{i}-print") is not None
-    return draft, location_id, label_ids, want_print
+    show_id = form.get(f"item-{i}-showid") is not None
+    return draft, location_id, label_ids, want_print, show_id
 
 
 async def _create_and_print(
-    draft: OrderItemDraft, order: Order, location_id: str, label_ids: list[str], want_print: bool
+    draft: OrderItemDraft,
+    order: Order,
+    location_id: str,
+    label_ids: list[str],
+    want_print: bool,
+    show_id: bool,
 ) -> dict:
-    entry = {"draft": draft, "error": "", "item": None, "printed": False, "print_error": ""}
+    entry = {
+        "draft": draft,
+        "error": "",
+        "item": None,
+        "printed": False,
+        "print_error": "",
+        # Carried into the result card so its checkbox and preview show what
+        # was actually printed, not the global default.
+        "show_asset_id": show_id,
+    }
     try:
         item = await homebox.create_item(draft, order, location_id, label_ids)
         entry["item"] = item
@@ -274,7 +290,7 @@ async def _create_and_print(
         png = render_label_png(
             item["assetId"],
             homebox.asset_qr_url(item["assetId"]),
-            show_asset_id=settings.label_show_asset_id,
+            show_asset_id=show_id,
             qr_per_row=settings.label_qr_per_row,
         )
         try:
@@ -297,8 +313,10 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         parsed = _item_from_form(form, i)
         if parsed is None or not parsed[0].name:
             continue  # card removed or already created via its own button
-        draft, location_id, label_ids, want_print = parsed
-        entry = await _create_and_print(draft, order, location_id, label_ids, want_print)
+        draft, location_id, label_ids, want_print, show_id = parsed
+        entry = await _create_and_print(
+            draft, order, location_id, label_ids, want_print, show_id
+        )
         if entry["item"]:
             prefs.set_last_location_id(location_id)
         results.append(entry)
@@ -310,7 +328,6 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         "result.html",
         order=order,
         results=results,
-        show_asset_id_default=settings.label_show_asset_id,
     )
 
 
@@ -325,7 +342,7 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     parsed = _item_from_form(form, idx)
     if parsed is None:
         return HTMLResponse(status_code=400)
-    draft, location_id, label_ids, want_print = parsed
+    draft, location_id, label_ids, want_print, show_id = parsed
 
     async def card_with_error(message: str) -> HTMLResponse:
         try:
@@ -344,22 +361,19 @@ async def create_single_item(request: Request, user: str = Depends(require_login
             selected_location_id=location_id,
             selected_label_ids=label_ids,
             want_print=want_print,
+            want_show_id=show_id,
         )
 
     if not draft.name:
         return await card_with_error(t("err_name_required", lang))
 
-    entry = await _create_and_print(draft, order, location_id, label_ids, want_print)
+    entry = await _create_and_print(
+        draft, order, location_id, label_ids, want_print, show_id
+    )
     if entry["error"]:
         return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
     prefs.set_last_location_id(location_id)
-    return render(
-        request,
-        "_item_result.html",
-        r=entry,
-        idx=idx,
-        show_asset_id_default=settings.label_show_asset_id,
-    )
+    return render(request, "_item_result.html", r=entry, idx=idx)
 
 
 # -- print from a Homebox link ------------------------------------------------
@@ -417,12 +431,7 @@ async def label_resolve(
         return HTMLResponse(
             f'<div class="banner banner-error">{t("err_homebox", lang)}: {exc}</div>'
         )
-    return render(
-        request,
-        "_label_result.html",
-        asset_id=asset_id,
-        show_asset_id_default=settings.label_show_asset_id,
-    )
+    return render(request, "_label_result.html", asset_id=asset_id)
 
 
 # -- labels & printing --------------------------------------------------------

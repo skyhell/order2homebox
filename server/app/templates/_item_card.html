@@ -59,10 +59,17 @@
     </label>
   </div>
   <div class="item-actions">
-    <label class="check">
-      <input type="checkbox" name="item-{{ idx }}-print" {% if want_print | default(true) %}checked{% endif %}>
-      <span>{{ t('print_after_create') }}</span>
-    </label>
+    <div class="item-checks">
+      <label class="check">
+        <input type="checkbox" name="item-{{ idx }}-print" {% if want_print | default(true) %}checked{% endif %}>
+        <span>{{ t('print_after_create') }}</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" name="item-{{ idx }}-showid"
+               {% if want_show_id | default(show_asset_id_default) %}checked{% endif %}>
+        <span>{{ t('print_with_id') }}</span>
+      </label>
+    </div>
     <button type="button" class="btn btn-secondary"
             hx-post="/create-item"
             hx-include="#create-form"

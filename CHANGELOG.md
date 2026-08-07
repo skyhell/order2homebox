@@ -6,7 +6,7 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
-## [Unreleased]
+## [0.8.1] — 2026-08-07
 
 ### Fixed
 

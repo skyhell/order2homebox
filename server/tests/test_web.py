@@ -177,6 +177,24 @@ def test_edit_page_offers_the_asset_id_checkbox_per_item(logged_in, monkeypatch)
     assert "checked" in body.split('name="item-0-showid"')[1].split("</label>")[0]
 
 
+def test_item_card_wires_quantity_to_the_price(logged_in, monkeypatch):
+    """The re-split happens in the browser, so the card has to carry the hooks
+    app.js looks for — an id per field and the two handlers."""
+    import app.main as main
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    body = logged_in.get("/manual").text
+    assert 'id="qty-0"' in body and 'id="price-0"' in body
+    assert "repriceItem('0')" in body  # quantity changed -> re-split
+    assert "rebaseItemTotal('0')" in body  # price edited -> new sum
+    assert 'id="total-0"' in body  # and the sum is shown, not silent
+
+
 def test_result_card_print_controls_carry_no_form_field_names(logged_in, monkeypatch):
     """The result card is swapped into #create-form, and htmx adds the enclosing
     form's fields to every POST — they even override hx-include. Named inputs

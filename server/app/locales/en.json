@@ -56,6 +56,7 @@
   "field_description": "Description",
   "field_quantity": "Quantity",
   "field_price": "Unit price",
+  "item_total_label": "Total",
   "field_product_url": "Product URL",
   "field_location": "Location",
   "field_labels": "Homebox labels",

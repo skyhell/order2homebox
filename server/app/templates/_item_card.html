@@ -16,14 +16,23 @@
     <textarea class="input" name="item-{{ idx }}-description" rows="2">{{ item.description }}</textarea>
   </label>
   <div class="field-row">
+    {# Correcting the count keeps what the order actually charged: the two
+       fields multiply out to that sum, and changing one re-splits it rather
+       than re-pricing the item. See repriceItem() in app.js. #}
     <label class="field">
       <span>{{ t('field_quantity') }}</span>
-      <input class="input" type="number" name="item-{{ idx }}-quantity" value="{{ item.quantity }}" min="1">
+      <input class="input" type="number" name="item-{{ idx }}-quantity" id="qty-{{ idx }}"
+             value="{{ item.quantity }}" min="1" oninput="repriceItem('{{ idx }}')">
     </label>
     <label class="field">
       <span>{{ t('field_price') }} ({{ item.currency }})</span>
       <input class="input" type="text" inputmode="decimal" name="item-{{ idx }}-price"
+             id="price-{{ idx }}" oninput="rebaseItemTotal('{{ idx }}')"
              value="{{ '%.2f' | format(item.unit_price) if item.unit_price is not none else '' }}">
+      {# Shows the sum being kept, so the price changing on its own is
+         explained rather than surprising. Filled by app.js. #}
+      <span class="hint total-hint" id="total-{{ idx }}"
+            data-label="{{ t('item_total_label') }}" data-currency="{{ item.currency }}"></span>
     </label>
   </div>
   <label class="field">

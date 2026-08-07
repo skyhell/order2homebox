@@ -6,6 +6,25 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [Unreleased]
+
+### Added
+
+- **Correcting the quantity on an item card re-splits the price.** A card that
+  arrives as 1 × 87.03 and turns out to be three pieces becomes 3 × 29.01, not
+  3 × 87.03 — what the order actually charged is kept, and only its split
+  changes. Same in reverse, so a typo corrects itself instead of leaving a
+  wrong price behind.
+
+  The sum is taken from the card as it was scraped, which is why a card that
+  already comes with a quantity keeps its own total: 2 × 6.49 becomes 4 × 3.25,
+  not 4 × 1.62. Editing the price re-bases the sum, so a manual correction is
+  not undone by the next quantity change. Clearing the quantity field leaves the
+  price alone rather than dividing by nothing.
+
+  The sum being preserved is shown under the price, because a money field that
+  changes on its own should say why. Commas keep commas.
+
 ## [0.10.0] — 2026-08-07
 
 ### Added

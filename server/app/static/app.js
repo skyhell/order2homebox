@@ -102,6 +102,69 @@ document.addEventListener('DOMContentLoaded', updateApplyAllButtons);
 // changes how many location selects are left.
 document.addEventListener('htmx:load', updateApplyAllButtons);
 
+// ---- unit price follows the quantity ---------------------------------------
+// The scraped price and count multiply out to what the order actually charged.
+// Correcting the count therefore re-splits that sum instead of re-pricing the
+// item: a card that arrives as 1 x 87.03 and turns out to be 3 pieces becomes
+// 3 x 29.01, not 3 x 87.03. Editing the price re-bases the sum, so a manual
+// correction is not undone by the next quantity change.
+
+function parsePrice(text) {
+  // The field is rendered with a dot but German users type commas, and the
+  // server accepts either.
+  var value = parseFloat(String(text || '').replace(',', '.'));
+  return isFinite(value) ? value : null;
+}
+
+function formatPrice(value, like) {
+  var text = value.toFixed(2);
+  return String(like).indexOf(',') >= 0 ? text.replace('.', ',') : text;
+}
+
+function showItemTotal(idx) {
+  var hint = document.getElementById('total-' + idx);
+  var price = document.getElementById('price-' + idx);
+  if (!hint || !price) return;
+  var total = price.dataset.total;
+  hint.textContent = total === undefined ? ''
+    : hint.dataset.label + ' ' + formatPrice(parseFloat(total), price.value) +
+      ' ' + (hint.dataset.currency || '');
+}
+
+function rebaseItemTotal(idx) {
+  var price = document.getElementById('price-' + idx);
+  var qty = document.getElementById('qty-' + idx);
+  if (!price || !qty) return;
+  var unit = parsePrice(price.value);
+  var count = parseInt(qty.value, 10);
+  if (unit === null || !(count >= 1)) delete price.dataset.total;
+  else price.dataset.total = String(unit * count);
+  showItemTotal(idx);
+}
+
+function repriceItem(idx) {
+  var price = document.getElementById('price-' + idx);
+  var qty = document.getElementById('qty-' + idx);
+  if (!price || !qty || price.dataset.total === undefined) return;
+  var count = parseInt(qty.value, 10);
+  if (!(count >= 1)) return; // cleared or mid-typing: leave the price alone
+  price.value = formatPrice(parseFloat(price.dataset.total) / count, price.value);
+  showItemTotal(idx);
+}
+
+function initItemPrices() {
+  document.querySelectorAll('input[id^="price-"]').forEach(function (price) {
+    // Only cards that do not have a sum yet — re-deriving it from an already
+    // divided price would let rounding creep in on every htmx swap.
+    if (price.dataset.total === undefined) {
+      rebaseItemTotal(price.id.slice('price-'.length));
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initItemPrices);
+document.addEventListener('htmx:load', initItemPrices);
+
 // Remove an item card on the edit page; /create skips missing indexes.
 function removeItemCard(idx) {
   var card = document.getElementById('item-card-' + idx);

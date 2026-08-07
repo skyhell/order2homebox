@@ -165,6 +165,8 @@ html[data-theme="light"] .icon-sun { display: none; }
 .input-sm { width: 72px; padding: 6px 8px; }
 .select-multi { min-height: 76px; }
 .hint { color: var(--text-secondary); font-size: 12px; }
+/* the sum a quantity change keeps; empty until app.js has one */
+.total-hint:empty { display: none; }
 .check { display: flex; align-items: center; gap: 8px; margin: 10px 0; cursor: pointer; }
 .check input { width: 16px; height: 16px; accent-color: var(--accent); }
 

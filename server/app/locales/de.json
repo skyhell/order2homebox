@@ -56,6 +56,7 @@
   "field_description": "Beschreibung",
   "field_quantity": "Menge",
   "field_price": "Einzelpreis",
+  "item_total_label": "Gesamt",
   "field_product_url": "Produkt-URL",
   "field_location": "Lagerort",
   "field_labels": "Homebox-Labels",

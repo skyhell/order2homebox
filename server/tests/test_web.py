@@ -500,8 +500,9 @@ def test_settings_page_waits_for_neither_connection(logged_in, monkeypatch):
     assert 'hx-get="/settings/homebox-status"' in response.text
 
 
-def test_homebox_status_fragment_does_not_poll_when_connected(logged_in, monkeypatch):
-    """Every check costs a full login, so a healthy row must stay quiet."""
+def test_homebox_status_fragment_keeps_polling_when_connected(logged_in, monkeypatch):
+    """A green row that stops asking shows a state that is minutes old. The
+    check reuses the cached token, so it is cheap enough to keep running."""
     import app.main as main
 
     async def fake_status():
@@ -511,7 +512,7 @@ def test_homebox_status_fragment_does_not_poll_when_connected(logged_in, monkeyp
     response = logged_in.get("/settings/homebox-status")
     assert response.status_code == 200
     assert "status-dot ok" in response.text
-    assert "hx-trigger" not in response.text
+    assert 'hx-trigger="every 30s"' in response.text
     assert response.headers["cache-control"] == "no-store"
 
 

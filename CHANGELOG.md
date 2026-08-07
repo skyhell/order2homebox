@@ -6,6 +6,20 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [Unreleased]
+
+### Fixed
+
+- **The Homebox row on the settings page follows the connection again.** It
+  stopped asking as soon as it was green, so it kept showing a state that could
+  be hours old. The reason it had to stay quiet was `status()`: it called
+  `_login()` directly, paying for a full login on every check. It now runs
+  through the normal request path and checks with `GET /api/v1/users/self`,
+  which reuses the cached token — a check costs one small request, a login only
+  once the token expires. Both rows now poll in every state (Homebox every 30 s,
+  the print agent every 10 s). A Homebox that does not serve that endpoint falls
+  back to the old login check instead of reporting the connection as broken.
+
 ## [0.8.0] — 2026-07-29
 
 ### Added

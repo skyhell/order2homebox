@@ -130,6 +130,58 @@ async def test_relogin_on_401(respx_mock, hb):
     await hb.close()
 
 
+# -- connection check ------------------------------------------------------------
+
+
+@respx.mock(base_url=BASE)
+async def test_status_reuses_the_token_so_it_can_be_polled(respx_mock, hb):
+    """The settings row polls this. A repeated check must cost one small GET,
+    not a login — that was the reason the row used to freeze once it was green."""
+    login_route = mock_login(respx_mock)
+    probe = respx_mock.get("/api/v1/users/self").mock(
+        return_value=Response(200, json={"item": {"name": "u"}})
+    )
+
+    assert (await hb.status())["ok"] is True
+    assert (await hb.status())["ok"] is True
+
+    assert probe.call_count == 2
+    assert login_route.call_count == 1  # only the first check paid for a login
+    await hb.close()
+
+
+@respx.mock(base_url=BASE)
+async def test_status_reports_a_dead_homebox(respx_mock, hb):
+    mock_login(respx_mock)
+    respx_mock.get("/api/v1/users/self").mock(return_value=Response(500))
+    with pytest.raises(HomeboxError):
+        await hb.status()
+    await hb.close()
+
+
+@respx.mock(base_url=BASE)
+async def test_status_falls_back_to_login_when_the_probe_is_unknown(respx_mock, hb):
+    """A Homebox without /users/self must show a working connection as working,
+    not as broken — the probe only exists to make polling cheap."""
+    login_route = mock_login(respx_mock)
+    probe = respx_mock.get("/api/v1/users/self").mock(return_value=Response(404))
+
+    assert (await hb.status())["ok"] is True
+    assert (await hb.status())["ok"] is True
+
+    assert probe.call_count == 1  # asked once, then written off
+    assert login_route.call_count == 2
+    await hb.close()
+
+
+@respx.mock(base_url=BASE)
+async def test_status_reports_bad_credentials(respx_mock, hb):
+    respx_mock.post("/api/v1/users/login").mock(return_value=Response(401))
+    with pytest.raises(HomeboxError):
+        await hb.status()
+    await hb.close()
+
+
 # -- entities API (newer Homebox: /entities, /tags) --------------------------------
 
 

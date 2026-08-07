@@ -1,13 +1,16 @@
-{# Loaded after the page, never during it: homebox.status() does a full login,
-   and with Homebox down that call sits out its timeout before any HTML is sent.
+{# Loaded after the page, never during it: with Homebox down the check sits out
+   its timeout before any HTML would be sent.
 
-   Unlike the print-agent row this one only retries while it is BROKEN. Each
-   check costs a login, so there is no reason to keep asking a connection that
-   just answered — a page reload re-checks it. #}
+   Polls in both states, like the print-agent row, so the row follows the real
+   connection instead of freezing on whatever was true when the page loaded.
+   It can afford to: homebox.status() reuses the cached token, so a check is
+   one small GET and only pays for a login when the token has expired (~30 min)
+   — see STATUS_PROBE in homebox.py. The interval is slower than the agent's
+   because Homebox is a remote host, not a Pi on the LAN. #}
 <div class="status-row" id="homebox-row"
-     {% if not hb_status.ok %}hx-get="/settings/homebox-status"
+     hx-get="/settings/homebox-status"
      hx-trigger="every 30s"
-     hx-swap="outerHTML"{% endif %}>
+     hx-swap="outerHTML">
   <span class="status-dot {{ 'ok' if hb_status.ok else 'err' }}"></span>
   <span class="status-name">{{ t('homebox_label') }}</span>
   <span class="status-detail">{{ hb_status.url }}{% if not hb_status.ok %} — {{ hb_status.error }}{% endif %}</span>

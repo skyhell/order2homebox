@@ -32,6 +32,12 @@ class HomeboxError(Exception):
 NAME_MAX = 255
 DESCRIPTION_MAX = 1000
 
+# The authenticated GET the connection check uses. It has to be cheap (a single
+# small object, no list) and served by both API generations. Anything that
+# returns 200 with a valid token proves the same three things a login does:
+# host reachable, credentials good, API answering.
+STATUS_PROBE = "/api/v1/users/self"
+
 
 def _clip(text: str | None, limit: int) -> str:
     text = (text or "").strip()
@@ -55,6 +61,7 @@ class HomeboxClient:
         self._client: httpx.AsyncClient | None = None
         self._mode: str | None = None  # "legacy" | "entities"
         self._location_type: str | None = None  # entities mode: cached type id
+        self._probe_ok: bool | None = None  # does this Homebox serve STATUS_PROBE?
 
     # -- plumbing ---------------------------------------------------------
 
@@ -134,7 +141,31 @@ class HomeboxClient:
     # -- API --------------------------------------------------------------
 
     async def status(self) -> dict:
-        """Connection test used on the settings page."""
+        """Connection test used on the settings page.
+
+        Runs through ``_request``, so a token that is still valid is reused and
+        a repeated check costs one small GET instead of a full login. That is
+        what makes the row cheap enough to poll while it is green.
+
+        A Homebox that does not know ``STATUS_PROBE`` falls back to the old
+        behaviour (one login per check) instead of reporting a broken
+        connection — the probe is an optimization, not a requirement.
+        """
+        if self._probe_ok is not False:
+            r = await self._request("GET", STATUS_PROBE)
+            if r.status_code == 200:
+                self._probe_ok = True
+                return {"ok": True, "url": self.base_url}
+            if self._probe_ok or r.status_code not in (404, 405):
+                # It answered before, or this is a real error — either way the
+                # connection is not healthy.
+                raise HomeboxError(
+                    f"Homebox: connection check failed (HTTP {r.status_code})"
+                )
+            # Unknown endpoint on this version: never ask again. Reaching a 404
+            # still took a successful login, so the connection is proven.
+            self._probe_ok = False
+            return {"ok": True, "url": self.base_url}
         await self._login()
         return {"ok": True, "url": self.base_url}
 

@@ -5,8 +5,10 @@ from app.labels import (
     LABEL_WIDTH,
     TEXT_MARGIN_X,
     TEXT_MARGIN_Y,
+    TEXT_LINE_GAP,
     TEXT_MAX_CHARS,
     TEXT_MAX_LINE_HEIGHT,
+    TEXT_MIN_LINE_HEIGHT,
     _qr_image,
     clean_text_line,
     render_label,
@@ -132,6 +134,46 @@ def test_clean_text_line_normalizes_input():
     assert clean_text_line("  Schrauben   M4 \n x20 ") == "Schrauben M4 x20"
     assert clean_text_line(None) == ""
     assert len(clean_text_line("x" * 200)) == TEXT_MAX_CHARS
+
+
+def test_keep_height_puts_two_lines_in_the_room_of_one():
+    """The point of the mode: a second line costs no extra tape."""
+    one = render_text_label(["A4"])
+    two = render_text_label(["A4", "Sechskant M4"], keep_height=True)
+    assert two.height <= one.height
+    # and it really is smaller type, not a clipped line
+    assert _ink(two)[3] - _ink(two)[1] < _ink(one)[3] - _ink(one)[1]
+
+
+def test_keep_height_never_makes_a_label_longer():
+    """The cap is only ever an upper bound, so the mode cannot backfire — a
+    'save tape' switch that sometimes costs tape would be worse than useless."""
+    for lines in (
+        ["Schrauben", "M4 x 20 mm"],
+        ["A4", "Sechskant M4"],
+        ["Werkstatt", "Regal 3"],
+        ["Verzinkte Sechskantschrauben M4", "Karton 12"],
+    ):
+        normal = render_text_label(lines)
+        kept = render_text_label(lines, keep_height=True)
+        assert kept.height <= normal.height, lines
+
+
+def test_keep_height_stops_at_a_readable_size():
+    """Two long lines cannot both shrink into the room of one without becoming
+    unreadable — there the label is allowed to grow instead."""
+    lines = ["Schrauben", "M4 x 20 mm"]
+    kept = render_text_label(lines, keep_height=True)
+    per_line = (kept.height - 2 * TEXT_MARGIN_Y - TEXT_LINE_GAP) / 2
+    assert per_line >= TEXT_MIN_LINE_HEIGHT
+    # strictly equal height would have been ~14 px per line, i.e. 1.3 mm
+    assert kept.height > render_text_label(["Schrauben"]).height
+
+
+def test_keep_height_changes_nothing_for_a_single_line():
+    assert render_text_label_png(["Werkstatt"], keep_height=True) == (
+        render_text_label_png(["Werkstatt"])
+    )
 
 
 def test_text_render_is_deterministic_png():

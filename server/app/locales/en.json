@@ -23,6 +23,8 @@
   "text_line2": "Line 2 (optional)",
   "text_line1_placeholder": "e.g. Screws",
   "text_line2_placeholder": "e.g. M4 × 20 mm",
+  "text_keep_height": "Keep the label height with two lines",
+  "text_keep_height_hint": "A second line then does not make the label longer — both lines are set smaller instead. Below roughly 3 mm of type the label does grow, so that it stays readable.",
   "text_preview": "Preview",
   "text_preview_empty": "Type something — the preview shows the finished label.",
   "text_history": "Last printed",

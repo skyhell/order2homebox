@@ -13,6 +13,7 @@ from .config import settings
 LAST_LOCATION = "last_location_id"
 TEXT_LABELS = "text_labels"
 TEXT_LABELS_MAX = 8  # enough to find a repeat, short enough to stay scannable
+TEXT_KEEP_HEIGHT = "text_keep_height"
 
 
 def _path() -> Path:
@@ -59,7 +60,12 @@ def get_text_labels() -> list[list[str]]:
     return clean[:TEXT_LABELS_MAX]
 
 
-def remember_text_label(lines: list[str]) -> None:
+def get_text_keep_height() -> bool:
+    """Whether the text page starts with 'keep the label height' ticked."""
+    return _read().get(TEXT_KEEP_HEIGHT) is True
+
+
+def remember_text_label(lines: list[str], keep_height: bool = False) -> None:
     """Remember a text label that was really printed.
 
     Moves a repeat back to the front instead of storing it twice, so the list
@@ -71,6 +77,9 @@ def remember_text_label(lines: list[str]) -> None:
     history = [entry for entry in get_text_labels() if entry != lines]
     data = _read()
     data[TEXT_LABELS] = [lines] + history[: TEXT_LABELS_MAX - 1]
+    # The mode travels with the print, not with the checkbox: the page should
+    # come back the way the last label was actually made.
+    data[TEXT_KEEP_HEIGHT] = bool(keep_height)
     _write(data)
 
 

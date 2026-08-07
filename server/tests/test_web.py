@@ -1,3 +1,5 @@
+import io
+
 import pytest
 
 from tests.conftest import TEST_PASSWORD
@@ -488,6 +490,60 @@ def test_text_history_keeps_a_repeat_once_and_first(logged_in, monkeypatch):
     from app import prefs
 
     assert prefs.get_text_labels() == [["Kabel"], ["Schrauben"]]
+
+
+def test_text_page_offers_the_keep_height_checkbox(logged_in):
+    response = logged_in.get("/text")
+    assert 'id="text-keep-height"' in response.text
+
+
+def test_text_preview_follows_the_keep_height_flag(logged_in):
+    """The preview must show what would be printed, so the flag has to reach
+    the renderer — not just the print route."""
+    normal = logged_in.get("/text.png", params={"line1": "A4", "line2": "Sechskant M4"})
+    kept = logged_in.get(
+        "/text.png", params={"line1": "A4", "line2": "Sechskant M4", "keep": 1}
+    )
+    assert normal.status_code == kept.status_code == 200
+    assert normal.content != kept.content
+
+    from PIL import Image
+
+    assert Image.open(io.BytesIO(kept.content)).height < (
+        Image.open(io.BytesIO(normal.content)).height
+    )
+
+
+def test_text_print_uses_the_keep_height_flag_and_remembers_it(logged_in, monkeypatch):
+    _clear_text_history()
+    printed = _stub_printer(monkeypatch)
+
+    from app import prefs
+    from app.labels import render_text_label_png
+
+    logged_in.post(
+        "/text/print",
+        data={"line1": "A4", "line2": "Sechskant M4", "keep_height": "true"},
+    )
+    assert printed[0][0] == render_text_label_png(["A4", "Sechskant M4"], keep_height=True)
+    assert prefs.get_text_keep_height() is True
+
+    # and the page comes back with the box ticked
+    assert 'id="text-keep-height" checked' in logged_in.get("/text").text
+
+
+def test_text_print_without_the_flag_clears_the_preference(logged_in, monkeypatch):
+    """The remembered mode follows the label that was actually printed, so
+    unticking it and printing has to stick as well."""
+    _clear_text_history()
+    _stub_printer(monkeypatch)
+
+    from app import prefs
+
+    logged_in.post("/text/print", data={"line1": "a", "line2": "b", "keep_height": "true"})
+    assert prefs.get_text_keep_height() is True
+    logged_in.post("/text/print", data={"line1": "a", "line2": "b"})
+    assert prefs.get_text_keep_height() is False
 
 
 def test_text_print_requires_login(client):

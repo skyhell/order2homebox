@@ -22,6 +22,15 @@
              oninput="textLabelPreview()">
     </div>
 
+    {# Only does anything with a second line, so the wording says so instead of
+       the checkbox appearing and disappearing while you type. #}
+    <label class="check">
+      <input type="checkbox" id="text-keep-height" {% if keep_height %}checked{% endif %}
+             onchange="textLabelPreview()">
+      <span>{{ t('text_keep_height') }}</span>
+    </label>
+    <p class="hint keep-height-hint">{{ t('text_keep_height_hint') }}</p>
+
     <div class="text-preview">
       <span class="preview-caption">{{ t('text_preview') }}</span>
       <img id="text-preview-img" class="label-preview label-preview-wide"
@@ -38,7 +47,8 @@
               hx-post="/text/print"
               hx-vals='js:{line1: document.getElementById("text-line1").value,
                            line2: document.getElementById("text-line2").value,
-                           copies: document.getElementById("text-copies").value}'
+                           copies: document.getElementById("text-copies").value,
+                           keep_height: document.getElementById("text-keep-height").checked}'
               hx-target="#text-print-status"
               hx-swap="innerHTML">{{ t('print_button') }}</button>
       <span id="text-print-status"></span>

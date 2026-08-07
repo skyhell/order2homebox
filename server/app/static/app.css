@@ -269,6 +269,8 @@ html[data-theme="light"] .icon-sun { display: none; }
 }
 
 /* ---- text label tool ---- */
+/* sits under the checkbox it explains, indented to line up with its label */
+.keep-height-hint { margin: -4px 0 16px 24px; }
 .text-preview { text-align: center; margin: 4px 0 20px; }
 .preview-caption {
   display: block; font-size: 13px; font-weight: 600;

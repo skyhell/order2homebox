@@ -26,7 +26,9 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
 - ✍️ **Text labels** — a *Text label* page for everything that is not a Homebox
   item: one or two lines, no QR code. The type size is derived from the text so
   every line spans the tape width, a live preview shows the real rendering, and
-  the labels you last printed come back as one-click chips.
+  the labels you last printed come back as one-click chips. A checkbox makes a
+  second line fit into the height the first one alone would have taken, in
+  smaller type, instead of using more tape.
 - 🖨️ **Print agent** on a Raspberry Pi (Brother QL-500 via USB, `brother_ql`),
   secured with an API key; dry-run mode for development without a printer.
 - ⏻ **Shut the Pi down from the web UI** — the print agent is headless, so the

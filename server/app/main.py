@@ -475,19 +475,28 @@ def _text_lines(line1: str, line2: str) -> list[str]:
 
 @app.get("/text", response_class=HTMLResponse)
 async def text_label_tool(request: Request, user: str = Depends(require_login)):
-    return render(request, "text_label.html", history=prefs.get_text_labels())
+    return render(
+        request,
+        "text_label.html",
+        history=prefs.get_text_labels(),
+        keep_height=prefs.get_text_keep_height(),
+    )
 
 
 @app.get("/text.png")
 async def text_label_preview(
-    line1: str = "", line2: str = "", user: str = Depends(require_login)
+    line1: str = "",
+    line2: str = "",
+    keep: int = 0,
+    user: str = Depends(require_login),
 ):
     """Preview of the text label, refreshed while typing. The text is in the
     URL, so an unchanged text is served from the browser cache."""
     lines = _text_lines(line1, line2)
     if not lines:
         return Response(status_code=404)
-    return Response(content=render_text_label_png(lines), media_type="image/png")
+    png = render_text_label_png(lines, keep_height=bool(keep))
+    return Response(content=png, media_type="image/png")
 
 
 @app.post("/text/print", response_class=HTMLResponse)
@@ -496,6 +505,7 @@ async def print_text_label(
     line1: str = Form(""),
     line2: str = Form(""),
     copies: int = Form(1),
+    keep_height: bool = Form(False),
     user: str = Depends(require_login),
 ):
     lang = get_lang(request)
@@ -504,7 +514,7 @@ async def print_text_label(
         return HTMLResponse(
             f'<span class="print-status error-text">{t("err_text_empty", lang)}</span>'
         )
-    png = render_text_label_png(lines)
+    png = render_text_label_png(lines, keep_height=keep_height)
     try:
         await printer.print_png(png, copies=max(1, min(copies, 20)))
     except printer.PrintError as exc:
@@ -514,7 +524,7 @@ async def print_text_label(
     # Only a label that really came out is worth remembering — same rule as the
     # last-used location. The list is swapped out of band because this response
     # already targets the status line.
-    prefs.remember_text_label(lines)
+    prefs.remember_text_label(lines, keep_height)
     history = render_fragment(
         request, "_text_history.html", history=prefs.get_text_labels(), oob=True
     )

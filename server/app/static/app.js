@@ -125,6 +125,7 @@ function textLabelPreview() {
   if (!img) return;
   var line1 = (document.getElementById('text-line1').value || '').trim();
   var line2 = (document.getElementById('text-line2').value || '').trim();
+  var keep = document.getElementById('text-keep-height');
   var any = line1 || line2;
   img.hidden = !any;
   if (empty) empty.hidden = !!any;
@@ -132,7 +133,8 @@ function textLabelPreview() {
   if (!any) return;
   textLabelPreview.timer = window.setTimeout(function () {
     img.src = '/text.png?line1=' + encodeURIComponent(line1) +
-              '&line2=' + encodeURIComponent(line2);
+              '&line2=' + encodeURIComponent(line2) +
+              '&keep=' + (keep && keep.checked ? 1 : 0);
   }, 250);
 }
 

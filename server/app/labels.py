@@ -108,6 +108,10 @@ TEXT_LINE_GAP = 12  # px between the two lines
 # two-letter label would print letters 3 cm tall and eat a hand's length of
 # tape; 110 px is roughly 10 mm, still readable across a workshop.
 TEXT_MAX_LINE_HEIGHT = 110
+# Floor for the "keep the height" mode below. Squeezing two lines into the room
+# of one is worth tape, but not at any price: ~2.8 mm is about where a label
+# stops being readable at arm's length, so below this the label grows instead.
+TEXT_MIN_LINE_HEIGHT = 30
 TEXT_MIN_SIZE = 8
 TEXT_MAX_SIZE = 400
 
@@ -142,13 +146,36 @@ def _fit_line(text: str, max_width: int, max_height: int):
     return font, box
 
 
-def render_text_label(lines: list[str]) -> Image.Image:
+def _line_cap(lines: list[str], max_width: int, keep_height: bool) -> int:
+    """How tall a single line may be.
+
+    Normally the full cap. With ``keep_height`` and a second line, the two
+    share the room the first line alone would have taken, so adding a line
+    costs no extra tape. That trade is real: the size follows from the width
+    today, so forcing the height means the text no longer spans it. The floor
+    stops the trade where the label would become unreadable — past that point
+    the label does get longer, which is the lesser evil.
+    """
+    if not keep_height or len(lines) < 2:
+        return TEXT_MAX_LINE_HEIGHT
+    _, box = _fit_line(lines[0], max_width, TEXT_MAX_LINE_HEIGHT)
+    single_line_height = box[3] - box[1]
+    share = (single_line_height - TEXT_LINE_GAP) // 2
+    return max(TEXT_MIN_LINE_HEIGHT, share)
+
+
+def render_text_label(lines: list[str], keep_height: bool = False) -> Image.Image:
     """One or two lines of text across the tape width, no QR code.
 
     Each line is fitted on its own, so both really do span the width — a short
     line ends up in bigger letters than a long one. The label is only as long
     as the text needs, because the tape is endless and every millimetre saved
     is tape not thrown away.
+
+    ``keep_height`` makes a second line fit into the height the first one alone
+    would have used, in smaller type, instead of making the label longer. Since
+    the cap is only ever an upper bound, this can never produce a label longer
+    than the same text without it.
     """
     lines = [line for line in (clean_text_line(x) for x in lines) if line]
     lines = lines[:TEXT_MAX_LINES]
@@ -156,7 +183,8 @@ def render_text_label(lines: list[str]) -> Image.Image:
         raise ValueError("a text label needs at least one non-empty line")
 
     max_width = LABEL_WIDTH - 2 * TEXT_MARGIN_X
-    fitted = [_fit_line(line, max_width, TEXT_MAX_LINE_HEIGHT) for line in lines]
+    cap = _line_cap(lines, max_width, keep_height)
+    fitted = [_fit_line(line, max_width, cap) for line in lines]
     # The ink box, not the font metrics: ascender/descender space the text does
     # not use would be printed as blank tape.
     heights = [box[3] - box[1] for _, box in fitted]
@@ -176,7 +204,7 @@ def render_text_label(lines: list[str]) -> Image.Image:
     return label
 
 
-def render_text_label_png(lines: list[str]) -> bytes:
+def render_text_label_png(lines: list[str], keep_height: bool = False) -> bytes:
     buf = BytesIO()
-    render_text_label(lines).save(buf, format="PNG")
+    render_text_label(lines, keep_height).save(buf, format="PNG")
     return buf.getvalue()

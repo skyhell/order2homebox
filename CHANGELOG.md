@@ -6,7 +6,7 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
-## [Unreleased]
+## [0.10.0] — 2026-08-07
 
 ### Added
 
@@ -301,6 +301,7 @@ orders.
 - **Deployment** — Proxmox host script that creates the LXC, in-container
   installer and `update.sh`, plus `install-pi.sh` / `update-pi.sh` for the Pi.
 
+[0.10.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.10.0
 [0.9.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.9.1
 [0.9.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.9.0
 [0.8.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.8.1

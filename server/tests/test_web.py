@@ -410,6 +410,16 @@ def test_label_resolve_from_asset_deep_link(logged_in):
     assert "/label/000-629.png" in response.text  # preview image
 
 
+def test_label_reprint_offers_three_up(logged_in):
+    """Same choice as on an item card. The count rides along as a plain form
+    value, so hx-include carries it without any JS."""
+    body = logged_in.post("/label/resolve", data={"link": "000-629"}).text
+    assert 'name="qr_per_row" value="3"' in body
+    assert 'id="label-qr3"' in body and 'id="label-show-text"' in body
+    # both boxes drive the same refresh, so the preview follows either
+    assert body.count("refreshLabelControls('000-629')") == 2
+
+
 def test_label_resolve_from_bare_asset_id(logged_in):
     response = logged_in.post("/label/resolve", data={"link": "000-629"})
     assert response.status_code == 200

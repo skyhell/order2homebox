@@ -25,8 +25,9 @@ integer so QR modules map 1:1 onto printer dots (no dithering artifacts).
 
 ### How many codes per row
 
-Every item card offers *three small labels instead of two*, for small parts you
-have several of. What that costs, measured with a 39-character QR URL
+Every item card and the *Print label* page offer *three small labels instead of
+two*, for small parts you have several of. What that costs, measured with a
+39-character QR URL
 (`https://box.example.org/a/000-629`, version 3, 29 modules):
 
 | Per row | Cell | Module scale | Code | Label length |
@@ -42,10 +43,11 @@ cliff rather than a slope: 90 px of usable box divided by 33 modules gives 2, an
 
 The asset ID is **not** printed at three per row. A cell is 102 px and an id
 like `12345-678` is 121 px at the default size — it would print straight across
-the neighbouring code and make it unscannable. The edit page unticks and
-disables the id checkbox, `/print` refuses the combination, and the renderer
-shrinks the font to fit as a last resort, because `O2H_LABEL_QR_PER_ROW=3` can
-still be combined with `O2H_LABEL_SHOW_ASSET_ID=1` in `.env`.
+the neighbouring code and make it unscannable. Both pages untick and disable the
+id checkbox (`applyThreeUp` in `app.js` is the one definition), `/print` refuses
+the combination, and the renderer shrinks the font to fit as a last resort,
+because `O2H_LABEL_QR_PER_ROW=3` can still be combined with
+`O2H_LABEL_SHOW_ASSET_ID=1` in `.env`.
 
 ## Text labels
 

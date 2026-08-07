@@ -12,10 +12,19 @@
           <input class="input input-sm" type="number" name="copies" value="1" min="1" max="20">
         </label>
         <label class="check">
-          <input type="checkbox" name="show_text" value="true" {% if show_asset_id_default %}checked{% endif %}
-                 onchange="labelPreview('label-preview-img', '{{ asset_id }}', this.checked)">
+          <input type="checkbox" name="show_text" value="true" id="label-show-text"
+                 {% if show_asset_id_default %}checked{% endif %}
+                 onchange="refreshLabelControls('{{ asset_id }}')">
           <span>{{ t('print_with_id') }}</span>
         </label>
+        {# value="3" so the count travels with hx-include and needs no JS; an
+           unchecked box submits nothing and /print falls back to the default. #}
+        <label class="check">
+          <input type="checkbox" name="qr_per_row" value="3" id="label-qr3"
+                 onchange="refreshLabelControls('{{ asset_id }}')">
+          <span>{{ t('print_three_up') }}</span>
+        </label>
+        <span class="hint" id="label-qr3-hint" hidden>{{ t('print_three_up_hint') }}</span>
         <button type="button" class="btn btn-primary"
                 hx-post="/print"
                 hx-include="#label-print input"

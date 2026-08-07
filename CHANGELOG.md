@@ -10,10 +10,10 @@ Each version links to its GitHub release, which carries the full notes.
 
 ### Added
 
-- **Three QR codes across the width, per item.** A checkbox on every item card
-  for small parts you have several of: three identical codes instead of two,
-  cut into three labels. The choice travels into the result card, so a reprint
-  produces the same label.
+- **Three QR codes across the width.** A checkbox on every item card and on the
+  *Print label* page, for small parts you have several of: three identical codes
+  instead of two, cut into three labels. On an item card the choice travels into
+  the result card, so a reprint produces the same label.
 
   The asset ID is not printed with it. A three-up cell is 102 px and an id like
   `12345-678` is 121 px at the default size — it would print straight across the

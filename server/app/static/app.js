@@ -105,21 +105,38 @@ document.addEventListener('htmx:load', updateApplyAllButtons);
 // Three codes across the width leave a 102 px cell, and an asset id can be
 // 121 px wide — it would print across the neighbouring code. So the id is not
 // a choice at three per row: the box goes off and stays off while it is on.
-function updateQrCount(idx) {
-  var three = document.getElementById('qr3-' + idx);
-  var showId = document.getElementById('showid-' + idx);
-  if (!three || !showId) return;
-  if (three.checked) {
-    if (showId.checked) showId.dataset.wasChecked = '1';
-    showId.checked = false;
-  } else if (showId.dataset.wasChecked) {
-    showId.checked = true; // put back what was there before
-    delete showId.dataset.wasChecked;
+// One definition, used by the item cards and by the reprint page.
+function applyThreeUp(threeBox, showIdBox, hint) {
+  if (!threeBox || !showIdBox) return false;
+  if (threeBox.checked) {
+    if (showIdBox.checked) showIdBox.dataset.wasChecked = '1';
+    showIdBox.checked = false;
+  } else if (showIdBox.dataset.wasChecked) {
+    showIdBox.checked = true; // put back what was there before
+    delete showIdBox.dataset.wasChecked;
   }
-  showId.disabled = three.checked;
-  showId.closest('.check').classList.toggle('check-disabled', three.checked);
-  var hint = document.getElementById('qr3-hint-' + idx);
-  if (hint) hint.hidden = !three.checked;
+  showIdBox.disabled = threeBox.checked;
+  showIdBox.closest('.check').classList.toggle('check-disabled', threeBox.checked);
+  if (hint) hint.hidden = !threeBox.checked;
+  return threeBox.checked;
+}
+
+function updateQrCount(idx) {
+  applyThreeUp(
+    document.getElementById('qr3-' + idx),
+    document.getElementById('showid-' + idx),
+    document.getElementById('qr3-hint-' + idx)
+  );
+}
+
+// Reprint page: one set of controls, and the preview has to follow both boxes.
+function refreshLabelControls(assetId) {
+  var showText = document.getElementById('label-show-text');
+  var three = applyThreeUp(
+    document.getElementById('label-qr3'), showText,
+    document.getElementById('label-qr3-hint')
+  );
+  labelPreview('label-preview-img', assetId, showText.checked, three ? 3 : 0);
 }
 
 function initQrCounts() {

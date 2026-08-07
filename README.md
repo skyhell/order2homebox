@@ -23,7 +23,8 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   is Homebox's native `…/a/{asset_id}` deep link.
 - 🔗 **Reprint from a link** — paste any Homebox link (an `…/a/{asset_id}` deep
   link, an `…/item/{uuid}` page URL, or just an asset ID like `000-629`) on the
-  *Print label* page and reprint its QR label without going through an order.
+  *Print label* page and reprint its QR label without going through an order,
+  with the same asset-ID and three-up choices an item card offers.
 - ✍️ **Text labels** — a *Text label* page for everything that is not a Homebox
   item: one or two lines, no QR code. The type size is derived from the text so
   every line spans the tape width, a live preview shows the real rendering, and

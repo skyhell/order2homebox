@@ -36,6 +36,23 @@ Each version links to its GitHub release, which carries the full notes.
   the Homebox client connects lazily, so the settings page is what proves the
   decrypted password actually logs in.
 
+- **A command for changing the Homebox password.** Once the password is stored
+  encrypted the line in `.env` can no longer just be edited, so
+  `install/set-homebox-password.sh` (`python -m app.set_secret`) does it: it
+  asks twice without echoing, **logs into Homebox with the new password before
+  `.env` is touched**, then encrypts it with the existing key file, replaces the
+  line and restarts the service. A typo is refused at the prompt rather than
+  taking the app down at the next restart, and the password never reaches the
+  shell history or the process list.
+
+  It does not go through the app's own Homebox client on purpose: importing that
+  builds the settings, which decrypt whatever is in `.env` right now — and a
+  lost key file or a mangled `enc:` value is exactly when this command is the
+  fix. It has to run when the app itself cannot. `--no-verify` sets the password
+  while Homebox is unreachable. No `.bak` is written here: it would preserve the
+  very secret being retired. Every line assigning the key is replaced, not just
+  the last one python-dotenv would use, so no earlier line keeps the old value.
+
 ### Fixed
 
 - **The installer no longer passes secrets as command-line arguments.**

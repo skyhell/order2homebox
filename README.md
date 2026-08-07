@@ -195,6 +195,25 @@ Afterwards the app **needs** `server/data/secret.key` to start. Back it up along
 with `.env`, but keep the two apart: either one alone is useless, which is the
 whole point.
 
+**Changing the Homebox password.** Change it in Homebox first, then hand the new
+one over — the encrypted value in `.env` cannot simply be edited:
+
+```sh
+pct enter <CTID>                                            # not pct exec: it needs a terminal
+bash /opt/order2homebox/install/set-homebox-password.sh
+```
+
+It asks twice without echoing, **logs into Homebox with the new password before
+touching `.env`** — a typo is refused at the prompt instead of taking the app
+down at the next restart — then encrypts it with the existing key file, replaces
+the line and restarts the service. The password never reaches the shell history
+or the process list, and no plain-text backup is left behind. Add `--no-verify`
+(as an argument to `python -m app.set_secret`) to set it while Homebox is
+unreachable.
+
+The same command sets the print-agent key:
+`python -m app.set_secret O2H_PRINT_AGENT_API_KEY` from `server/`.
+
 > Note: this protects against accidental disclosure (backups, git, sharing the
 > file), not against an attacker who already has read access to the container —
 > they can read the key file too.

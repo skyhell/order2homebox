@@ -34,7 +34,7 @@ from .secrets import ENC_PREFIX, SecretError, decrypt_maybe, encrypt
 ENCRYPTED_KEYS = ("O2H_HOMEBOX_PASSWORD", "O2H_PRINT_AGENT_API_KEY")
 
 
-def _key_of(line: str) -> str:
+def key_of(line: str) -> str:
     """The variable a .env line assigns to, or "" for comments and blanks."""
     body = line.strip()
     if not body or body.startswith("#") or "=" not in body:
@@ -59,7 +59,7 @@ def migrate_text(text: str, encrypt_fn=encrypt) -> tuple[str, list[str]]:
     lines = text.splitlines(keepends=True)
     changed: list[str] = []
     for i, line in enumerate(lines):
-        key = _key_of(line)
+        key = key_of(line)
         if key not in ENCRYPTED_KEYS:
             continue
         value = values.get(key) or ""
@@ -99,7 +99,7 @@ def key_path_for(env_path: Path, values: dict) -> Path:
     return data_dir / "secret.key"
 
 
-def _write_atomically(path: Path, text: str) -> None:
+def write_atomically(path: Path, text: str) -> None:
     """Replace the file in one step, keeping its permissions.
 
     A half-written .env would leave the service unable to start, so the new
@@ -157,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
 
     backup = env_path.with_name(env_path.name + ".bak")
     _write_private(backup, original, env_path.stat().st_mode & 0o777)
-    _write_atomically(env_path, migrated)
+    write_atomically(env_path, migrated)
 
     # Names only — printing a value would put the secret in the terminal
     # scrollback and the journal, which is what this whole exercise is about.

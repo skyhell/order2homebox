@@ -53,7 +53,9 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
 
 Pick a shop and enter the order number; the scraped items are shown for review —
 name, price, quantity, storage location and Homebox labels — before they are
-created in Homebox and their QR labels printed.
+created in Homebox and their QR labels printed. Correcting a quantity re-splits
+the price the order actually charged, and each item decides for itself whether
+its label carries the asset ID or three codes instead of two.
 
 ![Text label](docs/screenshot-text-label.png)
 

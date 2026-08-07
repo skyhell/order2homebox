@@ -6,7 +6,7 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
-## [Unreleased]
+## [0.11.0] — 2026-08-07
 
 ### Added
 
@@ -27,7 +27,8 @@ Each version links to its GitHub release, which carries the full notes.
   39-character QR URL the module scale drops to 2 px (0.17 mm) and the code to
   4.9 mm, which is at the edge of what a phone camera reads. The integer module
   scale makes this a cliff, not a slope — 90 px of box over 33 modules gives 2,
-  and 2.7 is not available.
+  and 2.7 is not available. Confirmed scanning off real DK-22211 tape with an
+  iPhone 13 Pro, which is well below the usual rule of thumb.
 
 - **Correcting the quantity on an item card re-splits the price.** A card that
   arrives as 1 × 87.03 and turns out to be three pieces becomes 3 × 29.01, not
@@ -339,6 +340,7 @@ orders.
 - **Deployment** — Proxmox host script that creates the LXC, in-container
   installer and `update.sh`, plus `install-pi.sh` / `update-pi.sh` for the Pi.
 
+[0.11.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.11.0
 [0.10.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.10.0
 [0.9.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.9.1
 [0.9.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.9.0

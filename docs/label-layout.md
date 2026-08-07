@@ -36,10 +36,17 @@ two*, for small parts you have several of. What that costs, measured with a
 | 2 | 153 px | 4 px = 0.34 mm | 9.8 mm | 162 px ≈ 15 mm |
 | 3 | 102 px | 2 px = 0.17 mm | 4.9 mm | 133 px ≈ 13 mm |
 
-Three per row is at the edge of what a phone camera reads — **test one before
-relying on it**, the UI says so too. The integer module scale is what makes it a
-cliff rather than a slope: 90 px of usable box divided by 33 modules gives 2, and
-2.7 is not available.
+Three per row is at the edge of what a phone camera reads. Confirmed working on
+real DK-22211 tape with an iPhone 13 Pro, so 0.17 mm modules are not a
+theoretical size — but that is one camera on fresh tape, which is why the UI
+still says to try one before relying on it. The integer module scale is what
+makes this a cliff rather than a slope: 90 px of usable box divided by 33
+modules gives 2, and 2.7 is not available.
+
+If a three-up code ever stops scanning, the lever is the error correction level:
+`error="m"` in `_qr_image` down to `"l"` fits a 39-character URL into version 2
+(25 modules), which lifts the scale to 3 px ≈ 0.25 mm — at the cost of tolerance
+for scratched or dirty labels.
 
 The asset ID is **not** printed at three per row. A cell is 102 px and an id
 like `12345-678` is 121 px at the default size — it would print straight across

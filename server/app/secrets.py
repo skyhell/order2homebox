@@ -76,10 +76,14 @@ def decrypt_maybe(value: str, key_path: Path | None = None) -> str:
             "missing. Restore it, or re-encrypt the secret with: "
             "python -m app.encrypt"
         )
-    token = value[len(ENC_PREFIX):].encode("ascii")
     try:
+        # The encode() is inside the try on purpose: a token that picked up a
+        # non-ASCII character (a smart quote from a copy-paste, say) would
+        # otherwise escape as a bare UnicodeEncodeError instead of the message
+        # below telling the user what to do about it.
+        token = value[len(ENC_PREFIX):].encode("ascii")
         return Fernet(path.read_bytes().strip()).decrypt(token).decode("utf-8")
-    except (InvalidToken, ValueError) as exc:
+    except (InvalidToken, ValueError, UnicodeEncodeError) as exc:
         raise SecretError(
             f"Could not decrypt an 'enc:' secret from .env — the key file "
             f"({path}) does not match. Re-encrypt with: python -m app.encrypt"

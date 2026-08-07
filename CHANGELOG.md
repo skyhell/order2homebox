@@ -6,6 +6,38 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [Unreleased]
+
+### Added
+
+- **One command converts an existing `.env` to encrypted secrets.** Fresh
+  installs have stored `O2H_HOMEBOX_PASSWORD` and `O2H_PRINT_AGENT_API_KEY` as
+  `enc:` values since 0.1.0, but `update.sh` deliberately never touches `.env` —
+  so anything installed before that automation kept its plain-text password
+  forever, and nothing in the project could change that.
+  `install/encrypt-env.sh` (or `python -m app.encrypt_env`) now does it in one
+  go, then restarts the service and checks `/health`.
+
+  It reads the values with python-dotenv, the same parser the app itself uses,
+  instead of guessing at the quoting: encrypting a value the app would have read
+  differently stores a password nobody typed, and the Homebox login then fails
+  with a perfectly valid-looking `enc:` value in `.env`. Every new token is
+  decrypted back and compared before anything is written; if one does not match,
+  the file is left untouched. A line the parser cannot read is skipped rather
+  than rewritten. Comments, order and unrelated keys stay byte-identical, the
+  old file is kept as `.env.bak`, and a second run does nothing.
+
+### Fixed
+
+- **The installer no longer passes secrets as command-line arguments.**
+  `install-in-lxc.sh` called `python -m app.encrypt "$PASSWORD"`, which put the
+  Homebox password in the container's process list for the duration of the call.
+  It is piped in now (`app.encrypt --stdin`).
+- **A corrupted `enc:` value reports what to do about it.** A token that picked
+  up a non-ASCII character — a smart quote from a copy-paste, say — escaped as a
+  bare `UnicodeEncodeError` and stopped the service with a traceback instead of
+  the message naming the key file and the fix.
+
 ## [0.9.0] — 2026-08-07
 
 ### Added

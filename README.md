@@ -168,6 +168,23 @@ committed `.env` alone does not reveal the password. Fresh installs done with
 `install-in-lxc.sh` encrypt these values automatically. Plain-text values keep
 working, so this is opt-in.
 
+**Converting an existing installation.** `update.sh` never touches `.env`, so an
+installation older than that automation keeps its plain text. One command
+converts both secrets in place:
+
+```sh
+pct exec <CTID> -- bash /opt/order2homebox/install/encrypt-env.sh
+```
+
+It writes `.env.bak`, rewrites only the two secret lines — comments, order and
+every other value stay byte-identical — and refuses to touch the file unless
+each new token decrypts back to exactly what was there. Then it restarts the
+service and checks `/health`. Running it again does nothing.
+
+Afterwards the app **needs** `server/data/secret.key` to start. Back it up along
+with `.env`, but keep the two apart: either one alone is useless, which is the
+whole point. To undo: `cp .env.bak .env && systemctl restart order2homebox`.
+
 > Note: this protects against accidental disclosure (backups, git, sharing the
 > file), not against an attacker who already has read access to the container —
 > they can read the key file too.

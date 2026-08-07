@@ -48,6 +48,16 @@ def test_wrong_key_raises(tmp_path):
         decrypt_maybe(token, key_path=tmp_path / "b.key")
 
 
+def test_a_token_with_a_stray_non_ascii_character_raises_secret_error(tmp_path):
+    """A copy-paste can turn a quote into a smart quote. That has to arrive as
+    the message telling the user to re-encrypt, not as a raw UnicodeEncodeError
+    that stops the service with a traceback."""
+    key = tmp_path / "secret.key"
+    encrypt("x", key_path=key)  # so the key file exists and is not the complaint
+    with pytest.raises(SecretError, match="does not match"):
+        decrypt_maybe(ENC_PREFIX + "gAAAAAB“bogus", key_path=key)
+
+
 def test_settings_decrypts_homebox_password(tmp_path, monkeypatch):
     """A Settings instance must expose the decrypted password when the .env
     value is an enc: token."""
@@ -59,3 +69,16 @@ def test_settings_decrypts_homebox_password(tmp_path, monkeypatch):
     monkeypatch.setenv("O2H_HOMEBOX_PASSWORD", token)
     settings = Settings(_env_file=None)
     assert settings.homebox_password == "live-homebox-pw"
+
+
+def test_settings_decrypts_the_print_agent_key(tmp_path, monkeypatch):
+    """The second encrypted setting — printing fails silently if it is handed
+    the token instead of the key."""
+    from app.config import Settings
+
+    key = tmp_path / "secret.key"
+    token = encrypt("pi-api-key", key_path=key)
+    monkeypatch.setenv("O2H_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("O2H_PRINT_AGENT_API_KEY", token)
+    settings = Settings(_env_file=None)
+    assert settings.print_agent_api_key == "pi-api-key"

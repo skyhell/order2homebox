@@ -58,10 +58,12 @@ else
   SECRET=$("$VENV/bin/python" -c "import secrets; print(secrets.token_hex(32))")
   # Encrypt the Homebox password (and print-agent key) with a Fernet key kept
   # in server/data/secret.key — so a leaked .env alone does not reveal them.
+  # Piped, not passed as an argument: an argument is visible in the process
+  # list for as long as the call runs.
   cd "$APP_DIR/server"
-  HB_PASS_ENC=$("$VENV/bin/python" -m app.encrypt "$HB_PASS")
+  HB_PASS_ENC=$(printf '%s' "$HB_PASS" | "$VENV/bin/python" -m app.encrypt --stdin)
   if [ -n "$PA_KEY" ]; then
-    PA_KEY_ENC=$("$VENV/bin/python" -m app.encrypt "$PA_KEY")
+    PA_KEY_ENC=$(printf '%s' "$PA_KEY" | "$VENV/bin/python" -m app.encrypt --stdin)
   else
     PA_KEY_ENC=""
   fi

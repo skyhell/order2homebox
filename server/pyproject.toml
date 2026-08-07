@@ -17,6 +17,9 @@ dependencies = [
     "pillow>=10.0",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    # Arrives with pydantic-settings anyway, but app.encrypt_env imports it
+    # directly to read .env exactly the way the app does.
+    "python-dotenv>=1.0",
     "itsdangerous>=2.2",
     "bcrypt>=4.1",
     "cryptography>=42.0",

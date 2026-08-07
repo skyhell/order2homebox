@@ -10,6 +10,12 @@ migration for those, run through ``install/encrypt-env.sh``:
 Everything the file does not need to change stays byte-identical: comments,
 blank lines, key order, unknown keys. Running it twice is a no-op, because a
 value that already starts with ``enc:`` is skipped.
+
+The old file is kept as ``.env.bak`` so a failed migration can be rolled back.
+It holds the secrets in PLAIN TEXT, right next to the file that was just
+encrypted, so it has to be deleted once the new one is known to work —
+otherwise the next backup or snapshot carries the password anyway, which is
+the whole thing this is meant to prevent.
 """
 from __future__ import annotations
 
@@ -101,17 +107,25 @@ def _write_atomically(path: Path, text: str) -> None:
     moved into place.
     """
     tmp = path.with_name(path.name + ".tmp")
-    mode = path.stat().st_mode & 0o777
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    _write_private(tmp, text, path.stat().st_mode & 0o777)
+    os.replace(tmp, path)
+
+
+def _write_private(path: Path, text: str, mode: int) -> None:
+    """Create the file with its final permissions from the first byte.
+
+    Writing first and chmod-ing after would leave the file world-readable for
+    the moment in between — and both files this writes hold secrets.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
     try:
         os.write(fd, text.encode("utf-8"))
     finally:
         os.close(fd)
     try:
-        tmp.chmod(mode)
+        path.chmod(mode)  # O_CREAT's mode is masked by the umask
     except OSError:
         pass
-    os.replace(tmp, path)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -142,18 +156,14 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     backup = env_path.with_name(env_path.name + ".bak")
-    backup.write_text(original, encoding="utf-8")
-    try:
-        backup.chmod(env_path.stat().st_mode & 0o777)
-    except OSError:
-        pass
+    _write_private(backup, original, env_path.stat().st_mode & 0o777)
     _write_atomically(env_path, migrated)
 
     # Names only — printing a value would put the secret in the terminal
     # scrollback and the journal, which is what this whole exercise is about.
     print(f"Encrypted: {', '.join(changed)}")
     print(f"Key file:  {key_path}")
-    print(f"Backup:    {backup}")
+    print(f"Backup:    {backup}  (STILL PLAIN TEXT - delete it once verified)")
     return 0
 
 

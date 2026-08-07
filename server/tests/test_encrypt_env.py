@@ -190,7 +190,8 @@ def test_cli_is_idempotent(tmp_path, monkeypatch, capsys):
 
 
 def test_cli_keeps_the_file_permissions(tmp_path, monkeypatch):
-    """.env is chmod 600 — a migration that widens it would undo the point."""
+    """.env is chmod 600 — a migration that widens it would undo the point.
+    The backup matters just as much: it still holds the plain-text secrets."""
     env_file = tmp_path / ".env"
     env_file.write_text(SAMPLE, encoding="utf-8")
     env_file.chmod(0o600)
@@ -198,6 +199,16 @@ def test_cli_keeps_the_file_permissions(tmp_path, monkeypatch):
     if os.name == "posix":  # chmod is a no-op on Windows
         assert (env_file.stat().st_mode & 0o777) == 0o600
         assert ((tmp_path / ".env.bak").stat().st_mode & 0o777) == 0o600
+
+
+def test_cli_says_the_backup_is_still_plain_text(tmp_path, monkeypatch, capsys):
+    """Leaving .env.bak lying around defeats the whole migration, so the
+    reminder has to be part of the output, not just the docs."""
+    env_file = tmp_path / ".env"
+    env_file.write_text(SAMPLE, encoding="utf-8")
+    _run(env_file, monkeypatch, tmp_path)
+    out = capsys.readouterr().out
+    assert "PLAIN TEXT" in out and "delete it" in out
 
 
 def test_cli_reports_a_missing_file(tmp_path, monkeypatch, capsys):

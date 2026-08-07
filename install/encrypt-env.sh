@@ -27,16 +27,25 @@ echo "== Restarting service =="
 systemctl restart order2homebox
 sleep 2
 if curl -fsS http://localhost:8000/health >/dev/null; then
-  echo "OK — the service is up with encrypted secrets."
+  echo "OK — the service started with encrypted secrets."
+  echo "(That only proves it started. Whether the decrypted password still logs"
+  echo " into Homebox is step 1 below — the client only connects when used.)"
   echo
-  echo "Two things worth knowing now:"
-  echo "  * data/secret.key is required to start. Back it up together with"
-  echo "    .env, but keep the two apart — either one alone is useless."
-  echo "  * If anything looks wrong, put the old file back:"
+  echo "STEP 1 — verify, on the settings page:"
+  echo "  * the Homebox row has to stay green — that is the decrypted password"
+  echo "    really logging in"
+  echo "  * a test print proves the print-agent key"
+  echo "  If either fails, put the old file back and nothing is lost:"
   echo "      cp $ENV_FILE.bak $ENV_FILE && systemctl restart order2homebox"
   echo
-  echo "Check the settings page: the Homebox row has to stay green (that proves"
-  echo "the decrypted password really logs in) and a test print proves the key."
+  echo "STEP 2 — then delete the backup:"
+  echo "      shred -u $ENV_FILE.bak"
+  echo "  It still holds the secrets in PLAIN TEXT, right next to the file that"
+  echo "  was just encrypted. Until it is gone, a snapshot or backup carries the"
+  echo "  password anyway — which is the whole point of this exercise."
+  echo
+  echo "From now on data/secret.key is required to start. Back it up, but keep"
+  echo "it apart from .env — either one alone is useless."
 else
   echo "WARNING: service did not respond on /health — check: journalctl -u order2homebox" >&2
   echo "Restore with: cp $ENV_FILE.bak $ENV_FILE && systemctl restart order2homebox" >&2

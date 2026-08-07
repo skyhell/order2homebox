@@ -27,6 +27,15 @@ Each version links to its GitHub release, which carries the full notes.
   than rewritten. Comments, order and unrelated keys stay byte-identical, the
   old file is kept as `.env.bak`, and a second run does nothing.
 
+  Both the rewritten file and the backup are created with the original
+  permissions from the first byte rather than widened and chmod-ed afterwards.
+  The output says plainly that `.env.bak` still holds the secrets in plain text
+  and has to be deleted once the new file is known to work — leaving it next to
+  the encrypted `.env` would hand the password to the next snapshot anyway. It
+  also points out that a successful `/health` only proves the service started:
+  the Homebox client connects lazily, so the settings page is what proves the
+  decrypted password actually logs in.
+
 ### Fixed
 
 - **The installer no longer passes secrets as command-line arguments.**

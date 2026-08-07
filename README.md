@@ -181,9 +181,19 @@ every other value stay byte-identical — and refuses to touch the file unless
 each new token decrypts back to exactly what was there. Then it restarts the
 service and checks `/health`. Running it again does nothing.
 
+`/health` only proves the service *started*. Open the settings page: the Homebox
+row has to stay green (that is the decrypted password logging in — the client
+connects lazily, so nothing before this point exercised it) and a test print
+proves the print-agent key. If either fails, roll back with
+`cp .env.bak .env && systemctl restart order2homebox`.
+
+**Then delete the backup** — `shred -u .env.bak`. It still holds the secrets in
+plain text next to the file that was just encrypted, so until it is gone the
+next snapshot or backup carries the password anyway.
+
 Afterwards the app **needs** `server/data/secret.key` to start. Back it up along
 with `.env`, but keep the two apart: either one alone is useless, which is the
-whole point. To undo: `cp .env.bak .env && systemctl restart order2homebox`.
+whole point.
 
 > Note: this protects against accidental disclosure (backups, git, sharing the
 > file), not against an attacker who already has read access to the container —

@@ -23,13 +23,26 @@
     </div>
 
     {# Only does anything with a second line, so the wording says so instead of
-       the checkbox appearing and disappearing while you type. #}
+       the checkbox appearing and disappearing while you type. The second box is
+       a refinement of the first and is hidden while the first is off — it has
+       nothing to refine then. #}
     <label class="check">
-      <input type="checkbox" id="text-keep-height" {% if keep_height %}checked{% endif %}
+      <input type="checkbox" id="text-keep-height"
+             {% if height_mode != 'grow' %}checked{% endif %}
              onchange="textLabelPreview()">
       <span>{{ t('text_keep_height') }}</span>
     </label>
     <p class="hint keep-height-hint">{{ t('text_keep_height_hint') }}</p>
+
+    <div id="force-height-row" class="force-height-row{% if height_mode == 'grow' %} hidden{% endif %}">
+      <label class="check">
+        <input type="checkbox" id="text-force-height"
+               {% if height_mode == HEIGHT_FORCE %}checked{% endif %}
+               onchange="textLabelPreview()">
+        <span>{{ t('text_force_height') }}</span>
+      </label>
+      <p class="hint keep-height-hint">{{ t('text_force_height_hint') }}</p>
+    </div>
 
     <div class="text-preview">
       <span class="preview-caption">{{ t('text_preview') }}</span>
@@ -48,7 +61,7 @@
               hx-vals='js:{line1: document.getElementById("text-line1").value,
                            line2: document.getElementById("text-line2").value,
                            copies: document.getElementById("text-copies").value,
-                           keep_height: document.getElementById("text-keep-height").checked}'
+                           height_mode: textHeightMode()}'
               hx-target="#text-print-status"
               hx-swap="innerHTML">{{ t('print_button') }}</button>
       <span id="text-print-status"></span>

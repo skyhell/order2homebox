@@ -25,6 +25,8 @@
   "text_line2_placeholder": "e.g. M4 × 20 mm",
   "text_keep_height": "Keep the label height with two lines",
   "text_keep_height_hint": "A second line then does not make the label longer — both lines are set smaller instead. Below roughly 3 mm of type the label does grow, so that it stays readable.",
+  "text_force_height": "Length over legibility — below 3 mm as well",
+  "text_force_height_hint": "The label stays exactly as long as a single-line one, however small the type has to get. With two longer lines that can mean 1.5 mm or less: readable up close, not from across the room.",
   "text_preview": "Preview",
   "text_preview_empty": "Type something — the preview shows the finished label.",
   "text_history": "Last printed",

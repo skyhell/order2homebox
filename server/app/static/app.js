@@ -116,6 +116,15 @@ function labelPreview(imgId, assetId, showText) {
   if (img) img.src = '/label/' + assetId + '.png?text=' + (showText ? 1 : 0);
 }
 
+// The two nested checkboxes as one value — must match labels.HEIGHT_* on the
+// server, which is the single definition of what these mean.
+function textHeightMode() {
+  var keep = document.getElementById('text-keep-height');
+  var force = document.getElementById('text-force-height');
+  if (!keep || !keep.checked) return 'grow';
+  return force && force.checked ? 'force' : 'keep';
+}
+
 // Text-label tool: the preview is the real rendering, fetched from the server,
 // so what you see is exactly the PNG the printer gets. Debounced — every
 // keystroke would otherwise render a label.
@@ -125,16 +134,22 @@ function textLabelPreview() {
   if (!img) return;
   var line1 = (document.getElementById('text-line1').value || '').trim();
   var line2 = (document.getElementById('text-line2').value || '').trim();
-  var keep = document.getElementById('text-keep-height');
   var any = line1 || line2;
   img.hidden = !any;
   if (empty) empty.hidden = !!any;
+
+  // The "even if it gets unreadable" box refines the one above it, so it only
+  // makes sense while that one is ticked.
+  var keep = document.getElementById('text-keep-height');
+  var row = document.getElementById('force-height-row');
+  if (row) row.classList.toggle('hidden', !(keep && keep.checked));
+
   window.clearTimeout(textLabelPreview.timer);
   if (!any) return;
   textLabelPreview.timer = window.setTimeout(function () {
     img.src = '/text.png?line1=' + encodeURIComponent(line1) +
               '&line2=' + encodeURIComponent(line2) +
-              '&keep=' + (keep && keep.checked ? 1 : 0);
+              '&height=' + textHeightMode();
   }, 250);
 }
 

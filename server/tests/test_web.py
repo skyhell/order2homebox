@@ -1,4 +1,5 @@
 import io
+import re
 
 import pytest
 
@@ -385,12 +386,21 @@ def test_label_resolve_requires_login(client):
 # -- text-only labels ---------------------------------------------------------
 
 
-def _clear_text_history():
+def _clear_text_prefs():
+    """Reset everything the text page remembers, so tests do not inherit the
+    history or the height mode from whichever ran before them."""
     from app import prefs
 
     data = prefs._read()
-    data.pop(prefs.TEXT_LABELS, None)
+    for key in (prefs.TEXT_LABELS, prefs.TEXT_HEIGHT_MODE, prefs.TEXT_KEEP_HEIGHT):
+        data.pop(key, None)
     prefs._write(data)
+
+
+def _is_checked(page: str, element_id: str) -> bool:
+    """Whether that one input carries `checked` — not just the page somewhere."""
+    tag = re.search(r'<input[^>]*id="%s"[^>]*>' % re.escape(element_id), page)
+    return tag is not None and "checked" in tag.group(0)
 
 
 def _stub_printer(monkeypatch):
@@ -426,7 +436,7 @@ def test_text_preview_without_text_is_not_an_error_image(logged_in):
 
 
 def test_text_print_sends_the_label_and_remembers_it(logged_in, monkeypatch):
-    _clear_text_history()
+    _clear_text_prefs()
     printed = _stub_printer(monkeypatch)
 
     response = logged_in.post(
@@ -446,7 +456,7 @@ def test_text_print_sends_the_label_and_remembers_it(logged_in, monkeypatch):
 
 
 def test_text_print_history_shows_up_on_the_page(logged_in, monkeypatch):
-    _clear_text_history()
+    _clear_text_prefs()
     _stub_printer(monkeypatch)
     logged_in.post("/text/print", data={"line1": "Kabel", "line2": "USB-C"})
 
@@ -460,7 +470,7 @@ def test_text_print_does_not_remember_a_label_that_failed(logged_in, monkeypatch
     must not put text there."""
     import app.main as main
 
-    _clear_text_history()
+    _clear_text_prefs()
 
     async def fake_print(png, copies=1):
         raise main.printer.PrintError("agent unreachable")
@@ -482,7 +492,7 @@ def test_text_print_without_text_is_refused(logged_in, monkeypatch):
 
 
 def test_text_history_keeps_a_repeat_once_and_first(logged_in, monkeypatch):
-    _clear_text_history()
+    _clear_text_prefs()
     _stub_printer(monkeypatch)
     for line1 in ("Kabel", "Schrauben", "Kabel"):
         logged_in.post("/text/print", data={"line1": line1})
@@ -492,30 +502,42 @@ def test_text_history_keeps_a_repeat_once_and_first(logged_in, monkeypatch):
     assert prefs.get_text_labels() == [["Kabel"], ["Schrauben"]]
 
 
-def test_text_page_offers_the_keep_height_checkbox(logged_in):
-    response = logged_in.get("/text")
-    assert 'id="text-keep-height"' in response.text
-
-
-def test_text_preview_follows_the_keep_height_flag(logged_in):
-    """The preview must show what would be printed, so the flag has to reach
-    the renderer — not just the print route."""
-    normal = logged_in.get("/text.png", params={"line1": "A4", "line2": "Sechskant M4"})
-    kept = logged_in.get(
-        "/text.png", params={"line1": "A4", "line2": "Sechskant M4", "keep": 1}
-    )
-    assert normal.status_code == kept.status_code == 200
-    assert normal.content != kept.content
-
+def _png_height(content):
     from PIL import Image
 
-    assert Image.open(io.BytesIO(kept.content)).height < (
-        Image.open(io.BytesIO(normal.content)).height
-    )
+    return Image.open(io.BytesIO(content)).height
 
 
-def test_text_print_uses_the_keep_height_flag_and_remembers_it(logged_in, monkeypatch):
-    _clear_text_history()
+def test_text_page_offers_both_height_checkboxes(logged_in):
+    response = logged_in.get("/text")
+    assert 'id="text-keep-height"' in response.text
+    assert 'id="text-force-height"' in response.text
+
+
+def test_text_preview_follows_every_height_mode(logged_in):
+    """The preview must show what would be printed, so the mode has to reach
+    the renderer — not just the print route."""
+    text = {"line1": "Werkstatt", "line2": "Regal 3"}
+    heights = {}
+    for mode in ("grow", "keep", "force"):
+        response = logged_in.get("/text.png", params={**text, "height": mode})
+        assert response.status_code == 200
+        heights[mode] = _png_height(response.content)
+    assert heights["force"] < heights["keep"] < heights["grow"]
+
+
+def test_text_preview_ignores_a_bogus_height_mode(logged_in):
+    """A hand-edited URL must not print something nobody chose."""
+    text = {"line1": "Werkstatt", "line2": "Regal 3"}
+    bogus = logged_in.get("/text.png", params={**text, "height": "../etc"})
+    plain = logged_in.get("/text.png", params=text)
+    assert bogus.status_code == 200
+    assert bogus.content == plain.content
+
+
+@pytest.mark.parametrize("mode", ["keep", "force"])
+def test_text_print_uses_the_height_mode_and_remembers_it(logged_in, monkeypatch, mode):
+    _clear_text_prefs()
     printed = _stub_printer(monkeypatch)
 
     from app import prefs
@@ -523,27 +545,50 @@ def test_text_print_uses_the_keep_height_flag_and_remembers_it(logged_in, monkey
 
     logged_in.post(
         "/text/print",
-        data={"line1": "A4", "line2": "Sechskant M4", "keep_height": "true"},
+        data={"line1": "Werkstatt", "line2": "Regal 3", "height_mode": mode},
     )
-    assert printed[0][0] == render_text_label_png(["A4", "Sechskant M4"], keep_height=True)
-    assert prefs.get_text_keep_height() is True
+    assert printed[0][0] == render_text_label_png(["Werkstatt", "Regal 3"], mode)
+    assert prefs.get_text_height_mode() == mode
 
-    # and the page comes back with the box ticked
-    assert 'id="text-keep-height" checked' in logged_in.get("/text").text
+    page = logged_in.get("/text").text
+    assert _is_checked(page, "text-keep-height")
+    assert _is_checked(page, "text-force-height") is (mode == "force")
 
 
-def test_text_print_without_the_flag_clears_the_preference(logged_in, monkeypatch):
+def test_text_print_without_a_mode_goes_back_to_growing(logged_in, monkeypatch):
     """The remembered mode follows the label that was actually printed, so
-    unticking it and printing has to stick as well."""
-    _clear_text_history()
+    unticking has to stick as well."""
+    _clear_text_prefs()
     _stub_printer(monkeypatch)
 
     from app import prefs
 
-    logged_in.post("/text/print", data={"line1": "a", "line2": "b", "keep_height": "true"})
-    assert prefs.get_text_keep_height() is True
+    logged_in.post("/text/print", data={"line1": "a", "line2": "b", "height_mode": "force"})
+    assert prefs.get_text_height_mode() == "force"
     logged_in.post("/text/print", data={"line1": "a", "line2": "b"})
-    assert prefs.get_text_keep_height() is False
+    assert prefs.get_text_height_mode() == "grow"
+
+
+def test_the_old_two_state_preference_still_reads(logged_in):
+    """Anyone who printed with the previous version has text_keep_height in
+    prefs.json; that must not silently reset their choice on update."""
+    from app import prefs
+
+    _clear_text_prefs()
+    data = prefs._read()
+    data[prefs.TEXT_KEEP_HEIGHT] = True
+    prefs._write(data)
+    try:
+        assert prefs.get_text_height_mode() == "keep"
+        assert _is_checked(logged_in.get("/text").text, "text-keep-height")
+    finally:
+        _clear_text_prefs()
+
+
+def test_the_force_row_is_hidden_until_the_box_above_is_ticked(logged_in):
+    """It refines the checkbox above it, so on its own it means nothing."""
+    _clear_text_prefs()
+    assert 'class="force-height-row hidden"' in logged_in.get("/text").text
 
 
 def test_text_print_requires_login(client):

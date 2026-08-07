@@ -115,6 +115,13 @@ TEXT_MIN_LINE_HEIGHT = 30
 TEXT_MIN_SIZE = 8
 TEXT_MAX_SIZE = 400
 
+# What a second line does to the length of the label.
+HEIGHT_GROW = "grow"  # it makes the label longer, in full-size type (default)
+HEIGHT_KEEP = "keep"  # both lines share the room one would have taken, but the
+#                       label still grows rather than fall below the floor
+HEIGHT_FORCE = "force"  # same room, whatever it costs in legibility
+HEIGHT_MODES = (HEIGHT_GROW, HEIGHT_KEEP, HEIGHT_FORCE)
+
 
 def clean_text_line(raw: str) -> str:
     """Normalize one line of user input: no line breaks, no runs of spaces."""
@@ -146,25 +153,30 @@ def _fit_line(text: str, max_width: int, max_height: int):
     return font, box
 
 
-def _line_cap(lines: list[str], max_width: int, keep_height: bool) -> int:
+def _line_cap(lines: list[str], max_width: int, height_mode: str) -> int:
     """How tall a single line may be.
 
-    Normally the full cap. With ``keep_height`` and a second line, the two
-    share the room the first line alone would have taken, so adding a line
-    costs no extra tape. That trade is real: the size follows from the width
-    today, so forcing the height means the text no longer spans it. The floor
-    stops the trade where the label would become unreadable — past that point
-    the label does get longer, which is the lesser evil.
+    Normally the full cap. In the other two modes a second line does not make
+    the label longer: both lines share the room the first one alone would have
+    taken. That trade is real, not free — the size follows from the width
+    today, so pinning the height means the text no longer spans it.
+
+    HEIGHT_KEEP stops the trade at the legibility floor and lets the label grow
+    after all; HEIGHT_FORCE keeps the length whatever it costs to read.
     """
-    if not keep_height or len(lines) < 2:
+    if height_mode == HEIGHT_GROW or len(lines) < 2:
         return TEXT_MAX_LINE_HEIGHT
     _, box = _fit_line(lines[0], max_width, TEXT_MAX_LINE_HEIGHT)
     single_line_height = box[3] - box[1]
     share = (single_line_height - TEXT_LINE_GAP) // 2
+    if height_mode == HEIGHT_FORCE:
+        return max(1, share)
     return max(TEXT_MIN_LINE_HEIGHT, share)
 
 
-def render_text_label(lines: list[str], keep_height: bool = False) -> Image.Image:
+def render_text_label(
+    lines: list[str], height_mode: str = HEIGHT_GROW
+) -> Image.Image:
     """One or two lines of text across the tape width, no QR code.
 
     Each line is fitted on its own, so both really do span the width — a short
@@ -172,18 +184,20 @@ def render_text_label(lines: list[str], keep_height: bool = False) -> Image.Imag
     as the text needs, because the tape is endless and every millimetre saved
     is tape not thrown away.
 
-    ``keep_height`` makes a second line fit into the height the first one alone
-    would have used, in smaller type, instead of making the label longer. Since
-    the cap is only ever an upper bound, this can never produce a label longer
-    than the same text without it.
+    ``height_mode`` decides what a second line costs: see HEIGHT_GROW /
+    HEIGHT_KEEP / HEIGHT_FORCE above. Since the cap is only ever an upper
+    bound, neither of the latter two can produce a label longer than the same
+    text with HEIGHT_GROW.
     """
     lines = [line for line in (clean_text_line(x) for x in lines) if line]
     lines = lines[:TEXT_MAX_LINES]
     if not lines:
         raise ValueError("a text label needs at least one non-empty line")
+    if height_mode not in HEIGHT_MODES:
+        height_mode = HEIGHT_GROW
 
     max_width = LABEL_WIDTH - 2 * TEXT_MARGIN_X
-    cap = _line_cap(lines, max_width, keep_height)
+    cap = _line_cap(lines, max_width, height_mode)
     fitted = [_fit_line(line, max_width, cap) for line in lines]
     # The ink box, not the font metrics: ascender/descender space the text does
     # not use would be printed as blank tape.
@@ -204,7 +218,7 @@ def render_text_label(lines: list[str], keep_height: bool = False) -> Image.Imag
     return label
 
 
-def render_text_label_png(lines: list[str], keep_height: bool = False) -> bytes:
+def render_text_label_png(lines: list[str], height_mode: str = HEIGHT_GROW) -> bytes:
     buf = BytesIO()
-    render_text_label(lines, keep_height).save(buf, format="PNG")
+    render_text_label(lines, height_mode).save(buf, format="PNG")
     return buf.getvalue()

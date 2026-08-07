@@ -46,20 +46,37 @@ Because the text runs *across* the 29 mm width, a long line necessarily comes
 out small — around 15 characters still print about 3 mm tall, 40 characters
 about 1 mm. Short labels are what this is for.
 
-### Keeping the label height (checkbox on the page)
+### What a second line costs (two checkboxes on the page)
 
-Normally a second line makes the label longer. With *keep the label height*
-ticked the two lines share the room the first one alone would have taken, so
-adding a line costs no extra tape.
+Three modes, `HEIGHT_GROW` / `HEIGHT_KEEP` / `HEIGHT_FORCE` in `labels.py`,
+picked by two nested checkboxes:
 
-There is a real trade-off behind that switch, and it is worth understanding
-before using it: the type size follows from the **width** today, so pinning the
-height means the text can no longer span the width. `A4` / `Sechskant M4` goes
-from 176 px to 115 px, which is what the mode is for. `Schrauben` /
-`M4 x 20 mm` only gets from 112 px to 96 px, because both lines hit the
-legibility floor — strictly equal height would have meant 14 px (1.3 mm) per
-line, filling barely a third of the width.
+| Mode | Checkboxes | A second line |
+| --- | --- | --- |
+| `grow` | both off (default) | makes the label longer, both lines full size |
+| `keep` | *keep the label height* | shares the room of one line, but never goes below the legibility floor |
+| `force` | plus *length over legibility* | shares the room whatever the type size ends up being |
 
-Two properties worth relying on: the mode never makes a label *longer* than the
-same text without it (the fit is bounded, never stretched), and it does nothing
-at all to a single-line label.
+The trade-off behind the switch is worth understanding before using it: the
+type size follows from the **width** today, so pinning the height means the
+text can no longer span it. Measured, in px of tape (÷ 10.55 for mm):
+
+| Text | one line | `grow` | `keep` | `force` |
+| --- | --- | --- | --- | --- |
+| `A4` / `Sechskant M4` | 134 | 176 | 115 | 115 |
+| `Werkstatt` / `Regal 3` | 70 | 156 | 95 | 70 |
+| `Schrauben` / `M4 x 20 mm` | 65 | 112 | 96 | 64 |
+| `Verzinkte Sechskantschrauben M4` / `Karton 12` | 36 | 93 | 78 | 50 |
+
+`keep` and `force` are identical wherever the floor never bites (first row).
+Where it does, `force` buys the tape with type as small as 1.3 mm — readable up
+close, not from across the room.
+
+Three properties worth relying on: neither mode makes a label *longer* than
+`grow` would (the fit is bounded, never stretched), `force` is never longer
+than `keep`, and neither does anything at all to a single-line label.
+
+`force` cannot always reach the single-line length: `_fit_line` will not go
+below `TEXT_MIN_SIZE`, so a first line that is already tiny leaves nothing to
+halve — the last row above ends at 50 px rather than 36 px. Below that size
+nothing is readable anyway.

@@ -23,7 +23,15 @@ from .auth import (
 from .config import settings
 from .homebox import HomeboxClient, HomeboxError
 from .i18n import LANG_COOKIE, get_lang, load_translations, t
-from .labels import clean_text_line, render_label_png, render_text_label_png
+from .labels import (
+    HEIGHT_FORCE,
+    HEIGHT_GROW,
+    HEIGHT_KEEP,
+    HEIGHT_MODES,
+    clean_text_line,
+    render_label_png,
+    render_text_label_png,
+)
 from .models import Order, OrderItemDraft, Shop
 from .scrapers import ParseFailed, ScrapeError, SessionExpired, get_scraper
 
@@ -479,7 +487,9 @@ async def text_label_tool(request: Request, user: str = Depends(require_login)):
         request,
         "text_label.html",
         history=prefs.get_text_labels(),
-        keep_height=prefs.get_text_keep_height(),
+        height_mode=prefs.get_text_height_mode(),
+        HEIGHT_KEEP=HEIGHT_KEEP,
+        HEIGHT_FORCE=HEIGHT_FORCE,
     )
 
 
@@ -487,7 +497,7 @@ async def text_label_tool(request: Request, user: str = Depends(require_login)):
 async def text_label_preview(
     line1: str = "",
     line2: str = "",
-    keep: int = 0,
+    height: str = HEIGHT_GROW,
     user: str = Depends(require_login),
 ):
     """Preview of the text label, refreshed while typing. The text is in the
@@ -495,7 +505,7 @@ async def text_label_preview(
     lines = _text_lines(line1, line2)
     if not lines:
         return Response(status_code=404)
-    png = render_text_label_png(lines, keep_height=bool(keep))
+    png = render_text_label_png(lines, height_mode=height)
     return Response(content=png, media_type="image/png")
 
 
@@ -505,7 +515,7 @@ async def print_text_label(
     line1: str = Form(""),
     line2: str = Form(""),
     copies: int = Form(1),
-    keep_height: bool = Form(False),
+    height_mode: str = Form(HEIGHT_GROW),
     user: str = Depends(require_login),
 ):
     lang = get_lang(request)
@@ -514,7 +524,9 @@ async def print_text_label(
         return HTMLResponse(
             f'<span class="print-status error-text">{t("err_text_empty", lang)}</span>'
         )
-    png = render_text_label_png(lines, keep_height=keep_height)
+    if height_mode not in HEIGHT_MODES:
+        height_mode = HEIGHT_GROW
+    png = render_text_label_png(lines, height_mode=height_mode)
     try:
         await printer.print_png(png, copies=max(1, min(copies, 20)))
     except printer.PrintError as exc:
@@ -524,7 +536,7 @@ async def print_text_label(
     # Only a label that really came out is worth remembering — same rule as the
     # last-used location. The list is swapped out of band because this response
     # already targets the status line.
-    prefs.remember_text_label(lines, keep_height)
+    prefs.remember_text_label(lines, height_mode)
     history = render_fragment(
         request, "_text_history.html", history=prefs.get_text_labels(), oob=True
     )

@@ -10,22 +10,27 @@ Each version links to its GitHub release, which carries the full notes.
 
 ### Added
 
-- **"Keep the label height with two lines"** on the text-label page. Ticked, a
-  second line fits into the room the first one alone would have taken, in
-  smaller type, instead of making the label longer.
+- **Control what a second text line costs in tape.** Two nested checkboxes on
+  the text-label page, three modes in all.
 
-  The switch exists because the two goals cannot both be met: the type size
-  follows from the *width* today, so pinning the height means the text no longer
-  spans it. Where that would go too far the label is allowed to grow after all —
-  below roughly 3 mm of type a label stops being readable, and strictly equal
-  height would have meant 1.3 mm type filling a third of the width for something
-  like `Schrauben` / `M4 x 20 mm`. `A4` / `Sechskant M4` goes from 176 px to
-  115 px, which is the case the mode is for.
+  *Keep the label height with two lines*: the second line fits into the room the
+  first one alone would have taken, in smaller type, instead of making the label
+  longer. The switch exists because the two goals cannot both be met — the type
+  size follows from the *width*, so pinning the height means the text no longer
+  spans it. Where that would go too far the label is allowed to grow after all:
+  below roughly 3 mm of type a label stops being readable.
 
-  Two properties it is safe to rely on: the mode never produces a label *longer*
-  than the same text without it, and it does nothing to a single-line label. The
-  choice is remembered in `data/prefs.json`, following the label that was
-  actually printed — the same rule the history and the last-used location use.
+  *Length over legibility* (only offered once the first box is ticked) drops that
+  floor. The label then keeps the length of a single-line one whatever the type
+  size ends up being. `Werkstatt` / `Regal 3` goes 156 px → 95 px → 70 px across
+  the three modes, the last at 1.6 mm of type: readable up close, not from
+  across the room.
+
+  Three properties it is safe to rely on: neither mode produces a label *longer*
+  than leaving both boxes off, the second is never longer than the first, and
+  neither does anything at all to a single-line label. The choice is remembered
+  in `data/prefs.json`, following the label that was actually printed — the same
+  rule the history and the last-used location use.
 
 ## [0.9.1] — 2026-08-07
 

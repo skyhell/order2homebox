@@ -2,6 +2,9 @@ import pytest
 from PIL import ImageChops
 
 from app.labels import (
+    HEIGHT_FORCE,
+    HEIGHT_GROW,
+    HEIGHT_KEEP,
     LABEL_WIDTH,
     TEXT_MARGIN_X,
     TEXT_MARGIN_Y,
@@ -136,43 +139,82 @@ def test_clean_text_line_normalizes_input():
     assert len(clean_text_line("x" * 200)) == TEXT_MAX_CHARS
 
 
+TWO_LINE_CASES = [
+    ["Schrauben", "M4 x 20 mm"],
+    ["A4", "Sechskant M4"],
+    ["Werkstatt", "Regal 3"],
+    ["Verzinkte Sechskantschrauben M4", "Karton 12"],
+]
+
+
 def test_keep_height_puts_two_lines_in_the_room_of_one():
     """The point of the mode: a second line costs no extra tape."""
     one = render_text_label(["A4"])
-    two = render_text_label(["A4", "Sechskant M4"], keep_height=True)
+    two = render_text_label(["A4", "Sechskant M4"], HEIGHT_KEEP)
     assert two.height <= one.height
     # and it really is smaller type, not a clipped line
     assert _ink(two)[3] - _ink(two)[1] < _ink(one)[3] - _ink(one)[1]
 
 
-def test_keep_height_never_makes_a_label_longer():
-    """The cap is only ever an upper bound, so the mode cannot backfire — a
+@pytest.mark.parametrize("mode", [HEIGHT_KEEP, HEIGHT_FORCE])
+def test_no_height_mode_ever_makes_a_label_longer(mode):
+    """The cap is only ever an upper bound, so neither mode can backfire — a
     'save tape' switch that sometimes costs tape would be worse than useless."""
-    for lines in (
-        ["Schrauben", "M4 x 20 mm"],
-        ["A4", "Sechskant M4"],
-        ["Werkstatt", "Regal 3"],
-        ["Verzinkte Sechskantschrauben M4", "Karton 12"],
-    ):
-        normal = render_text_label(lines)
-        kept = render_text_label(lines, keep_height=True)
-        assert kept.height <= normal.height, lines
+    for lines in TWO_LINE_CASES:
+        grown = render_text_label(lines)
+        assert render_text_label(lines, mode).height <= grown.height, lines
+
+
+def test_force_is_never_longer_than_keep():
+    """The two are ordered: dropping the floor can only ever save more tape."""
+    for lines in TWO_LINE_CASES:
+        kept = render_text_label(lines, HEIGHT_KEEP)
+        assert render_text_label(lines, HEIGHT_FORCE).height <= kept.height, lines
 
 
 def test_keep_height_stops_at_a_readable_size():
     """Two long lines cannot both shrink into the room of one without becoming
-    unreadable — there the label is allowed to grow instead."""
+    unreadable — HEIGHT_KEEP lets the label grow rather than go below the floor."""
     lines = ["Schrauben", "M4 x 20 mm"]
-    kept = render_text_label(lines, keep_height=True)
+    kept = render_text_label(lines, HEIGHT_KEEP)
     per_line = (kept.height - 2 * TEXT_MARGIN_Y - TEXT_LINE_GAP) / 2
     assert per_line >= TEXT_MIN_LINE_HEIGHT
-    # strictly equal height would have been ~14 px per line, i.e. 1.3 mm
     assert kept.height > render_text_label(["Schrauben"]).height
 
 
-def test_keep_height_changes_nothing_for_a_single_line():
-    assert render_text_label_png(["Werkstatt"], keep_height=True) == (
+def test_force_holds_the_length_of_the_single_line_label():
+    """What HEIGHT_FORCE is for: the same tape as one line, legibility be
+    damned. Exactly where HEIGHT_KEEP refuses to go."""
+    lines = ["Schrauben", "M4 x 20 mm"]
+    one = render_text_label([lines[0]])
+    forced = render_text_label(lines, HEIGHT_FORCE)
+    assert forced.height <= one.height
+    per_line = (forced.height - 2 * TEXT_MARGIN_Y - TEXT_LINE_GAP) / 2
+    assert per_line < TEXT_MIN_LINE_HEIGHT  # below what KEEP would allow
+    assert forced.height < render_text_label(lines, HEIGHT_KEEP).height
+
+
+def test_force_still_cannot_go_below_the_smallest_font():
+    """A first line that is already tiny leaves no room to halve. The font has
+    a floor of its own, so the label comes out a little longer than the
+    one-liner — still far shorter than letting it grow."""
+    lines = ["Verzinkte Sechskantschrauben M4", "Karton 12"]
+    forced = render_text_label(lines, HEIGHT_FORCE)
+    assert forced.height > render_text_label([lines[0]]).height
+    assert forced.height < render_text_label(lines).height
+
+
+@pytest.mark.parametrize("mode", [HEIGHT_KEEP, HEIGHT_FORCE])
+def test_height_modes_change_nothing_for_a_single_line(mode):
+    assert render_text_label_png(["Werkstatt"], mode) == (
         render_text_label_png(["Werkstatt"])
+    )
+
+
+def test_an_unknown_height_mode_falls_back_to_growing():
+    """A hand-edited URL must not produce a label nobody asked for."""
+    assert render_text_label_png(["a", "b"], "nonsense") == (
+        render_text_label_png(["a", "b"], HEIGHT_GROW)
     )
 
 

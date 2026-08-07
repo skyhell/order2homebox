@@ -25,6 +25,8 @@
   "text_line2_placeholder": "z. B. M4 × 20 mm",
   "text_keep_height": "Bei zwei Zeilen die Etikettenhöhe beibehalten",
   "text_keep_height_hint": "Die zweite Zeile verlängert das Etikett dann nicht — beide Zeilen werden dafür kleiner gesetzt. Unter etwa 3 mm Schrifthöhe wird das Etikett doch länger, damit es lesbar bleibt.",
+  "text_force_height": "Länge vor Lesbarkeit — auch unter 3 mm",
+  "text_force_height_hint": "Das Etikett wird genauso lang wie einzeilig, egal wie klein die Schrift dafür wird. Bei zwei längeren Zeilen können das 1,5 mm oder weniger sein: von Nahem lesbar, nicht mehr aus dem Regal.",
   "text_preview": "Vorschau",
   "text_preview_empty": "Text eingeben — die Vorschau zeigt das fertige Etikett.",
   "text_history": "Zuletzt gedruckt",

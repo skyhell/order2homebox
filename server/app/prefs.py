@@ -13,7 +13,8 @@ from .config import settings
 LAST_LOCATION = "last_location_id"
 TEXT_LABELS = "text_labels"
 TEXT_LABELS_MAX = 8  # enough to find a repeat, short enough to stay scannable
-TEXT_KEEP_HEIGHT = "text_keep_height"
+TEXT_HEIGHT_MODE = "text_height_mode"
+TEXT_KEEP_HEIGHT = "text_keep_height"  # superseded by the above; still read
 
 
 def _path() -> Path:
@@ -60,12 +61,19 @@ def get_text_labels() -> list[list[str]]:
     return clean[:TEXT_LABELS_MAX]
 
 
-def get_text_keep_height() -> bool:
-    """Whether the text page starts with 'keep the label height' ticked."""
-    return _read().get(TEXT_KEEP_HEIGHT) is True
+def get_text_height_mode() -> str:
+    """Which height mode the text page starts in (see labels.HEIGHT_*)."""
+    from .labels import HEIGHT_GROW, HEIGHT_KEEP, HEIGHT_MODES
+
+    data = _read()
+    mode = data.get(TEXT_HEIGHT_MODE)
+    if mode in HEIGHT_MODES:
+        return mode
+    # Written by the version that only had the two-state checkbox.
+    return HEIGHT_KEEP if data.get(TEXT_KEEP_HEIGHT) is True else HEIGHT_GROW
 
 
-def remember_text_label(lines: list[str], keep_height: bool = False) -> None:
+def remember_text_label(lines: list[str], height_mode: str = "") -> None:
     """Remember a text label that was really printed.
 
     Moves a repeat back to the front instead of storing it twice, so the list
@@ -79,7 +87,10 @@ def remember_text_label(lines: list[str], keep_height: bool = False) -> None:
     data[TEXT_LABELS] = [lines] + history[: TEXT_LABELS_MAX - 1]
     # The mode travels with the print, not with the checkbox: the page should
     # come back the way the last label was actually made.
-    data[TEXT_KEEP_HEIGHT] = bool(keep_height)
+    from .labels import HEIGHT_GROW, HEIGHT_MODES
+
+    data[TEXT_HEIGHT_MODE] = height_mode if height_mode in HEIGHT_MODES else HEIGHT_GROW
+    data.pop(TEXT_KEEP_HEIGHT, None)  # the old two-state flag is now ambiguous
     _write(data)
 
 

@@ -60,6 +60,24 @@ def test_asset_id_text_adds_height():
     assert with_text.width == without_text.width == LABEL_WIDTH
 
 
+def test_asset_id_never_runs_into_the_next_cell():
+    """Three codes leave a 102 px cell; "12345-678" is 121 px at the default
+    size and would print across the neighbouring code, making it unscannable.
+    The UI does not offer the combination, but O2H_LABEL_QR_PER_ROW can."""
+    from PIL import ImageChops
+
+    label = render_label("12345-678", QR_URL, show_asset_id=True, qr_per_row=3)
+    cell = LABEL_WIDTH // 3
+    # the strip holding the text of the middle cell, below the QR codes
+    qr_height = render_label("12345-678", QR_URL, show_asset_id=False, qr_per_row=3).height
+    text_band = label.crop((0, qr_height - 6, LABEL_WIDTH, label.height))
+    for i in range(3):
+        ink = ImageChops.invert(text_band.crop((i * cell, 0, (i + 1) * cell, text_band.height)))
+        box = ink.getbbox()
+        assert box is not None, f"cell {i} has no text"
+        assert box[0] >= 0 and box[2] <= cell, f"cell {i} text spills over: {box}"
+
+
 def test_single_qr_layout():
     label = render_label("000-123", QR_URL, show_asset_id=False, qr_per_row=1)
     assert label.width == LABEL_WIDTH

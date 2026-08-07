@@ -76,11 +76,23 @@
         <input type="checkbox" name="item-{{ idx }}-print" {% if want_print | default(true) %}checked{% endif %}>
         <span>{{ t('print_after_create') }}</span>
       </label>
+      {# Three codes leave a 102 px cell; an asset id can be 121 px wide and
+         would print across the neighbouring code. So the id is not on offer
+         here — app.js unticks and disables it. #}
       <label class="check">
-        <input type="checkbox" name="item-{{ idx }}-showid"
+        <input type="checkbox" name="item-{{ idx }}-showid" id="showid-{{ idx }}"
                {% if want_show_id | default(show_asset_id_default) %}checked{% endif %}>
         <span>{{ t('print_with_id') }}</span>
       </label>
+      <label class="check">
+        <input type="checkbox" name="item-{{ idx }}-qr3" id="qr3-{{ idx }}"
+               {% if want_qr3 | default(false) %}checked{% endif %}
+               onchange="updateQrCount('{{ idx }}')">
+        <span>{{ t('print_three_up') }}</span>
+      </label>
+      {# Shown only while it applies: three per row drops the module size to
+         about 0.17 mm, which is at the edge of what a phone camera reads. #}
+      <span class="hint" id="qr3-hint-{{ idx }}" hidden>{{ t('print_three_up_hint') }}</span>
     </div>
     <button type="button" class="btn btn-secondary"
             hx-post="/create-item"

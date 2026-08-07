@@ -18,21 +18,25 @@
           <span>{{ t('print_copies') }}</span>
           <input class="input input-sm" type="number" id="copies-{{ idx }}" value="1" min="1" max="20">
         </label>
-        <label class="check">
+        {# At three codes per row the id has no room beside them, so it is not
+           offered here either — the hidden checkbox keeps the hx-vals below
+           working without a second code path. #}
+        <label class="check{% if r.qr_per_row == 3 %} hidden{% endif %}">
           <input type="checkbox" id="show-text-{{ idx }}" {% if r.show_asset_id %}checked{% endif %}
-                 onchange="labelPreview('preview-{{ idx }}', '{{ r.item.assetId }}', this.checked)">
+                 onchange="labelPreview('preview-{{ idx }}', '{{ r.item.assetId }}', this.checked, {{ r.qr_per_row }})">
           <span>{{ t('print_with_id') }}</span>
         </label>
+        {% if r.qr_per_row == 3 %}<span class="hint">{{ t('printed_three_up') }}</span>{% endif %}
         <button type="button" class="btn btn-primary"
                 hx-post="/print"
-                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("show-text-{{ idx }}").checked}'
+                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("show-text-{{ idx }}").checked, qr_per_row: {{ r.qr_per_row }}}'
                 hx-target="#print-status-{{ idx }}"
                 hx-swap="innerHTML">{{ t('print_button') }}</button>
         <span id="print-status-{{ idx }}"></span>
       </div>
     </div>
     <div class="result-preview">
-      <img id="preview-{{ idx }}" src="/label/{{ r.item.assetId }}.png?text={{ 1 if r.show_asset_id else 0 }}" alt="Label preview" class="label-preview">
+      <img id="preview-{{ idx }}" src="/label/{{ r.item.assetId }}.png?text={{ 1 if r.show_asset_id else 0 }}&count={{ r.qr_per_row }}" alt="Label preview" class="label-preview">
     </div>
   </div>
 </div>

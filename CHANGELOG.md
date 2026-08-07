@@ -10,6 +10,25 @@ Each version links to its GitHub release, which carries the full notes.
 
 ### Added
 
+- **Three QR codes across the width, per item.** A checkbox on every item card
+  for small parts you have several of: three identical codes instead of two,
+  cut into three labels. The choice travels into the result card, so a reprint
+  produces the same label.
+
+  The asset ID is not printed with it. A three-up cell is 102 px and an id like
+  `12345-678` is 121 px at the default size — it would print straight across the
+  neighbouring code and make it unscannable. The checkbox for the id is unticked
+  and disabled while three-up is on, `/print` refuses the combination, and the
+  renderer now shrinks the id to fit its cell as a last resort, because
+  `O2H_LABEL_QR_PER_ROW=3` and `O2H_LABEL_SHOW_ASSET_ID=1` can still be set
+  together in `.env` — that produced an overlapping label before.
+
+  What it costs is stated on the card rather than left to be discovered: with a
+  39-character QR URL the module scale drops to 2 px (0.17 mm) and the code to
+  4.9 mm, which is at the edge of what a phone camera reads. The integer module
+  scale makes this a cliff, not a slope — 90 px of box over 33 modules gives 2,
+  and 2.7 is not available.
+
 - **Correcting the quantity on an item card re-splits the price.** A card that
   arrives as 1 × 87.03 and turns out to be three pieces becomes 3 × 29.01, not
   3 × 87.03 — what the order actually charged is kept, and only its split

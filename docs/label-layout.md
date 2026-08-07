@@ -10,7 +10,7 @@
 | Printer resolution | 300 dpi |
 | Printable width | **306 px** (fixed — the renderer always outputs exactly this) |
 | Label length | dynamic, ≈ 178 px ≈ 15 mm with default settings |
-| QR codes per row | 2 (configurable via `O2H_LABEL_QR_PER_ROW`, 1–3) |
+| QR codes per row | 2 (default via `O2H_LABEL_QR_PER_ROW`, 1–3; per item on the edit page) |
 | QR content | `{O2H_HOMEBOX_PUBLIC_URL or O2H_HOMEBOX_URL}/a/{asset_id}` |
 | Error correction | M |
 | Quiet zone | 2 modules |
@@ -22,6 +22,30 @@ auto-cutter — use the built-in manual cutter lever.
 
 The renderer lives in `server/app/labels.py`; the module scale is always an
 integer so QR modules map 1:1 onto printer dots (no dithering artifacts).
+
+### How many codes per row
+
+Every item card offers *three small labels instead of two*, for small parts you
+have several of. What that costs, measured with a 39-character QR URL
+(`https://box.example.org/a/000-629`, version 3, 29 modules):
+
+| Per row | Cell | Module scale | Code | Label length |
+| --- | --- | --- | --- | --- |
+| 1 | 306 px | 8 px = 0.68 mm | 19.6 mm | 336 px ≈ 32 mm |
+| 2 | 153 px | 4 px = 0.34 mm | 9.8 mm | 162 px ≈ 15 mm |
+| 3 | 102 px | 2 px = 0.17 mm | 4.9 mm | 133 px ≈ 13 mm |
+
+Three per row is at the edge of what a phone camera reads — **test one before
+relying on it**, the UI says so too. The integer module scale is what makes it a
+cliff rather than a slope: 90 px of usable box divided by 33 modules gives 2, and
+2.7 is not available.
+
+The asset ID is **not** printed at three per row. A cell is 102 px and an id
+like `12345-678` is 121 px at the default size — it would print straight across
+the neighbouring code and make it unscannable. The edit page unticks and
+disables the id checkbox, `/print` refuses the combination, and the renderer
+shrinks the font to fit as a last resort, because `O2H_LABEL_QR_PER_ROW=3` can
+still be combined with `O2H_LABEL_SHOW_ASSET_ID=1` in `.env`.
 
 ## Text labels
 

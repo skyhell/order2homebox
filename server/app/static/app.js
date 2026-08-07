@@ -102,6 +102,35 @@ document.addEventListener('DOMContentLoaded', updateApplyAllButtons);
 // changes how many location selects are left.
 document.addEventListener('htmx:load', updateApplyAllButtons);
 
+// Three codes across the width leave a 102 px cell, and an asset id can be
+// 121 px wide — it would print across the neighbouring code. So the id is not
+// a choice at three per row: the box goes off and stays off while it is on.
+function updateQrCount(idx) {
+  var three = document.getElementById('qr3-' + idx);
+  var showId = document.getElementById('showid-' + idx);
+  if (!three || !showId) return;
+  if (three.checked) {
+    if (showId.checked) showId.dataset.wasChecked = '1';
+    showId.checked = false;
+  } else if (showId.dataset.wasChecked) {
+    showId.checked = true; // put back what was there before
+    delete showId.dataset.wasChecked;
+  }
+  showId.disabled = three.checked;
+  showId.closest('.check').classList.toggle('check-disabled', three.checked);
+  var hint = document.getElementById('qr3-hint-' + idx);
+  if (hint) hint.hidden = !three.checked;
+}
+
+function initQrCounts() {
+  document.querySelectorAll('input[id^="qr3-"]').forEach(function (box) {
+    updateQrCount(box.id.slice('qr3-'.length));
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initQrCounts);
+document.addEventListener('htmx:load', initQrCounts);
+
 // ---- unit price follows the quantity ---------------------------------------
 // The scraped price and count multiply out to what the order actually charged.
 // Correcting the count therefore re-splits that sum instead of re-pricing the
@@ -174,9 +203,11 @@ function removeItemCard(idx) {
 
 // Keep a label preview in sync with its "print asset ID" checkbox, so the
 // picture always shows what the printer would produce.
-function labelPreview(imgId, assetId, showText) {
+function labelPreview(imgId, assetId, showText, count) {
   var img = document.getElementById(imgId);
-  if (img) img.src = '/label/' + assetId + '.png?text=' + (showText ? 1 : 0);
+  if (!img) return;
+  img.src = '/label/' + assetId + '.png?text=' + (showText ? 1 : 0) +
+            (count ? '&count=' + count : '');
 }
 
 // The two nested checkboxes as one value — must match labels.HEIGHT_* on the

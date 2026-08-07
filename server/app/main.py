@@ -274,7 +274,7 @@ def _order_from_form(form) -> Order:
 
 def _item_from_form(form, i: int):
     """Item fields for index i → (draft, location_id, label_ids, want_print,
-    show_id), or None when the card was removed in the UI."""
+    show_id, qr_per_row), or None when the card was removed in the UI."""
     if f"item-{i}-name" not in form:
         return None
     try:
@@ -297,7 +297,13 @@ def _item_from_form(form, i: int):
     label_ids = [str(v) for v in form.getlist(f"item-{i}-labels")]
     want_print = form.get(f"item-{i}-print") is not None
     show_id = form.get(f"item-{i}-showid") is not None
-    return draft, location_id, label_ids, want_print, show_id
+    # Three small codes for a small part you have several of. The id has no
+    # room next to them, so it is not printed regardless of the checkbox — a
+    # disabled checkbox is not submitted at all, this just makes it explicit.
+    qr_per_row = 3 if form.get(f"item-{i}-qr3") is not None else settings.label_qr_per_row
+    if qr_per_row == 3:
+        show_id = False
+    return draft, location_id, label_ids, want_print, show_id, qr_per_row
 
 
 async def _create_and_print(
@@ -307,7 +313,9 @@ async def _create_and_print(
     label_ids: list[str],
     want_print: bool,
     show_id: bool,
+    qr_per_row: int = 0,
 ) -> dict:
+    qr_per_row = qr_per_row or settings.label_qr_per_row
     entry = {
         "draft": draft,
         "error": "",
@@ -317,6 +325,7 @@ async def _create_and_print(
         # Carried into the result card so its checkbox and preview show what
         # was actually printed, not the global default.
         "show_asset_id": show_id,
+        "qr_per_row": qr_per_row,
     }
     try:
         item = await homebox.create_item(draft, order, location_id, label_ids)
@@ -329,7 +338,7 @@ async def _create_and_print(
             item["assetId"],
             homebox.asset_qr_url(item["assetId"]),
             show_asset_id=show_id,
-            qr_per_row=settings.label_qr_per_row,
+            qr_per_row=qr_per_row,
         )
         try:
             await printer.print_png(png, copies=1)
@@ -351,9 +360,9 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         parsed = _item_from_form(form, i)
         if parsed is None or not parsed[0].name:
             continue  # card removed or already created via its own button
-        draft, location_id, label_ids, want_print, show_id = parsed
+        draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
         entry = await _create_and_print(
-            draft, order, location_id, label_ids, want_print, show_id
+            draft, order, location_id, label_ids, want_print, show_id, qr_per_row
         )
         if entry["item"]:
             prefs.set_last_location_id(location_id)
@@ -380,7 +389,7 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     parsed = _item_from_form(form, idx)
     if parsed is None:
         return HTMLResponse(status_code=400)
-    draft, location_id, label_ids, want_print, show_id = parsed
+    draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
 
     async def card_with_error(message: str) -> HTMLResponse:
         try:
@@ -400,13 +409,14 @@ async def create_single_item(request: Request, user: str = Depends(require_login
             selected_label_ids=label_ids,
             want_print=want_print,
             want_show_id=show_id,
+            want_qr3=qr_per_row == 3,
         )
 
     if not draft.name:
         return await card_with_error(t("err_name_required", lang))
 
     entry = await _create_and_print(
-        draft, order, location_id, label_ids, want_print, show_id
+        draft, order, location_id, label_ids, want_print, show_id, qr_per_row
     )
     if entry["error"]:
         return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
@@ -572,16 +582,19 @@ async def print_label(
     asset_id: str = Form(...),
     copies: int = Form(1),
     show_text: bool = Form(False),
+    qr_per_row: int = Form(0),
     user: str = Depends(require_login),
 ):
     lang = get_lang(request)
     if not ASSET_ID_RE.match(asset_id):
         return HTMLResponse(f'<span class="print-status error-text">?</span>')
+    qr_per_row = qr_per_row or settings.label_qr_per_row
     png = render_label_png(
         asset_id,
         homebox.asset_qr_url(asset_id),
-        show_asset_id=show_text,
-        qr_per_row=settings.label_qr_per_row,
+        # Reprinting must not put the id back where there is no room for it.
+        show_asset_id=show_text and qr_per_row != 3,
+        qr_per_row=qr_per_row,
     )
     try:
         await printer.print_png(png, copies=max(1, min(copies, 20)))

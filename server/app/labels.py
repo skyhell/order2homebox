@@ -55,6 +55,22 @@ def _qr_image(content: str, box_px: int) -> Image.Image:
     return Image.open(buf).convert("L")
 
 
+def _asset_id_font(draw: ImageDraw.ImageDraw, asset_id: str, max_width: int):
+    """A font size at which the id stays inside its own cell.
+
+    At three codes per row a cell is 102 px and ``12345-678`` is 121 px at the
+    default size — it would print straight across the neighbouring QR code and
+    make it unscannable. The UI does not offer the id at three per row, but
+    ``O2H_LABEL_QR_PER_ROW`` can still ask for both.
+    """
+    size = FONT_SIZE
+    font = _font(size)
+    while size > 8 and draw.textlength(asset_id, font=font) > max_width:
+        size -= 1
+        font = _font(size)
+    return font
+
+
 def render_label(
     asset_id: str,
     qr_content: str,
@@ -69,7 +85,7 @@ def render_label(
     height = CELL_PADDING + qr_img.height + text_height + CELL_PADDING
     label = Image.new("L", (LABEL_WIDTH, height), 255)
     draw = ImageDraw.Draw(label)
-    font = _font()
+    font = _asset_id_font(draw, asset_id, cell_width - 2 * CELL_PADDING)
 
     for i in range(qr_per_row):
         cell_x = i * cell_width

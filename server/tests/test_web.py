@@ -134,6 +134,101 @@ def test_item_card_asset_id_checkbox_controls_the_printed_label(logged_in, monke
     assert 'id="show-text-1" checked' in response.text
 
 
+def _stub_create_and_capture(monkeypatch, captured):
+    """Records how each label was rendered, per item."""
+    import app.main as main
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append({"show_asset_id": show_asset_id, "qr_per_row": qr_per_row})
+        return b"PNG"
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+
+
+def test_item_card_three_up_checkbox_prints_three_codes(logged_in, monkeypatch):
+    """Small parts you have several of: three codes across the width."""
+    captured = []
+    _stub_create_and_capture(monkeypatch, captured)
+    logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "O-Ring", "item-1-quantity": "1",
+        "item-1-print": "on", "item-1-qr3": "on",
+    })
+    assert captured == [{"show_asset_id": False, "qr_per_row": 3}]
+
+
+def test_three_up_wins_over_the_asset_id_checkbox(logged_in, monkeypatch):
+    """A three-up cell is 102 px and an asset id can be 121 px — printing both
+    would lay the text across the neighbouring code. The form cannot ask for
+    the combination even if the checkbox is somehow submitted."""
+    captured = []
+    _stub_create_and_capture(monkeypatch, captured)
+    logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "O-Ring", "item-1-quantity": "1",
+        "item-1-print": "on", "item-1-qr3": "on", "item-1-showid": "on",
+    })
+    assert captured == [{"show_asset_id": False, "qr_per_row": 3}]
+
+
+def test_without_the_checkbox_the_configured_count_is_used(logged_in, monkeypatch):
+    captured = []
+    _stub_create_and_capture(monkeypatch, captured)
+    logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "USB Hub", "item-1-quantity": "1",
+        "item-1-print": "on", "item-1-showid": "on",
+    })
+    from app.config import settings
+
+    assert captured == [
+        {"show_asset_id": True, "qr_per_row": settings.label_qr_per_row}
+    ]
+
+
+def test_three_up_travels_into_the_result_card(logged_in, monkeypatch):
+    """The result card must reprint what was printed, not the default."""
+    _stub_create_and_capture(monkeypatch, [])
+    body = logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "O-Ring", "item-1-quantity": "1",
+        "item-1-print": "on", "item-1-qr3": "on",
+    }).text
+    assert "count=3" in body  # preview
+    assert "qr_per_row: 3" in body  # reprint
+    assert 'class="check hidden"' in body  # the id checkbox is not on offer
+
+
+def test_reprinting_three_up_never_adds_the_asset_id(logged_in, monkeypatch):
+    """Even if the POST asks for both — the print route is reachable directly."""
+    import app.main as main
+
+    captured = []
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append({"show_asset_id": show_asset_id, "qr_per_row": qr_per_row})
+        return b"PNG"
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "show_text": "true", "qr_per_row": "3",
+    })
+    assert captured == [{"show_asset_id": False, "qr_per_row": 3}]
+
+
 def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, monkeypatch):
     calls = []
     import app.main as main
@@ -222,7 +317,7 @@ def test_result_card_print_controls_carry_no_form_field_names(logged_in, monkeyp
     assert 'asset_id: "000-007"' in body  # the card's own id, not a shared field
     # the preview must follow the checkbox, else it shows a label that is not printed
     assert 'id="preview-1"' in body
-    assert "labelPreview('preview-1', '000-007', this.checked)" in body
+    assert "labelPreview('preview-1', '000-007', this.checked, 2)" in body
 
 
 def test_create_single_item_without_name_keeps_card(logged_in, monkeypatch):

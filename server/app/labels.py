@@ -1,9 +1,12 @@
-"""Render QR labels for the Brother QL-500 on DK-22211 (29 mm endless).
+"""Render labels for the Brother QL-500 on DK-22211 (29 mm endless).
 
 The printable width of 29 mm endless tape is exactly 306 px at 300 dpi.
-Default layout: two identical QR codes side by side across the width
+Default QR layout: two identical QR codes side by side across the width
 (cut apart by hand — the QL-500 has no auto-cutter), each with the
 Homebox asset ID underneath.
+
+``render_text_label`` produces the second kind: plain text, no QR code, for
+labelling things that are not Homebox items.
 """
 from io import BytesIO
 from pathlib import Path
@@ -32,7 +35,12 @@ def _font(size: int = FONT_SIZE) -> ImageFont.ImageFont:
                 return ImageFont.truetype(candidate, size)
             except OSError:
                 continue
-    return ImageFont.load_default()
+    try:
+        # No system font: the built-in one must still follow the requested size,
+        # otherwise a text label would come out at one fixed tiny size.
+        return ImageFont.load_default(size=size)
+    except TypeError:  # Pillow < 10.1 cannot size the built-in font
+        return ImageFont.load_default()
 
 
 def _qr_image(content: str, box_px: int) -> Image.Image:
@@ -86,4 +94,89 @@ def render_label_png(
     image = render_label(asset_id, qr_content, show_asset_id, qr_per_row)
     buf = BytesIO()
     image.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# -- text-only labels ---------------------------------------------------------
+
+TEXT_MAX_LINES = 2
+TEXT_MAX_CHARS = 60  # per line; beyond this the letters get too small to read
+TEXT_MARGIN_X = 12  # px kept clear at both ends of the tape width
+TEXT_MARGIN_Y = 12  # px above the first line and below the last
+TEXT_LINE_GAP = 12  # px between the two lines
+# A line is grown until it hits the tape width — or this. Without the cap a
+# two-letter label would print letters 3 cm tall and eat a hand's length of
+# tape; 110 px is roughly 10 mm, still readable across a workshop.
+TEXT_MAX_LINE_HEIGHT = 110
+TEXT_MIN_SIZE = 8
+TEXT_MAX_SIZE = 400
+
+
+def clean_text_line(raw: str) -> str:
+    """Normalize one line of user input: no line breaks, no runs of spaces."""
+    return " ".join((raw or "").split())[:TEXT_MAX_CHARS]
+
+
+def _fit_line(text: str, max_width: int, max_height: int):
+    """Largest font that keeps ``text`` inside the box, plus its ink box.
+
+    The size is derived, not configured: a text label is meant to be read from
+    a distance, so every line is grown until it spans the tape width. Binary
+    search because loading a TrueType font per candidate size is not free.
+    """
+    lo, hi = TEXT_MIN_SIZE, TEXT_MAX_SIZE
+    font = _font(lo)
+    box = font.getbbox(text)
+    while lo <= hi:
+        size = (lo + hi) // 2
+        candidate = _font(size)
+        candidate_box = candidate.getbbox(text)
+        fits = (
+            candidate_box[2] - candidate_box[0] <= max_width
+            and candidate_box[3] - candidate_box[1] <= max_height
+        )
+        if fits:
+            font, box, lo = candidate, candidate_box, size + 1
+        else:
+            hi = size - 1
+    return font, box
+
+
+def render_text_label(lines: list[str]) -> Image.Image:
+    """One or two lines of text across the tape width, no QR code.
+
+    Each line is fitted on its own, so both really do span the width — a short
+    line ends up in bigger letters than a long one. The label is only as long
+    as the text needs, because the tape is endless and every millimetre saved
+    is tape not thrown away.
+    """
+    lines = [line for line in (clean_text_line(x) for x in lines) if line]
+    lines = lines[:TEXT_MAX_LINES]
+    if not lines:
+        raise ValueError("a text label needs at least one non-empty line")
+
+    max_width = LABEL_WIDTH - 2 * TEXT_MARGIN_X
+    fitted = [_fit_line(line, max_width, TEXT_MAX_LINE_HEIGHT) for line in lines]
+    # The ink box, not the font metrics: ascender/descender space the text does
+    # not use would be printed as blank tape.
+    heights = [box[3] - box[1] for _, box in fitted]
+    height = (
+        2 * TEXT_MARGIN_Y + sum(heights) + TEXT_LINE_GAP * (len(lines) - 1)
+    )
+
+    label = Image.new("L", (LABEL_WIDTH, height), 255)
+    draw = ImageDraw.Draw(label)
+    y = TEXT_MARGIN_Y
+    for line, (font, box), line_height in zip(lines, fitted, heights):
+        # Subtract the box offsets so the ink itself is centred and its top
+        # edge sits exactly on y.
+        x = (LABEL_WIDTH - (box[2] - box[0])) / 2 - box[0]
+        draw.text((x, y - box[1]), line, fill=0, font=font)
+        y += line_height + TEXT_LINE_GAP
+    return label
+
+
+def render_text_label_png(lines: list[str]) -> bytes:
+    buf = BytesIO()
+    render_text_label(lines).save(buf, format="PNG")
     return buf.getvalue()

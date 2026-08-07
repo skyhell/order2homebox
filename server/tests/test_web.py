@@ -380,6 +380,124 @@ def test_label_resolve_requires_login(client):
     assert response.headers["HX-Redirect"] == "/login"
 
 
+# -- text-only labels ---------------------------------------------------------
+
+
+def _clear_text_history():
+    from app import prefs
+
+    data = prefs._read()
+    data.pop(prefs.TEXT_LABELS, None)
+    prefs._write(data)
+
+
+def _stub_printer(monkeypatch):
+    import app.main as main
+
+    printed = []
+
+    async def fake_print(png, copies=1):
+        printed.append((png, copies))
+
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    return printed
+
+
+def test_text_label_page_renders(logged_in):
+    response = logged_in.get("/text")
+    assert response.status_code == 200
+    assert 'hx-post="/text/print"' in response.text
+    assert 'id="text-line1"' in response.text
+    assert 'id="text-line2"' in response.text
+
+
+def test_text_preview_renders_a_png(logged_in):
+    response = logged_in.get("/text.png", params={"line1": "Schrauben", "line2": "M4"})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+
+
+def test_text_preview_without_text_is_not_an_error_image(logged_in):
+    """An empty form must not render a blank label — there is nothing to show."""
+    assert logged_in.get("/text.png").status_code == 404
+    assert logged_in.get("/text.png", params={"line1": "   "}).status_code == 404
+
+
+def test_text_print_sends_the_label_and_remembers_it(logged_in, monkeypatch):
+    _clear_text_history()
+    printed = _stub_printer(monkeypatch)
+
+    response = logged_in.post(
+        "/text/print", data={"line1": "Schrauben", "line2": "M4 x 20", "copies": "2"}
+    )
+    assert response.status_code == 200
+    assert "ok-text" in response.text
+    assert len(printed) == 1 and printed[0][1] == 2
+    assert printed[0][0].startswith(b"\x89PNG")
+
+    from app import prefs
+
+    assert prefs.get_text_labels()[0] == ["Schrauben", "M4 x 20"]
+    # the fresh history rides along, so the chip appears without a reload
+    assert 'hx-swap-oob="outerHTML"' in response.text
+    assert "Schrauben" in response.text
+
+
+def test_text_print_history_shows_up_on_the_page(logged_in, monkeypatch):
+    _clear_text_history()
+    _stub_printer(monkeypatch)
+    logged_in.post("/text/print", data={"line1": "Kabel", "line2": "USB-C"})
+
+    response = logged_in.get("/text")
+    assert 'data-line1="Kabel"' in response.text
+    assert 'data-line2="USB-C"' in response.text
+
+
+def test_text_print_does_not_remember_a_label_that_failed(logged_in, monkeypatch):
+    """The history is a list of labels that exist — a print that never came out
+    must not put text there."""
+    import app.main as main
+
+    _clear_text_history()
+
+    async def fake_print(png, copies=1):
+        raise main.printer.PrintError("agent unreachable")
+
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    response = logged_in.post("/text/print", data={"line1": "Fehldruck"})
+    assert "error-text" in response.text
+
+    from app import prefs
+
+    assert prefs.get_text_labels() == []
+
+
+def test_text_print_without_text_is_refused(logged_in, monkeypatch):
+    printed = _stub_printer(monkeypatch)
+    response = logged_in.post("/text/print", data={"line1": "  ", "line2": ""})
+    assert "error-text" in response.text
+    assert printed == []
+
+
+def test_text_history_keeps_a_repeat_once_and_first(logged_in, monkeypatch):
+    _clear_text_history()
+    _stub_printer(monkeypatch)
+    for line1 in ("Kabel", "Schrauben", "Kabel"):
+        logged_in.post("/text/print", data={"line1": line1})
+
+    from app import prefs
+
+    assert prefs.get_text_labels() == [["Kabel"], ["Schrauben"]]
+
+
+def test_text_print_requires_login(client):
+    response = client.post(
+        "/text/print", data={"line1": "x"}, headers={"HX-Request": "true"}
+    )
+    assert response.status_code == 401
+    assert response.headers["HX-Redirect"] == "/login"
+
+
 def test_fetch_crash_shows_error_banner_not_500(logged_in, monkeypatch):
     """Unexpected scraper exceptions must render an error banner, not a 500."""
     import app.main as main

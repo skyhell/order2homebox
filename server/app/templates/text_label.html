@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-narrow">
+  <h1 class="page-title">{{ t('text_title') }}</h1>
+  <p class="page-subtitle">{{ t('text_subtitle') }}</p>
+
+  {# No <form> around the inputs on purpose: the print button reads them via
+     hx-vals, and an enclosing form would push its fields into the POST as well
+     (htmx merges them and they even win over hx-include). Enter is wired to the
+     print button in app.js instead. #}
+  <div class="card">
+    <div class="field">
+      <span>{{ t('text_line1') }}</span>
+      <input class="input" type="text" id="text-line1" maxlength="60" autofocus
+             autocomplete="off" placeholder="{{ t('text_line1_placeholder') }}"
+             oninput="textLabelPreview()">
+    </div>
+    <div class="field">
+      <span>{{ t('text_line2') }}</span>
+      <input class="input" type="text" id="text-line2" maxlength="60"
+             autocomplete="off" placeholder="{{ t('text_line2_placeholder') }}"
+             oninput="textLabelPreview()">
+    </div>
+
+    <div class="text-preview">
+      <span class="preview-caption">{{ t('text_preview') }}</span>
+      <img id="text-preview-img" class="label-preview label-preview-wide"
+           alt="{{ t('text_preview') }}" hidden>
+      <p class="preview-empty hint" id="text-preview-empty">{{ t('text_preview_empty') }}</p>
+    </div>
+
+    <div class="print-controls">
+      <label class="field-inline-sm">
+        <span>{{ t('print_copies') }}</span>
+        <input class="input input-sm" type="number" id="text-copies" value="1" min="1" max="20">
+      </label>
+      <button type="button" class="btn btn-primary" id="text-print-button"
+              hx-post="/text/print"
+              hx-vals='js:{line1: document.getElementById("text-line1").value,
+                           line2: document.getElementById("text-line2").value,
+                           copies: document.getElementById("text-copies").value}'
+              hx-target="#text-print-status"
+              hx-swap="innerHTML">{{ t('print_button') }}</button>
+      <span id="text-print-status"></span>
+    </div>
+  </div>
+
+  {% include "_text_history.html" %}
+</div>
+{% endblock %}

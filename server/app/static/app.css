@@ -268,6 +268,29 @@ html[data-theme="light"] .icon-sun { display: none; }
   border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px;
 }
 
+/* ---- text label tool ---- */
+.text-preview { text-align: center; margin: 4px 0 20px; }
+.preview-caption {
+  display: block; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); margin-bottom: 10px;
+}
+/* wider than the QR preview: the point of a text label is that it is readable */
+.label-preview-wide { width: 100%; max-width: 306px; }
+.preview-empty { padding: 18px 0; }
+.text-history { padding: 0 4px; }
+.history-caption {
+  display: block; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); margin-bottom: 10px;
+}
+.history-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 980px; padding: 6px 14px; cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ---- login ---- */
 .login-wrap { display: flex; justify-content: center; padding-top: 8vh; }
 .login-card { width: 360px; text-align: center; padding: 36px 32px; }

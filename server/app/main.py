@@ -23,7 +23,7 @@ from .auth import (
 from .config import settings
 from .homebox import HomeboxClient, HomeboxError
 from .i18n import LANG_COOKIE, get_lang, load_translations, t
-from .labels import render_label_png
+from .labels import clean_text_line, render_label_png, render_text_label_png
 from .models import Order, OrderItemDraft, Shop
 from .scrapers import ParseFailed, ScrapeError, SessionExpired, get_scraper
 
@@ -74,7 +74,7 @@ def asset_url(name: str) -> str:
     return f"/static/{name}?v={stamp}"
 
 
-def render(request: Request, template: str, **context) -> HTMLResponse:
+def _context(request: Request, **context) -> dict:
     lang = get_lang(request)
     context.update(
         request=request,
@@ -87,7 +87,17 @@ def render(request: Request, template: str, **context) -> HTMLResponse:
         show_asset_id_default=settings.label_show_asset_id,
         asset=asset_url,
     )
-    return templates.TemplateResponse(request, template, context)
+    return context
+
+
+def render(request: Request, template: str, **context) -> HTMLResponse:
+    return templates.TemplateResponse(request, template, _context(request, **context))
+
+
+def render_fragment(request: Request, template: str, **context) -> str:
+    """A template rendered to a string instead of a response, so one response
+    can carry several fragments (htmx out-of-band swap)."""
+    return templates.get_template(template).render(_context(request, **context))
 
 
 @app.exception_handler(LoginRequired)
@@ -454,6 +464,63 @@ async def label_resolve(
             f'<div class="banner banner-error">{t("err_homebox", lang)}: {exc}</div>'
         )
     return render(request, "_label_result.html", asset_id=asset_id)
+
+
+# -- text-only labels ---------------------------------------------------------
+
+
+def _text_lines(line1: str, line2: str) -> list[str]:
+    return [line for line in (clean_text_line(line1), clean_text_line(line2)) if line]
+
+
+@app.get("/text", response_class=HTMLResponse)
+async def text_label_tool(request: Request, user: str = Depends(require_login)):
+    return render(request, "text_label.html", history=prefs.get_text_labels())
+
+
+@app.get("/text.png")
+async def text_label_preview(
+    line1: str = "", line2: str = "", user: str = Depends(require_login)
+):
+    """Preview of the text label, refreshed while typing. The text is in the
+    URL, so an unchanged text is served from the browser cache."""
+    lines = _text_lines(line1, line2)
+    if not lines:
+        return Response(status_code=404)
+    return Response(content=render_text_label_png(lines), media_type="image/png")
+
+
+@app.post("/text/print", response_class=HTMLResponse)
+async def print_text_label(
+    request: Request,
+    line1: str = Form(""),
+    line2: str = Form(""),
+    copies: int = Form(1),
+    user: str = Depends(require_login),
+):
+    lang = get_lang(request)
+    lines = _text_lines(line1, line2)
+    if not lines:
+        return HTMLResponse(
+            f'<span class="print-status error-text">{t("err_text_empty", lang)}</span>'
+        )
+    png = render_text_label_png(lines)
+    try:
+        await printer.print_png(png, copies=max(1, min(copies, 20)))
+    except printer.PrintError as exc:
+        return HTMLResponse(
+            f'<span class="print-status error-text">{t("print_failed", lang)}: {exc}</span>'
+        )
+    # Only a label that really came out is worth remembering — same rule as the
+    # last-used location. The list is swapped out of band because this response
+    # already targets the status line.
+    prefs.remember_text_label(lines)
+    history = render_fragment(
+        request, "_text_history.html", history=prefs.get_text_labels(), oob=True
+    )
+    return HTMLResponse(
+        f'<span class="print-status ok-text">{t("print_ok", lang)}</span>{history}'
+    )
 
 
 # -- labels & printing --------------------------------------------------------

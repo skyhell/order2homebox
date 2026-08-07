@@ -115,3 +115,51 @@ function labelPreview(imgId, assetId, showText) {
   var img = document.getElementById(imgId);
   if (img) img.src = '/label/' + assetId + '.png?text=' + (showText ? 1 : 0);
 }
+
+// Text-label tool: the preview is the real rendering, fetched from the server,
+// so what you see is exactly the PNG the printer gets. Debounced — every
+// keystroke would otherwise render a label.
+function textLabelPreview() {
+  var img = document.getElementById('text-preview-img');
+  var empty = document.getElementById('text-preview-empty');
+  if (!img) return;
+  var line1 = (document.getElementById('text-line1').value || '').trim();
+  var line2 = (document.getElementById('text-line2').value || '').trim();
+  var any = line1 || line2;
+  img.hidden = !any;
+  if (empty) empty.hidden = !!any;
+  window.clearTimeout(textLabelPreview.timer);
+  if (!any) return;
+  textLabelPreview.timer = window.setTimeout(function () {
+    img.src = '/text.png?line1=' + encodeURIComponent(line1) +
+              '&line2=' + encodeURIComponent(line2);
+  }, 250);
+}
+
+// A chip from the history puts its text back into the two inputs.
+function useTextLabel(chip) {
+  var line1 = document.getElementById('text-line1');
+  var line2 = document.getElementById('text-line2');
+  if (!line1 || !line2) return;
+  line1.value = chip.dataset.line1 || '';
+  line2.value = chip.dataset.line2 || '';
+  textLabelPreview();
+  line1.focus();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  var line1 = document.getElementById('text-line1');
+  if (!line1) return;
+  // The inputs are not in a form (see text_label.html), so Enter would do
+  // nothing at all — on a tool used one label after another it should print.
+  ['text-line1', 'text-line2', 'text-copies'].forEach(function (id) {
+    var field = document.getElementById(id);
+    if (!field) return;
+    field.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      document.getElementById('text-print-button').click();
+    });
+  });
+  textLabelPreview(); // a value the browser restored must show up in the preview
+});

@@ -1,0 +1,16 @@
+{# The text labels last printed. Comes back out of band after a print (oob),
+   because that response already targets the status line. #}
+<div class="text-history" id="text-history"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
+  {% if history %}
+  <span class="history-caption">{{ t('text_history') }}</span>
+  <div class="history-chips">
+    {% for entry in history %}
+    <button type="button" class="chip" onclick="useTextLabel(this)"
+            data-line1="{{ entry[0] }}"
+            data-line2="{{ entry[1] if entry|length > 1 else '' }}">
+      {{ entry | join(' · ') }}
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

@@ -6,6 +6,24 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [Unreleased]
+
+### Added
+
+- **Text labels.** A *Text label* page prints one or two lines and no QR code,
+  for everything that is not a Homebox item. The type size is not a setting:
+  each line is grown until it spans the tape width, so a short line prints
+  larger than a long one beside it. A cap of 110 px (≈ 10 mm) per line keeps a
+  two-letter label from printing 3 cm letters across a hand's length of endless
+  tape, and the line height is measured from the ink rather than the font
+  metrics, so unused ascender space is not printed as blank tape.
+
+  The preview is the real rendering fetched from the server, not a CSS
+  imitation — what it shows is the PNG the printer gets. The last eight texts
+  printed come back as one-click chips; they live in `data/prefs.json` and so
+  survive restarts and updates. A text is only remembered once a label really
+  came out, the same rule the last-used location follows.
+
 ## [0.8.1] — 2026-08-07
 
 ### Fixed

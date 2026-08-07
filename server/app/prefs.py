@@ -1,8 +1,9 @@
 """Small persisted UI preferences (data/prefs.json).
 
-Only things that should survive a restart and are not worth a database —
-currently the location last used, which is pre-selected for every item of the
-next order (most orders end up in one and the same place).
+Only things that should survive a restart and are not worth a database — the
+location last used, which is pre-selected for every item of the next order
+(most orders end up in one and the same place), and the text labels last
+printed, which are usually printed again.
 """
 import json
 from pathlib import Path
@@ -10,6 +11,8 @@ from pathlib import Path
 from .config import settings
 
 LAST_LOCATION = "last_location_id"
+TEXT_LABELS = "text_labels"
+TEXT_LABELS_MAX = 8  # enough to find a repeat, short enough to stay scannable
 
 
 def _path() -> Path:
@@ -38,7 +41,41 @@ def set_last_location_id(location_id: str) -> None:
     if data.get(LAST_LOCATION) == location_id:
         return
     data[LAST_LOCATION] = location_id
+    _write(data)
+
+
+def get_text_labels() -> list[list[str]]:
+    """Text labels last printed, newest first — each one or two lines."""
+    entries = _read().get(TEXT_LABELS)
+    if not isinstance(entries, list):
+        return []
+    clean = [
+        entry[:2]
+        for entry in entries
+        if isinstance(entry, list)
+        and entry
+        and all(isinstance(line, str) and line for line in entry)
+    ]
+    return clean[:TEXT_LABELS_MAX]
+
+
+def remember_text_label(lines: list[str]) -> None:
+    """Remember a text label that was really printed.
+
+    Moves a repeat back to the front instead of storing it twice, so the list
+    stays a list of distinct labels and the one used most recently is first.
+    """
+    lines = [line for line in lines if line]
+    if not lines:
+        return
+    history = [entry for entry in get_text_labels() if entry != lines]
+    data = _read()
+    data[TEXT_LABELS] = [lines] + history[: TEXT_LABELS_MAX - 1]
+    _write(data)
+
+
+def _write(data: dict) -> None:
     try:
         _path().write_text(json.dumps(data, indent=2), encoding="utf-8")
     except OSError:
-        pass  # losing the preference must never break creating items
+        pass  # losing a preference must never break printing or creating

@@ -1,3 +1,5 @@
+import pytest
+
 from tests.conftest import TEST_PASSWORD
 
 
@@ -329,6 +331,37 @@ def test_label_resolve_item_without_asset_id_shows_error(logged_in, monkeypatch)
     assert response.status_code == 200
     assert "banner-error" in response.text
     assert "Asset-ID" in response.text  # German default
+
+
+@pytest.mark.parametrize("asset_id", ["000-629", "12345-678", "000-001"])
+def test_label_resolve_accepts_ids_homebox_hands_out(logged_in, asset_id):
+    response = logged_in.post("/label/resolve", data={"link": asset_id})
+    assert f'value="{asset_id}"' in response.text
+
+
+@pytest.mark.parametrize("typo", ["000-62", "000-6290", "00-629", "0-1"])
+def test_label_resolve_rejects_a_mistyped_asset_id(logged_in, typo):
+    """Homebox always pads to {3+}-{3}. A label printed from a shorter or
+    longer id carries a QR code that resolves to nothing, so the typo has to
+    surface here rather than on the tape."""
+    response = logged_in.post("/label/resolve", data={"link": typo})
+    assert "banner-error" in response.text
+
+
+def test_label_resolve_rejects_a_deep_link_with_a_mistyped_id(logged_in):
+    """The link must not be trimmed down to the part that happens to look
+    valid — that would print 000-629 for a scan of 000-6290."""
+    response = logged_in.post(
+        "/label/resolve", data={"link": "https://box.example.com/a/000-6290"}
+    )
+    assert "banner-error" in response.text
+    # the trimmed id must not come back as something ready to print
+    assert 'value="000-629"' not in response.text
+    assert 'hx-post="/print"' not in response.text
+
+
+def test_label_preview_rejects_a_mistyped_asset_id(logged_in):
+    assert logged_in.get("/label/000-62.png").status_code == 404
 
 
 def test_label_resolve_unrecognized_input_shows_error(logged_in):

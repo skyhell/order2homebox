@@ -10,6 +10,15 @@ Each version links to its GitHub release, which carries the full notes.
 
 ### Fixed
 
+- **A mistyped asset ID is refused instead of printed.** The label tool
+  accepted one to five digits on each side of the dash, but Homebox only ever
+  hands out `{3+}-{3}` (`1` → `000-001`, `12345678` → `12345-678`), so `000-62`
+  passed validation and produced a QR code pointing at an item that does not
+  exist — a wasted label nobody notices until they scan it. The deep-link
+  pattern was the same shape and therefore trimmed `/a/000-6290` down to
+  `000-629` and printed *that*; it now hands the whole segment to the one
+  validator.
+
 - **The Homebox row on the settings page follows the connection again.** It
   stopped asking as soon as it was green, so it kept showing a state that could
   be hours old. The reason it had to stay quiet was `status()`: it called

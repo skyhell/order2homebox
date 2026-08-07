@@ -29,9 +29,16 @@ from .scrapers import ParseFailed, ScrapeError, SessionExpired, get_scraper
 
 BASE_DIR = Path(__file__).parent
 DOCS_URL = "https://github.com/skyhell/order2homebox#readme"
-ASSET_ID_RE = re.compile(r"^[0-9]{1,5}-[0-9]{1,5}$|^[0-9]{1,10}$")
-# Homebox asset deep link, e.g. .../a/000-629
-ASSET_IN_URL_RE = re.compile(r"/a/([0-9]{1,5}-[0-9]{1,5}|[0-9]{1,10})")
+# Homebox renders an item's asset id as the last three digits of an
+# incrementing integer, dash-separated and zero-padded to at least three:
+# 1 -> 000-001, 629 -> 000-629, 12345678 -> 12345-678. So the group after the
+# dash is always exactly three digits and the one before it never fewer —
+# anything else is a typo, not an id Homebox ever handed out.
+ASSET_ID_RE = re.compile(r"^[0-9]{3,10}-[0-9]{3}$|^[0-9]{1,10}$")
+# Homebox asset deep link, e.g. .../a/000-629. Grabs the whole segment and
+# lets ASSET_ID_RE judge it: matching the id shape here instead would trim a
+# malformed link down to the part that happens to fit and print that.
+ASSET_IN_URL_RE = re.compile(r"/a/([0-9-]+)")
 # Item page URL carries the item UUID, e.g. .../item/a23e834c-861a-...
 UUID_RE = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -411,6 +418,8 @@ async def resolve_asset_id(raw: str) -> str:
         raise LabelRefError("err_label_empty")
     in_url = ASSET_IN_URL_RE.search(raw)
     if in_url:
+        if not ASSET_ID_RE.match(in_url.group(1)):
+            raise LabelRefError("err_label_unrecognized")
         return in_url.group(1)
     uuid = UUID_RE.search(raw)
     if uuid:

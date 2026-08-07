@@ -50,6 +50,12 @@ Pick a shop and enter the order number; the scraped items are shown for review â
 name, price, quantity, storage location and Homebox labels â€” before they are
 created in Homebox and their QR labels printed.
 
+![Text label](docs/screenshot-text-label.png)
+
+The *Text label* page prints one or two lines without a QR code. The preview is
+the real rendering the printer gets, and the texts you last printed come back as
+one-click chips.
+
 ![Settings](docs/screenshot-settings.png)
 
 The settings page shows the Homebox and print-agent connection status and holds

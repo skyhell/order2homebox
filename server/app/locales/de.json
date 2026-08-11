@@ -30,6 +30,7 @@
   "text_preview": "Vorschau",
   "text_preview_empty": "Text eingeben — die Vorschau zeigt das fertige Etikett.",
   "text_history": "Zuletzt gedruckt",
+  "history_recent": "Zuletzt benutzt",
   "err_text_empty": "Bitte mindestens eine Zeile Text eingeben.",
 
   "login_title": "Anmelden",

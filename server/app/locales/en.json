@@ -30,6 +30,7 @@
   "text_preview": "Preview",
   "text_preview_empty": "Type something — the preview shows the finished label.",
   "text_history": "Last printed",
+  "history_recent": "Recently used",
   "err_text_empty": "Please enter at least one line of text.",
 
   "login_title": "Sign in",

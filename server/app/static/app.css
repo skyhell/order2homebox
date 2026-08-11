@@ -164,6 +164,10 @@ html[data-theme="light"] .icon-sun { display: none; }
 .input-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 .input-sm { width: 72px; padding: 6px 8px; }
 .select-multi { min-height: 76px; }
+/* Name and description wrap instead of scrolling sideways; app.js sets the
+   height from the content, this only caps how far it may grow (~6 lines). */
+textarea.input { resize: vertical; line-height: 1.35; }
+textarea.autogrow { max-height: 11em; overflow-y: auto; }
 .hint { color: var(--text-secondary); font-size: 12px; }
 /* the sum a quantity change keeps; empty until app.js has one */
 .total-hint:empty { display: none; }
@@ -299,6 +303,35 @@ html[data-theme="light"] .icon-sun { display: none; }
   transition: border-color .15s, color .15s;
 }
 .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- what was typed into a field before ---- */
+.input-with-history { position: relative; }
+/* room for the toggle, so a long value never runs under it */
+.input-with-history .input { padding-right: 40px; }
+.history-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; cursor: pointer;
+  background: none; border: none; border-radius: 8px;
+  color: var(--text-secondary);
+}
+.history-toggle svg { width: 18px; height: 18px; }
+.history-toggle:hover { color: var(--accent); }
+.history-list {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-input); box-shadow: var(--shadow);
+  max-height: 264px; overflow-y: auto; padding: 4px;
+}
+.history-entry {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  width: 100%; text-align: left; font: inherit; font-size: 15px; color: var(--text);
+  background: none; border: none; border-radius: 8px;
+  padding: 8px 10px; cursor: pointer;
+}
+.history-entry:hover { background: var(--bg); color: var(--accent); }
+.history-value { overflow-wrap: anywhere; }
+.history-note { color: var(--text-secondary); font-size: 13px; white-space: nowrap; }
 
 /* ---- login ---- */
 .login-wrap { display: flex; justify-content: center; padding-top: 8vh; }

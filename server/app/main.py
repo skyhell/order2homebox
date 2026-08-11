@@ -163,9 +163,30 @@ async def health():
 # -- order flow --------------------------------------------------------------
 
 
+def _order_history() -> list[dict]:
+    """Remembered order numbers as history entries, the shop as the note. A
+    shop that no longer exists is skipped rather than breaking the page."""
+    entries = []
+    for entry in prefs.get_orders():
+        try:
+            shop = Shop(entry["shop"])
+        except ValueError:
+            continue
+        entries.append(
+            {"value": entry["order_no"], "note": shop.display_name, "shop": shop.value}
+        )
+    return entries
+
+
+def _render_index(request: Request, **context) -> HTMLResponse:
+    """The start page, which four paths render — the history belongs on all of
+    them, an error above the form least of all a reason to lose it."""
+    return render(request, "index.html", order_history=_order_history(), **context)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: str = Depends(require_login)):
-    return render(request, "index.html", error="")
+    return _render_index(request, error="")
 
 
 @app.post("/fetch", response_class=HTMLResponse)
@@ -183,9 +204,8 @@ async def fetch_order(
         order = await scraper.fetch_order(order_no)
         cookie_store.record_success(shop)
     except SessionExpired:
-        return render(
+        return _render_index(
             request,
-            "index.html",
             error=t("err_session_expired", lang, shop=shop.display_name),
             error_settings_link=True,
         )
@@ -194,14 +214,17 @@ async def fetch_order(
         order = Order(shop=shop, order_no=order_no, items=[OrderItemDraft()])
         warning = t("err_parse_failed", lang, shop=shop.display_name)
     except ScrapeError as exc:
-        return render(request, "index.html", error=str(exc))
+        return _render_index(request, error=str(exc))
     except Exception as exc:  # noqa: BLE001 — never show a bare 500 for a scrape
         logger.exception("scrape failed for %s order %s", shop.value, order_no)
-        return render(
+        return _render_index(
             request,
-            "index.html",
             error=t("err_scrape_crashed", lang, shop=shop.display_name, error=str(exc)),
         )
+    # Remembered on the way to the edit page, so also after ParseFailed: the
+    # shop answered for this number, only the parsing fell short. A number that
+    # never got that far is not worth offering again.
+    prefs.remember_order(shop.value, order_no)
     return await _edit_page(request, order, warning=warning)
 
 
@@ -287,7 +310,9 @@ def _item_from_form(form, i: int):
     except ValueError:
         unit_price = None
     draft = OrderItemDraft(
-        name=str(form.get(f"item-{i}-name", "")).strip(),
+        # The name field is a textarea, so line breaks can be typed or pasted
+        # into it — a Homebox item title is one line.
+        name=" ".join(str(form.get(f"item-{i}-name", "")).split()),
         description=str(form.get(f"item-{i}-description", "")).strip(),
         quantity=quantity,
         unit_price=unit_price,
@@ -461,9 +486,13 @@ async def resolve_asset_id(raw: str) -> str:
     raise LabelRefError("err_label_unrecognized")
 
 
+def _asset_history() -> list[dict]:
+    return [{"value": asset_id} for asset_id in prefs.get_asset_refs()]
+
+
 @app.get("/label", response_class=HTMLResponse)
 async def label_tool(request: Request, user: str = Depends(require_login)):
-    return render(request, "label.html")
+    return render(request, "label.html", asset_history=_asset_history())
 
 
 @app.post("/label/resolve", response_class=HTMLResponse)
@@ -481,7 +510,19 @@ async def label_resolve(
         return HTMLResponse(
             f'<div class="banner banner-error">{t("err_homebox", lang)}: {exc}</div>'
         )
-    return render(request, "_label_result.html", asset_id=asset_id)
+    # Only an ID that really resolved is worth offering again. The refreshed
+    # list rides along out of band, because this response targets the result.
+    prefs.remember_asset_ref(asset_id)
+    result = render_fragment(request, "_label_result.html", asset_id=asset_id)
+    history = render_fragment(
+        request,
+        "_field_history.html",
+        field="label-link",
+        input_id="label-link",
+        entries=_asset_history(),
+        oob=True,
+    )
+    return HTMLResponse(result + history)
 
 
 # -- text-only labels ---------------------------------------------------------
@@ -491,12 +532,18 @@ def _text_lines(line1: str, line2: str) -> list[str]:
     return [line for line in (clean_text_line(line1), clean_text_line(line2)) if line]
 
 
+def _text_line_history(index: int) -> list[dict]:
+    return [{"value": line} for line in prefs.get_text_line_history(index)]
+
+
 @app.get("/text", response_class=HTMLResponse)
 async def text_label_tool(request: Request, user: str = Depends(require_login)):
     return render(
         request,
         "text_label.html",
         history=prefs.get_text_labels(),
+        line1_history=_text_line_history(0),
+        line2_history=_text_line_history(1),
         height_mode=prefs.get_text_height_mode(),
         HEIGHT_KEEP=HEIGHT_KEEP,
         HEIGHT_FORCE=HEIGHT_FORCE,
@@ -550,6 +597,15 @@ async def print_text_label(
     history = render_fragment(
         request, "_text_history.html", history=prefs.get_text_labels(), oob=True
     )
+    for index in (0, 1):
+        history += render_fragment(
+            request,
+            "_field_history.html",
+            field=f"text-line{index + 1}",
+            input_id=f"text-line{index + 1}",
+            entries=_text_line_history(index),
+            oob=True,
+        )
     return HTMLResponse(
         f'<span class="print-status ok-text">{t("print_ok", lang)}</span>{history}'
     )

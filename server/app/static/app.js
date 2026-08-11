@@ -291,3 +291,69 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   textLabelPreview(); // a value the browser restored must show up in the preview
 });
+
+// ---- what was typed into a field before -----------------------------------
+// The same order numbers, asset ids and label lines are entered over and over.
+// The list hangs off the field itself, newest first; a click fills the field.
+function closeFieldHistories(except) {
+  document.querySelectorAll('.history-list').forEach(function (list) {
+    if (list === except) return;
+    list.classList.add('hidden');
+    var toggle = list.parentNode.querySelector('.history-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function toggleFieldHistory(button) {
+  var list = button.parentNode.querySelector('.history-list');
+  if (!list) return;
+  var open = list.classList.contains('hidden');
+  closeFieldHistories(list);
+  list.classList.toggle('hidden', !open);
+  button.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function useHistoryEntry(entry) {
+  var field = document.getElementById(entry.dataset.target);
+  if (!field) return;
+  field.value = entry.dataset.value || '';
+  // An order number means nothing without its shop, so the pair travels.
+  if (entry.dataset.shop) {
+    var radio = document.getElementById('shop-' + entry.dataset.shop);
+    if (radio) radio.checked = true;
+  }
+  closeFieldHistories();
+  field.focus();
+  // Assigning value fires nothing — the text page hangs its preview on oninput.
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+document.addEventListener('click', function (event) {
+  if (!event.target.closest('.field-history')) closeFieldHistories();
+});
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape') closeFieldHistories();
+});
+
+// ---- text boxes that grow with their content ------------------------------
+// Marketplace item names run to 200 characters. In a one-line field that means
+// scrolling inside the line to read the end, so name and description wrap and
+// the box follows the text. How far it may grow is capped in app.css.
+function autoGrow(el) {
+  el.style.height = 'auto';
+  // box-sizing is border-box (app.css) — scrollHeight leaves the border out
+  el.style.height = (el.scrollHeight + el.offsetHeight - el.clientHeight) + 'px';
+}
+
+function initAutoGrow() {
+  document.querySelectorAll('textarea.autogrow').forEach(autoGrow);
+}
+
+document.addEventListener('DOMContentLoaded', initAutoGrow);
+// A card re-rendered by htmx (an error, a result) brings fresh boxes with it.
+document.addEventListener('htmx:load', initAutoGrow);
+// Delegated, so a swapped-in card needs no listener of its own.
+document.addEventListener('input', function (event) {
+  var el = event.target;
+  if (el.classList && el.classList.contains('autogrow')) autoGrow(el);
+});

@@ -2,8 +2,9 @@
 
 Only things that should survive a restart and are not worth a database — the
 location last used, which is pre-selected for every item of the next order
-(most orders end up in one and the same place), and the text labels last
-printed, which are usually printed again.
+(most orders end up in one and the same place), the text labels last printed,
+which are usually printed again, and what was typed into the input fields that
+get the same values over and over (order number, asset ID, the two text lines).
 """
 import json
 from pathlib import Path
@@ -13,8 +14,12 @@ from .config import settings
 LAST_LOCATION = "last_location_id"
 TEXT_LABELS = "text_labels"
 TEXT_LABELS_MAX = 8  # enough to find a repeat, short enough to stay scannable
+HISTORY_MAX = TEXT_LABELS_MAX  # same for every field history
 TEXT_HEIGHT_MODE = "text_height_mode"
 TEXT_KEEP_HEIGHT = "text_keep_height"  # superseded by the above; still read
+ORDERS = "orders"  # [{"shop": …, "order_no": …}] — the shop belongs to the number
+ASSET_REFS = "asset_refs"  # resolved asset IDs, not the pasted links
+TEXT_LINES = ("text_line1_history", "text_line2_history")
 
 
 def _path() -> Path:
@@ -28,6 +33,38 @@ def _read() -> dict:
     except (OSError, ValueError):
         return {}  # missing or corrupt — a preference is never worth an error
     return data if isinstance(data, dict) else {}
+
+
+def _is_text(value) -> bool:
+    return isinstance(value, str) and bool(value)
+
+
+def _is_order(entry) -> bool:
+    return (
+        isinstance(entry, dict)
+        and _is_text(entry.get("shop"))
+        and _is_text(entry.get("order_no"))
+    )
+
+
+def _history(key: str, keep) -> list:
+    """One field's history, newest first — anything unreadable is dropped."""
+    entries = _read().get(key)
+    if not isinstance(entries, list):
+        return []
+    return [entry for entry in entries if keep(entry)][:HISTORY_MAX]
+
+
+def _push(data: dict, key: str, entry, keep) -> None:
+    """Put an entry at the front of its history.
+
+    A repeat moves back to the front instead of being stored twice, so the list
+    stays distinct and the value used most recently is always first. Takes the
+    dict to write into so several histories can share one _write().
+    """
+    old = data.get(key)
+    old = [e for e in old if keep(e) and e != entry] if isinstance(old, list) else []
+    data[key] = [entry] + old[: HISTORY_MAX - 1]
 
 
 def get_last_location_id() -> str:
@@ -44,6 +81,41 @@ def set_last_location_id(location_id: str) -> None:
         return
     data[LAST_LOCATION] = location_id
     _write(data)
+
+
+def get_orders() -> list[dict]:
+    """Order numbers last fetched, newest first — each with the shop it belongs
+    to, because the same number means nothing without it."""
+    return _history(ORDERS, _is_order)
+
+
+def remember_order(shop: str, order_no: str) -> None:
+    """Remember an order number a shop page really answered for."""
+    if not shop or not order_no:
+        return
+    data = _read()
+    _push(data, ORDERS, {"shop": shop, "order_no": order_no}, _is_order)
+    _write(data)
+
+
+def get_asset_refs() -> list[str]:
+    """Asset IDs last resolved on the reprint page, newest first."""
+    return _history(ASSET_REFS, _is_text)
+
+
+def remember_asset_ref(asset_id: str) -> None:
+    """Remember the resolved ID, not what was pasted: it is short, unambiguous
+    and resolves again in one step."""
+    if not asset_id:
+        return
+    data = _read()
+    _push(data, ASSET_REFS, asset_id, _is_text)
+    _write(data)
+
+
+def get_text_line_history(index: int) -> list[str]:
+    """What line 1 (index 0) or line 2 (index 1) was last printed with."""
+    return _history(TEXT_LINES[index], _is_text)
 
 
 def get_text_labels() -> list[list[str]]:
@@ -76,15 +148,17 @@ def get_text_height_mode() -> str:
 def remember_text_label(lines: list[str], height_mode: str = "") -> None:
     """Remember a text label that was really printed.
 
-    Moves a repeat back to the front instead of storing it twice, so the list
-    stays a list of distinct labels and the one used most recently is first.
+    Keeps two things at once, in one write: the whole label (the chips, which
+    reprint it with a single click) and each line on its own (the field
+    histories, which let one line be combined with a new second one).
     """
     lines = [line for line in lines if line]
     if not lines:
         return
-    history = [entry for entry in get_text_labels() if entry != lines]
     data = _read()
-    data[TEXT_LABELS] = [lines] + history[: TEXT_LABELS_MAX - 1]
+    _push(data, TEXT_LABELS, lines, lambda e: isinstance(e, list) and bool(e))
+    for index, line in enumerate(lines[:2]):
+        _push(data, TEXT_LINES[index], line, _is_text)
     # The mode travels with the print, not with the checkbox: the page should
     # come back the way the last label was actually made.
     from .labels import HEIGHT_GROW, HEIGHT_MODES

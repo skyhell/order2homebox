@@ -11,15 +11,25 @@
   <div class="card">
     <div class="field">
       <span>{{ t('text_line1') }}</span>
-      <input class="input" type="text" id="text-line1" maxlength="60" autofocus
-             autocomplete="off" placeholder="{{ t('text_line1_placeholder') }}"
-             oninput="textLabelPreview()">
+      <div class="input-with-history">
+        <input class="input" type="text" id="text-line1" maxlength="60" autofocus
+               autocomplete="off" placeholder="{{ t('text_line1_placeholder') }}"
+               oninput="textLabelPreview()">
+        {% with field='text-line1', input_id='text-line1', entries=line1_history %}
+        {% include "_field_history.html" %}
+        {% endwith %}
+      </div>
     </div>
     <div class="field">
       <span>{{ t('text_line2') }}</span>
-      <input class="input" type="text" id="text-line2" maxlength="60"
-             autocomplete="off" placeholder="{{ t('text_line2_placeholder') }}"
-             oninput="textLabelPreview()">
+      <div class="input-with-history">
+        <input class="input" type="text" id="text-line2" maxlength="60"
+               autocomplete="off" placeholder="{{ t('text_line2_placeholder') }}"
+               oninput="textLabelPreview()">
+        {% with field='text-line2', input_id='text-line2', entries=line2_history %}
+        {% include "_field_history.html" %}
+        {% endwith %}
+      </div>
     </div>
 
     {# Only does anything with a second line, so the wording says so instead of

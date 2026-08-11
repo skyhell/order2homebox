@@ -9,11 +9,13 @@
   {% endif %}
   <label class="field">
     <span>{{ t('field_name') }}</span>
-    <input class="input" type="text" name="item-{{ idx }}-name" value="{{ item.name }}" required>
+    {# Marketplace names run to 200 characters — a single line would have to be
+       scrolled sideways to be read. app.js grows the box to fit. #}
+    <textarea class="input autogrow" name="item-{{ idx }}-name" rows="2" required>{{ item.name }}</textarea>
   </label>
   <label class="field">
     <span>{{ t('field_description') }}</span>
-    <textarea class="input" name="item-{{ idx }}-description" rows="2">{{ item.description }}</textarea>
+    <textarea class="input autogrow" name="item-{{ idx }}-description" rows="2">{{ item.description }}</textarea>
   </label>
   <div class="field-row">
     {# Correcting the count keeps what the order actually charged: the two

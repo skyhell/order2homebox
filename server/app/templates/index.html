@@ -23,10 +23,18 @@
         {% endfor %}
       </div>
     </div>
-    <label class="field">
+    {# a div, not a label: a click on a history entry inside a label would count
+       as a click on the label and fight with the entry's own handler #}
+    <div class="field">
       <span>{{ t('order_no_label') }}</span>
-      <input class="input input-mono" type="text" name="order_no" placeholder="{{ t('order_no_placeholder') }}" required autofocus>
-    </label>
+      <div class="input-with-history">
+        <input class="input input-mono" type="text" name="order_no" id="order-no"
+               placeholder="{{ t('order_no_placeholder') }}" required autofocus>
+        {% with field='order-no', input_id='order-no', entries=order_history %}
+        {% include "_field_history.html" %}
+        {% endwith %}
+      </div>
+    </div>
     <button class="btn btn-primary btn-block" type="submit" data-loading-text="{{ t('fetch_loading') }}">{{ t('fetch_submit') }}</button>
   </form>
 

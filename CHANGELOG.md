@@ -6,6 +6,33 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [Unreleased]
+
+### Added
+
+- **A history on the input fields that get the same values over and over.** The
+  order number, the Homebox link/asset ID on the reprint page and both text
+  label lines now carry a small arrow; it opens the last eight entries with the
+  most recent one on top, and a click fills the field. An order number brings
+  its shop along, so picking one also selects the right shop — the same number
+  at another shop is a different order.
+
+  Only entries that really worked are kept: an order number once the shop's page
+  answered for it, an asset ID once it resolved, a text line once the label came
+  out of the printer. They live in `data/prefs.json` next to the last used
+  location. The "last printed" chips on the text page are unchanged and now sit
+  next to the per-line lists, so a whole label is still one click.
+
+### Changed
+
+- **The item name on the edit page is a text box that grows with its content.**
+  It was a single-line input, and marketplace names run to 200 characters — the
+  text ran out of the field sideways, so reading the end or correcting something
+  in the middle meant scrolling inside the line and never seeing the whole name.
+  Name and description now both wrap and grow while typing, up to about six
+  lines; beyond that the box itself scrolls. Line breaks are collapsed to spaces
+  when the item is created, because a Homebox item title is a single line.
+
 ## [0.11.0] — 2026-08-07
 
 ### Added

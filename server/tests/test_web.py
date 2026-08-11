@@ -290,6 +290,45 @@ def test_item_card_wires_quantity_to_the_price(logged_in, monkeypatch):
     assert 'id="total-0"' in body  # and the sum is shown, not silent
 
 
+def test_item_name_is_a_growing_text_box(logged_in, monkeypatch):
+    """Marketplace names run to 200 characters; in a one-line input the end can
+    only be reached by scrolling inside the line. The field is a textarea that
+    app.js grows — the class is the hook it looks for."""
+    import app.main as main
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    body = logged_in.get("/manual").text
+    assert '<textarea class="input autogrow" name="item-0-name"' in body
+    assert '<textarea class="input autogrow" name="item-0-description"' in body
+
+
+def test_a_line_break_in_the_name_does_not_reach_homebox(logged_in, monkeypatch):
+    """The name field takes line breaks now (typed or pasted); an item title in
+    Homebox is a single line."""
+    import app.main as main
+
+    created_with = {}
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        created_with["name"] = draft.name
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    response = logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "USB Hub\r\nmit 4K HDMI  ",
+        "item-1-quantity": "1",
+    })
+    assert response.status_code == 200
+    assert created_with["name"] == "USB Hub mit 4K HDMI"
+
+
 def test_result_card_print_controls_carry_no_form_field_names(logged_in, monkeypatch):
     """The result card is swapped into #create-form, and htmx adds the enclosing
     form's fields to every POST — they even override hx-include. Named inputs
@@ -515,7 +554,18 @@ def _clear_text_prefs():
     from app import prefs
 
     data = prefs._read()
-    for key in (prefs.TEXT_LABELS, prefs.TEXT_HEIGHT_MODE, prefs.TEXT_KEEP_HEIGHT):
+    keys = (prefs.TEXT_LABELS, prefs.TEXT_HEIGHT_MODE, prefs.TEXT_KEEP_HEIGHT)
+    for key in keys + prefs.TEXT_LINES:
+        data.pop(key, None)
+    prefs._write(data)
+
+
+def _clear_prefs(*keys):
+    """Drop single preference keys, so a history test starts from nothing."""
+    from app import prefs
+
+    data = prefs._read()
+    for key in keys:
         data.pop(key, None)
     prefs._write(data)
 
@@ -720,6 +770,152 @@ def test_text_print_requires_login(client):
     )
     assert response.status_code == 401
     assert response.headers["HX-Redirect"] == "/login"
+
+
+# -- what was typed into a field before ---------------------------------------
+
+
+def test_a_field_history_keeps_the_newest_first_without_duplicates(tmp_path, monkeypatch):
+    from app import prefs
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    for asset_id in ("000-001", "000-002", "000-001"):
+        prefs.remember_asset_ref(asset_id)
+    assert prefs.get_asset_refs() == ["000-001", "000-002"]
+
+    for n in range(12):
+        prefs.remember_asset_ref(f"000-{n:03d}")
+    history = prefs.get_asset_refs()
+    assert len(history) == prefs.HISTORY_MAX
+    assert history[0] == "000-011"  # the last one entered is on top
+
+
+def test_an_order_number_is_remembered_with_its_shop(tmp_path, monkeypatch):
+    """The same number at another shop is a different order, and picking one
+    has to bring its shop along."""
+    from app import prefs
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    prefs.remember_order("amazon", "028-111")
+    prefs.remember_order("banggood", "028-111")
+    assert prefs.get_orders() == [
+        {"shop": "banggood", "order_no": "028-111"},
+        {"shop": "amazon", "order_no": "028-111"},
+    ]
+
+
+def test_an_unknown_shop_in_prefs_does_not_break_the_start_page(logged_in):
+    """A shop dropped from the app must not take the page down with it."""
+    from app import prefs
+
+    _clear_prefs(prefs.ORDERS)
+    data = prefs._read()
+    data[prefs.ORDERS] = [{"shop": "gone", "order_no": "1"}, {"shop": "temu", "order_no": "2"}]
+    prefs._write(data)
+    try:
+        body = logged_in.get("/").text
+        assert 'data-shop="temu"' in body
+        assert 'data-shop="gone"' not in body
+    finally:
+        _clear_prefs(prefs.ORDERS)
+
+
+def test_fetching_an_order_puts_the_number_in_the_history(logged_in, monkeypatch):
+    import app.main as main
+    from app import prefs
+    from app.models import Order, OrderItemDraft
+
+    _clear_prefs(prefs.ORDERS)
+
+    class FakeScraper:
+        async def fetch_order(self, order_no):
+            return Order(shop=main.Shop.amazon, order_no=order_no,
+                         items=[OrderItemDraft(name="Thing")])
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main, "get_scraper", lambda shop: FakeScraper())
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    logged_in.post("/fetch", data={"shop": "amazon", "order_no": "028-1674448-8402738"})
+    assert prefs.get_orders()[0] == {"shop": "amazon", "order_no": "028-1674448-8402738"}
+
+    body = logged_in.get("/").text
+    assert 'data-value="028-1674448-8402738"' in body
+    assert 'data-shop="amazon"' in body  # a click sets the shop as well
+    _clear_prefs(prefs.ORDERS)
+
+
+def test_a_failed_fetch_is_not_remembered(logged_in, monkeypatch):
+    """Only what a shop really answered for is worth offering again."""
+    import app.main as main
+    from app import prefs
+    from app.scrapers.base import SessionExpired
+
+    _clear_prefs(prefs.ORDERS)
+
+    class ExpiredScraper:
+        async def fetch_order(self, order_no):
+            raise SessionExpired("cookies gone")
+
+    monkeypatch.setattr(main, "get_scraper", lambda shop: ExpiredScraper())
+    logged_in.post("/fetch", data={"shop": "amazon", "order_no": "028-999"})
+    assert prefs.get_orders() == []
+
+
+def test_resolving_a_label_remembers_the_asset_id(logged_in):
+    """The resolved ID is kept, not the pasted link — short and re-resolvable.
+    The refreshed list rides back out of band, so it is there without a reload."""
+    from app import prefs
+
+    _clear_prefs(prefs.ASSET_REFS)
+    response = logged_in.post(
+        "/label/resolve", data={"link": "https://box.example.com/a/000-629"}
+    )
+    assert prefs.get_asset_refs() == ["000-629"]
+    assert 'id="history-label-link" hx-swap-oob="outerHTML"' in response.text
+    assert 'data-value="000-629"' in response.text
+
+    assert 'data-target="label-link"' in logged_in.get("/label").text
+    _clear_prefs(prefs.ASSET_REFS)
+
+
+def test_a_rejected_label_reference_is_not_remembered(logged_in):
+    from app import prefs
+
+    _clear_prefs(prefs.ASSET_REFS)
+    logged_in.post("/label/resolve", data={"link": "not an id"})
+    assert prefs.get_asset_refs() == []
+
+
+def test_printing_text_fills_both_line_histories(logged_in, monkeypatch):
+    """Per line, on top of the pair chips: line 1 can then be combined with a
+    new second line instead of only reprinting the whole label."""
+    _clear_text_prefs()
+    _stub_printer(monkeypatch)
+
+    from app import prefs
+
+    logged_in.post("/text/print", data={"line1": "Werkstatt", "line2": "Regal 3"})
+    response = logged_in.post("/text/print", data={"line1": "Keller", "line2": "Fach 2"})
+
+    assert prefs.get_text_line_history(0) == ["Keller", "Werkstatt"]
+    assert prefs.get_text_line_history(1) == ["Fach 2", "Regal 3"]
+    # both lists come back with the print response, so no reload is needed
+    assert 'id="history-text-line1" hx-swap-oob="outerHTML"' in response.text
+    assert 'id="history-text-line2" hx-swap-oob="outerHTML"' in response.text
+    # and the whole-label chips are untouched
+    assert prefs.get_text_labels()[0] == ["Keller", "Fach 2"]
+
+    body = logged_in.get("/text").text
+    assert 'data-target="text-line1" data-value="Keller"' in body
+    assert 'data-target="text-line2" data-value="Fach 2"' in body
+    assert 'data-line1="Keller"' in body  # the pair chip is still there
+    _clear_text_prefs()
 
 
 def test_fetch_crash_shows_error_banner_not_500(logged_in, monkeypatch):

@@ -1,0 +1,26 @@
+{# What was typed into one field before, newest first. Sits inside an
+   .input-with-history wrapper next to its input. Nothing is rendered without
+   entries, so a fresh install looks exactly like it did before.
+
+   No name attributes anywhere in here: on /label this lives inside a form, and
+   htmx merges a form's fields into every request it sends (they even beat
+   hx-include) — see the comment in _item_card.html. #}
+<div class="field-history" id="history-{{ field }}"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
+  {% if entries %}
+  <button type="button" class="history-toggle" aria-expanded="false"
+          title="{{ t('history_recent') }}" aria-label="{{ t('history_recent') }}"
+          onclick="toggleFieldHistory(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div class="history-list hidden" role="listbox">
+    {% for entry in entries %}
+    <button type="button" class="history-entry" onclick="useHistoryEntry(this)"
+            data-target="{{ input_id }}" data-value="{{ entry.value }}"
+            {% if entry.shop %}data-shop="{{ entry.shop }}"{% endif %}>
+      <span class="history-value">{{ entry.value }}</span>
+      {% if entry.note %}<span class="history-note">{{ entry.note }}</span>{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

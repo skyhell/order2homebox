@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The brand mark from base.html on a filled tile: the bare outline is
+       unreadable at 16 px, and a tile keeps it visible on a light as well as a
+       dark tab strip. Blue is --accent from app.css. -->
+  <rect width="32" height="32" rx="7" fill="#0071e3"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 11l-10-5.5L6 11l10 5.5 10-5.5z"/>
+    <path d="M6 11v10l10 5.5 10-5.5V11"/>
+    <path d="M16 16.5V26"/>
+  </g>
+</svg>

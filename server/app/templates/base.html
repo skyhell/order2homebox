@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ t('app_name') }}{% endblock %}</title>
   <link rel="stylesheet" href="{{ asset('app.css') }}">
+  {# Without these the tab shows the browser's blank page symbol. The ICO is
+     the fallback for anything that cannot use an SVG favicon. #}
+  <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="32x32">
+  <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   <script>
     // Set theme before first paint to avoid a flash of the wrong theme.
     (function () {

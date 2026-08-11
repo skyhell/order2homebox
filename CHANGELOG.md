@@ -35,6 +35,16 @@ Each version links to its GitHub release, which carries the full notes.
   location. The "last printed" chips on the text page are unchanged and now sit
   next to the per-line lists, so a whole label is still one click.
 
+### Fixed
+
+- **The browser tab has an icon.** The app never declared one, so every tab
+  showed the browser's blank page symbol and a pinned tab was unidentifiable.
+  The cube from the navbar now ships as `favicon.svg` (used by anything modern),
+  as a 16/32/48 px `favicon.ico` for everything else, and as an
+  `apple-touch-icon.png` for the iOS home screen. It sits on a filled blue tile
+  because the bare outline is unreadable at 16 px; `/favicon.ico` answers the
+  request every browser makes on its own, without a login.
+
 ### Changed
 
 - **The item name on the edit page is a text box that grows with its content.**

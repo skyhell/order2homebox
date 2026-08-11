@@ -5,7 +5,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -164,6 +169,14 @@ async def switch_language(lang: str, request: Request):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Every browser asks the root for this on its own, whatever the <head>
+    says — and a page without one (an opened label PNG, for instance) has no
+    <head> at all. No login: it is an icon."""
+    return FileResponse(BASE_DIR / "static" / "favicon.ico")
 
 
 # -- order flow --------------------------------------------------------------

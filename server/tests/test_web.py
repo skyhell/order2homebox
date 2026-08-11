@@ -397,6 +397,23 @@ def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
     assert "Büro" in response.text and "Elektronik" in response.text
 
 
+def test_every_page_carries_a_tab_icon(logged_in, client):
+    """The tab showed the browser's blank symbol because nothing was declared."""
+    import re
+
+    body = logged_in.get("/").text
+    assert re.search(r'rel="icon" href="/static/favicon\.svg\?v=\d+"', body)
+    assert re.search(r'href="/static/favicon\.ico\?v=\d+"', body)
+    assert "apple-touch-icon.png" in body
+
+    # the login page shows it too, so the files must be reachable without login
+    icon = client.get("/static/favicon.svg")
+    assert icon.status_code == 200 and "svg" in icon.headers["content-type"]
+    # and the request every browser makes on its own must not 404
+    ico = client.get("/favicon.ico")
+    assert ico.status_code == 200 and ico.headers["content-type"].startswith("image/")
+
+
 def test_static_assets_are_stamped_so_an_update_reaches_the_browser(logged_in):
     """Without a stamp the browser may keep the old app.js for hours after an
     update — and the app version cannot serve as one, fixes ship between

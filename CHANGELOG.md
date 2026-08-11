@@ -10,6 +10,18 @@ Each version links to its GitHub release, which carries the full notes.
 
 ### Added
 
+- **The order being edited survives a page change.** *Review and edit items*
+  only ever existed as the answer to `POST /fetch` — it had no address of its
+  own and nothing was stored, so one click on *New order*, *Print label* or
+  *Settings* threw the fetched order away, including everything already typed
+  and the cards of items already created in Homebox. The state of the page now
+  lives in `data/draft.json`: it is saved while typing and once more on the way
+  out, and a nav entry with the number of cards leads back from anywhere. Items
+  already created come back as result cards with their asset ID and reprint
+  button, never as an input card that would create them a second time. Removed
+  cards stay removed without shifting the indexes of the others. Replaced only
+  by the next fetch (or *enter manually*) — it never expires on its own.
+
 - **A history on the input fields that get the same values over and over.** The
   order number, the Homebox link/asset ID on the reprint page and both text
   label lines now carry a small arrow; it opens the last eight entries with the

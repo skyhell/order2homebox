@@ -1,6 +1,7 @@
 {
   "app_name": "order2homebox",
   "nav_new": "Neue Bestellung",
+  "nav_draft": "Bestellung",
   "nav_label": "Etikett drucken",
   "nav_text": "Textetikett",
   "nav_settings": "Einstellungen",

@@ -1,6 +1,7 @@
 {
   "app_name": "order2homebox",
   "nav_new": "New order",
+  "nav_draft": "Order",
   "nav_label": "Print label",
   "nav_text": "Text label",
   "nav_settings": "Settings",

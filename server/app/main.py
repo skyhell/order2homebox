@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import __version__
 from . import cookies as cookie_store
+from . import draft
 from . import prefs
 from . import printer
 from .auth import (
@@ -84,6 +85,9 @@ def asset_url(name: str) -> str:
 
 def _context(request: Request, **context) -> dict:
     lang = get_lang(request)
+    # The edit page knows it is the draft before the browser has saved it (a
+    # fetch clears the file first), so it may state its own card count.
+    draft_info = context.pop("draft_info", None) or draft.summary()
     context.update(
         request=request,
         lang=lang,
@@ -94,6 +98,8 @@ def _context(request: Request, **context) -> dict:
         docs_url=DOCS_URL,
         show_asset_id_default=settings.label_show_asset_id,
         asset=asset_url,
+        # The nav link back to a half-finished order; None while there is none.
+        draft_info=draft_info,
     )
     return context
 
@@ -225,6 +231,9 @@ async def fetch_order(
     # shop answered for this number, only the parsing fell short. A number that
     # never got that far is not worth offering again.
     prefs.remember_order(shop.value, order_no)
+    # This is the "next fetch" that replaces what was on the page; the browser
+    # writes the new state back as soon as the page has loaded.
+    draft.clear()
     return await _edit_page(request, order, warning=warning)
 
 
@@ -236,28 +245,117 @@ async def manual_entry(
     user: str = Depends(require_login),
 ):
     order = Order(shop=shop, order_no=order_no, items=[OrderItemDraft()])
+    draft.clear()  # starting by hand replaces the page just like a fetch does
     return await _edit_page(request, order)
 
 
-async def _edit_page(request: Request, order: Order, warning: str = "") -> HTMLResponse:
+@app.post("/draft")
+async def save_draft(request: Request, user: str = Depends(require_login)):
+    """The edit form as it currently stands, sent while typing and once more
+    when the page goes away — so switching pages does not lose it."""
+    draft.save(await request.form())
+    return Response(status_code=204)
+
+
+@app.get("/edit", response_class=HTMLResponse)
+async def edit_draft(request: Request, user: str = Depends(require_login)):
+    """Back to the order being edited. Rebuilt from the stored form with the
+    very function that reads the real one, so both stay in step."""
+    data = draft.load()
+    if not data:
+        return RedirectResponse("/", status_code=303)
+    stored = draft.form(data)
+    order = _order_from_form(stored)
+    created = draft.created_items(data)
+    cards = []
+    for idx in range(int(data.get("item_count", 0))):
+        entry = created.get(str(idx))
+        if entry:
+            cards.append({"idx": idx, "result": _result_from_created(entry)})
+            continue
+        parsed = _item_from_form(stored, idx)
+        if parsed is None:
+            continue  # the card was removed before leaving the page
+        item, location_id, label_ids, want_print, show_id, qr_per_row = parsed
+        cards.append({
+            "idx": idx,
+            "item": item,
+            "location_id": location_id,
+            "label_ids": label_ids,
+            "want_print": want_print,
+            "want_show_id": show_id,
+            "want_qr3": qr_per_row == 3,
+            "result": None,
+        })
+    return await _edit_page(
+        request, order, cards=cards, item_count=int(data.get("item_count", 0))
+    )
+
+
+def _result_from_created(entry: dict) -> dict:
+    """A stored created item in the shape _item_result.html reads."""
+    return {
+        "draft": OrderItemDraft(name=entry.get("name", "")),
+        "item": {"assetId": entry.get("asset_id", ""), "id": entry.get("item_id", "")},
+        "printed": entry.get("printed", False),
+        "print_error": entry.get("print_error", ""),
+        "error": "",
+        "show_asset_id": entry.get("show_asset_id", False),
+        "qr_per_row": entry.get("qr_per_row", 2),
+    }
+
+
+def _fresh_cards(order: Order) -> list[dict]:
+    """One card view per scraped item, all with the same defaults."""
+    return [
+        {
+            "idx": idx,
+            "item": item,
+            # Pre-select the location last used, for every item: an order
+            # usually goes to one and the same place.
+            "location_id": prefs.get_last_location_id(),
+            "label_ids": [],
+            "want_print": True,
+            "want_show_id": settings.label_show_asset_id,
+            "want_qr3": settings.label_qr_per_row == 3,
+            "result": None,
+        }
+        for idx, item in enumerate(order.items)
+    ]
+
+
+async def _edit_page(
+    request: Request,
+    order: Order,
+    warning: str = "",
+    cards: list[dict] | None = None,
+    item_count: int | None = None,
+) -> HTMLResponse:
+    """The edit page. `cards` carries per-card state (a restored draft has a
+    different location and different checkboxes per card, and some cards are
+    results rather than inputs); without it every item starts from the
+    defaults."""
     lang = get_lang(request)
     try:
         locations = await homebox.get_locations()
         labels = await homebox.get_labels()
     except HomeboxError as exc:
-        return render(
-            request, "index.html", error=f"{t('err_homebox', lang)}: {exc}"
-        )
+        return _render_index(request, error=f"{t('err_homebox', lang)}: {exc}")
+    if cards is None:
+        cards = _fresh_cards(order)
     return render(
         request,
         "edit.html",
         order=order,
+        cards=cards,
+        # A removed card must not shift the indexes of the others, so the count
+        # keeps the gap — /create skips indexes that are not submitted.
+        item_count=item_count if item_count is not None else len(cards),
         locations=locations,
         hb_labels=labels,
         warning=warning,
-        # Pre-select the location last used, for every item: an order usually
-        # goes to one and the same place.
-        selected_location_id=prefs.get_last_location_id(),
+        draft_info={"order_no": order.order_no, "shop": order.shop.value,
+                    "cards": len(cards)},
     )
 
 
@@ -296,8 +394,9 @@ def _order_from_form(form) -> Order:
 
 
 def _item_from_form(form, i: int):
-    """Item fields for index i → (draft, location_id, label_ids, want_print,
-    show_id, qr_per_row), or None when the card was removed in the UI."""
+    """Item fields for index i → (item_draft, location_id, label_ids,
+    want_print, show_id, qr_per_row), or None when the card was removed in the
+    UI. `form` is either a real FormData or a draft.StoredForm."""
     if f"item-{i}-name" not in form:
         return None
     try:
@@ -309,7 +408,7 @@ def _item_from_form(form, i: int):
         unit_price = float(price_raw) if price_raw else None
     except ValueError:
         unit_price = None
-    draft = OrderItemDraft(
+    item_draft = OrderItemDraft(
         # The name field is a textarea, so line breaks can be typed or pasted
         # into it — a Homebox item title is one line.
         name=" ".join(str(form.get(f"item-{i}-name", "")).split()),
@@ -328,11 +427,11 @@ def _item_from_form(form, i: int):
     qr_per_row = 3 if form.get(f"item-{i}-qr3") is not None else settings.label_qr_per_row
     if qr_per_row == 3:
         show_id = False
-    return draft, location_id, label_ids, want_print, show_id, qr_per_row
+    return item_draft, location_id, label_ids, want_print, show_id, qr_per_row
 
 
 async def _create_and_print(
-    draft: OrderItemDraft,
+    item_draft: OrderItemDraft,
     order: Order,
     location_id: str,
     label_ids: list[str],
@@ -342,7 +441,7 @@ async def _create_and_print(
 ) -> dict:
     qr_per_row = qr_per_row or settings.label_qr_per_row
     entry = {
-        "draft": draft,
+        "draft": item_draft,
         "error": "",
         "item": None,
         "printed": False,
@@ -353,7 +452,7 @@ async def _create_and_print(
         "qr_per_row": qr_per_row,
     }
     try:
-        item = await homebox.create_item(draft, order, location_id, label_ids)
+        item = await homebox.create_item(item_draft, order, location_id, label_ids)
         entry["item"] = item
     except HomeboxError as exc:
         entry["error"] = str(exc)
@@ -379,22 +478,24 @@ async def create_items(request: Request, user: str = Depends(require_login)):
     lang = get_lang(request)
     order = _order_from_form(form)
 
+    draft.save(form)
     results = []
     count = int(form.get("item_count", 0))
     for i in range(count):
         parsed = _item_from_form(form, i)
         if parsed is None or not parsed[0].name:
             continue  # card removed or already created via its own button
-        draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
+        item_draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
         entry = await _create_and_print(
-            draft, order, location_id, label_ids, want_print, show_id, qr_per_row
+            item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row
         )
         if entry["item"]:
             prefs.set_last_location_id(location_id)
+            draft.mark_created(i, entry)
         results.append(entry)
 
     if not results:
-        return render(request, "index.html", error=t("err_nothing_created", lang))
+        return _render_index(request, error=t("err_nothing_created", lang))
     return render(
         request,
         "result.html",
@@ -414,7 +515,7 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     parsed = _item_from_form(form, idx)
     if parsed is None:
         return HTMLResponse(status_code=400)
-    draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
+    item_draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
 
     async def card_with_error(message: str) -> HTMLResponse:
         try:
@@ -425,7 +526,7 @@ async def create_single_item(request: Request, user: str = Depends(require_login
         return render(
             request,
             "_item_card.html",
-            item=draft,
+            item=item_draft,
             idx=idx,
             card_error=message,
             locations=locations,
@@ -437,15 +538,19 @@ async def create_single_item(request: Request, user: str = Depends(require_login
             want_qr3=qr_per_row == 3,
         )
 
-    if not draft.name:
+    if not item_draft.name:
         return await card_with_error(t("err_name_required", lang))
 
     entry = await _create_and_print(
-        draft, order, location_id, label_ids, want_print, show_id, qr_per_row
+        item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row
     )
     if entry["error"]:
         return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
     prefs.set_last_location_id(location_id)
+    # The card is a result card from now on; coming back to the page must not
+    # offer it as an input again, or the item gets created twice.
+    draft.save(form)
+    draft.mark_created(idx, entry)
     return render(request, "_item_result.html", r=entry, idx=idx)
 
 

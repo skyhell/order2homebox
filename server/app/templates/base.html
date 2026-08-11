@@ -27,6 +27,11 @@
     </a>
     <div class="nav-links">
       <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}">{{ t('nav_new') }}</a>
+      {# Only while an order is being worked on: without a link the fetched
+         page could not be reached again, it is not a URL anyone can type. #}
+      {% if draft_info %}
+      <a href="/edit" class="nav-link{% if request.url.path == '/edit' %} active{% endif %}">{{ t('nav_draft') }} ({{ draft_info.cards }})</a>
+      {% endif %}
       <a href="/label" class="nav-link{% if request.url.path == '/label' %} active{% endif %}">{{ t('nav_label') }}</a>
       <a href="/text" class="nav-link{% if request.url.path == '/text' %} active{% endif %}">{{ t('nav_text') }}</a>
       <a href="/settings" class="nav-link{% if request.url.path == '/settings' %} active{% endif %}">{{ t('nav_settings') }}</a>

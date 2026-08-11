@@ -79,6 +79,7 @@ function applyLocationToAllCards(idx, button) {
     if (!known) sel.add(new Option(picked.text, picked.value));
     sel.value = picked.value;
   });
+  saveDraft(); // setting .value fires no change event
   if (!button || button.dataset.original) return;
   // The cards it changed are usually off screen, so say that it happened.
   button.dataset.original = button.textContent;
@@ -216,7 +217,36 @@ function removeItemCard(idx) {
   var card = document.getElementById('item-card-' + idx);
   if (card) card.remove();
   updateApplyAllButtons();
+  saveDraft(); // removing a card fires no input event of its own
 }
+
+// ---- the edit page survives a page change ----------------------------------
+// The page only ever existed as the answer to POST /fetch, so switching to
+// another page threw the fetched order away. The form is sent to /draft while
+// typing and once more on the way out; GET /edit builds the page from it.
+function saveDraft() {
+  var form = document.getElementById('create-form');
+  if (!form) return;
+  window.clearTimeout(saveDraft.timer);
+  saveDraft.timer = window.setTimeout(function () {
+    fetch('/draft', { method: 'POST', body: new FormData(form) });
+  }, 700);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('create-form');
+  if (!form) return;
+  // Straight away, not debounced: the state has to be there even if the very
+  // next click leaves the page.
+  fetch('/draft', { method: 'POST', body: new FormData(form) });
+  form.addEventListener('input', saveDraft);
+  form.addEventListener('change', saveDraft);
+  window.addEventListener('pagehide', function () {
+    // A normal request would be cancelled as the page goes away; a beacon
+    // survives it and catches whatever the 700 ms above have not sent yet.
+    navigator.sendBeacon('/draft', new FormData(form));
+  });
+});
 
 // Keep a label preview in sync with its "print asset ID" checkbox, so the
 // picture always shows what the printer would produce.

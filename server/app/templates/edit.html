@@ -8,7 +8,7 @@
 
   <form method="post" action="/create" id="create-form">
     <input type="hidden" name="shop" value="{{ order.shop.value }}">
-    <input type="hidden" name="item_count" value="{{ order.items | length }}">
+    <input type="hidden" name="item_count" value="{{ item_count }}">
 
     <div class="card meta-card">
       <label class="field field-inline">
@@ -21,9 +21,22 @@
       </label>
     </div>
 
-    {% for item in order.items %}
-    {% set idx = loop.index0 %}
-    {% include "_item_card.html" %}
+    {# A card is either still an input or already a created item — a restored
+       draft brings both back, each with the values it was left with. #}
+    {% for card in cards %}
+    {% set idx = card.idx %}
+    {% if card.result %}
+      {% set r = card.result %}
+      {% include "_item_result.html" %}
+    {% else %}
+      {% set item = card.item %}
+      {% set selected_location_id = card.location_id %}
+      {% set selected_label_ids = card.label_ids %}
+      {% set want_print = card.want_print %}
+      {% set want_show_id = card.want_show_id %}
+      {% set want_qr3 = card.want_qr3 %}
+      {% include "_item_card.html" %}
+    {% endif %}
     {% endfor %}
 
     <div class="action-bar">

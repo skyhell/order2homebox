@@ -772,6 +772,159 @@ def test_text_print_requires_login(client):
     assert response.headers["HX-Redirect"] == "/login"
 
 
+# -- the edit page survives a page change -------------------------------------
+
+
+def _clear_draft():
+    from app import draft
+
+    draft.clear()
+
+
+def _draft_form(**overrides):
+    """A filled edit form, the way the browser posts it to /draft."""
+    data = {
+        "shop": "amazon", "order_no": "028-111", "order_date": "2026-05-20",
+        "item_count": "2",
+        "item-0-name": "USB Hub", "item-0-description": "7 ports",
+        "item-0-quantity": "2", "item-0-price": "16,27",
+        "item-0-url": "https://example.com/hub", "item-0-location": "loc1",
+        "item-0-labels": ["lab1", "lab2"], "item-0-print": "on",
+        "item-1-name": "O-Ring", "item-1-quantity": "1", "item-1-location": "loc2",
+        "item-1-qr3": "on",
+    }
+    data.update(overrides)
+    return data
+
+
+def _stub_homebox_lists(monkeypatch):
+    import app.main as main
+
+    async def fake_locations():
+        return [{"id": "loc1", "name": "Büro"}, {"id": "loc2", "name": "Keller"}]
+
+    async def fake_labels():
+        return [{"id": "lab1", "name": "Elektronik"}, {"id": "lab2", "name": "Klein"}]
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_labels)
+
+
+def test_the_edit_page_comes_back_as_it_was_left(logged_in, monkeypatch):
+    """Switching pages used to throw the fetched order away — it only existed
+    as the answer to POST /fetch."""
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+
+    assert logged_in.post("/draft", data=_draft_form()).status_code == 204
+    body = logged_in.get("/edit").text
+
+    assert 'value="028-111"' in body and 'value="2026-05-20"' in body
+    assert "USB Hub" in body and "7 ports" in body
+    assert 'value="2" min="1"' in body  # the corrected quantity
+    assert 'value="16.27"' in body
+    # per card: its own location, both labels and the checkboxes as they were
+    assert '<option value="loc1" selected>Büro</option>' in body
+    assert '<option value="loc2" selected>Keller</option>' in body
+    assert '<option value="lab1" selected>' in body
+    assert '<option value="lab2" selected>' in body
+    assert _is_checked(body, "qr3-1") and not _is_checked(body, "qr3-0")
+    assert 'name="item-0-print" checked' in body
+    assert 'name="item-1-print" checked' not in body  # was not ticked
+    _clear_draft()
+
+
+def test_a_removed_card_stays_removed_without_shifting_the_others(logged_in, monkeypatch):
+    """The index is the card's identity in the form, so the gap has to stay."""
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+
+    form = _draft_form(item_count="3")
+    form.pop("item-1-name")  # card 1 was removed in the UI
+    form.pop("item-1-location")
+    form.pop("item-1-qr3")
+    form["item-2-name"] = "Screws"
+    logged_in.post("/draft", data=form)
+
+    body = logged_in.get("/edit").text
+    assert 'id="item-card-0"' in body and 'id="item-card-2"' in body
+    assert 'id="item-card-1"' not in body
+    assert 'name="item_count" value="3"' in body
+    _clear_draft()
+
+
+def test_a_created_item_comes_back_as_a_result_card(logged_in, monkeypatch):
+    """Otherwise the card would offer itself for creating a second time."""
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    import app.main as main
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    logged_in.post("/create-item", data=dict(_draft_form(), idx="0"))
+    body = logged_in.get("/edit").text
+    assert "000-007" in body and 'hx-post="/print"' in body
+    assert 'name="item-0-name"' not in body  # not an input card any more
+    assert 'name="item-1-name"' in body  # the other one still is
+
+    # a late auto-save (the beacon from the page being left) must not undo it
+    logged_in.post("/draft", data=_draft_form())
+    body = logged_in.get("/edit").text
+    assert "000-007" in body and 'name="item-0-name"' not in body
+    _clear_draft()
+
+
+def test_a_new_fetch_replaces_the_stored_page(logged_in, monkeypatch):
+    import app.main as main
+    from app import draft
+    from app.models import Order, OrderItemDraft
+
+    _stub_homebox_lists(monkeypatch)
+    logged_in.post("/draft", data=_draft_form())
+    assert draft.load() is not None
+
+    class FakeScraper:
+        async def fetch_order(self, order_no):
+            return Order(shop=main.Shop.amazon, order_no=order_no,
+                         items=[OrderItemDraft(name="Something else")])
+
+    monkeypatch.setattr(main, "get_scraper", lambda shop: FakeScraper())
+    logged_in.post("/fetch", data={"shop": "amazon", "order_no": "028-222"})
+    assert draft.load() is None  # the browser writes the new state back on load
+    _clear_draft()
+
+
+def test_the_nav_only_links_to_an_order_being_edited(logged_in, monkeypatch):
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    assert 'href="/edit"' not in logged_in.get("/").text
+
+    logged_in.post("/draft", data=_draft_form())
+    assert 'href="/edit"' in logged_in.get("/").text  # from every page
+    assert 'href="/edit"' in logged_in.get("/settings").text
+    _clear_draft()
+    assert 'href="/edit"' not in logged_in.get("/").text
+
+
+def test_edit_without_a_stored_page_goes_to_the_start(logged_in):
+    _clear_draft()
+    response = logged_in.get("/edit")
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+
+
+def test_draft_routes_require_login(client):
+    assert client.get("/edit").status_code == 303
+    assert client.post("/draft", data={"item_count": "0"}).status_code == 303
+
+
 # -- what was typed into a field before ---------------------------------------
 
 

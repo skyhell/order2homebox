@@ -142,7 +142,7 @@ order2homebox/
 ### Label-Rendering (`server/app/labels.py`)
 - Canvas 306 px breit (29 mm @ 300 dpi), Länge dynamisch (~190 px ≈ 16 mm).
 - 2 identische QR-Codes nebeneinander, je ~140 px inkl. Rand; Inhalt `{HOMEBOX_URL}/a/{assetId}` (~30 Zeichen → QR v2–3, ~4 px/Modul, gut scanbar).
-- Optional (Checkbox, Default an): Asset-ID (`000-123`) zentriert unter jedem QR. `O2H_LABEL_SHOW_ASSET_ID` liefert nur die Vorbelegung — entschieden wird je Artikel auf seiner Karte (v0.7.0) bzw. je Druck auf der Result-Seite.
+- Optional (Checkbox, **Default aus**): Asset-ID (`000-123`) zentriert unter jedem QR. `O2H_LABEL_SHOW_ASSET_ID` liefert nur die Vorbelegung — entschieden wird je Artikel auf seiner Karte (v0.7.0) bzw. je Druck auf der Result-Seite.
 - Vorschau-Route `GET /label/{assetId}.png` für die Result-Seite.
 - **Text-Etiketten (v0.9.0 ergänzt)**: `render_text_label(lines)` druckt 1–2 Zeilen reinen Text ohne QR-Code — für alles, was kein Homebox-Item ist. Die Schriftgröße ist keine Einstellung, sondern wird je Zeile per Binärsuche so groß gewählt, dass sie die 306 px ausfüllt (kurze Zeile → größer als eine lange daneben). Deckel 110 px ≈ 10 mm pro Zeile, sonst frisst ein Zwei-Buchstaben-Etikett eine Handbreit Endlosband; Zeilenhöhe aus der Ink-Box statt aus den Font-Metriken, sonst würde ungenutzter Oberlängen-Platz als Leerband gedruckt. Seite `GET /text`, Vorschau `GET /text.png?line1=&line2=`, Druck `POST /text/print`.
 
@@ -155,7 +155,7 @@ order2homebox/
 1. `GET /` — Shop wählen + Bestellnummer eingeben → `POST /fetch` startet Scraper (htmx-Spinner).
 2. Edit-Seite: Formular je Artikel (Name, Beschreibung, Menge, Preis, Bestellnr., Shop→`purchaseFrom`), **Lagerort-Dropdown live aus Homebox**, „+ Neuer Lagerort“ (Inline-Feld, htmx-`POST /locations` → in Homebox anlegen, vorauswählen, Formulardaten bleiben erhalten), „Auf alle Karten übernehmen“ (v0.8.0, nur ab der zweiten Karte sichtbar), Homebox-Labels, Checkboxen „drucken“ und „Asset-ID aufs Etikett“ (je Artikel).
 3. `POST /create` — Items anlegen (POST + PUT Kaufinfos), Result-Seite: Asset-IDs, Label-Vorschau, Druck (Kopienzahl, Asset-ID an/aus).
-3a. `GET /text` (v0.9.0) — Textetikett ohne Umweg über eine Bestellung: zwei Eingabefelder, Live-Vorschau (das echte Server-PNG, entprellt), Kopienzahl, Druck. Die letzten 8 gedruckten Texte stehen als Chips darunter und füllen mit einem Klick beide Zeilen; gemerkt wird erst, wenn ein Etikett wirklich herauskam (`data/prefs.json`, wie der zuletzt genutzte Lagerort).
+3a. `GET /text` (v0.9.0) — Textetikett ohne Umweg über eine Bestellung: zwei Eingabefelder, Live-Vorschau (das echte Server-PNG, entprellt), Kopienzahl, Druck. Die letzten 8 benutzten Texte stehen als Chips darunter und füllen mit einem Klick beide Zeilen, jede Zeile hat zusätzlich ihre eigene Aufklapp-History; gemerkt wird beim Absenden — auch ein Druck, den der Agent verweigert hat, denn genau der wird gleich wiederholt (`data/prefs.json`, wie der zuletzt genutzte Lagerort, der zuletzt benutzte Shop und die Kopienzahl).
 4. Fehlerpfade: SessionExpired → Link zu Settings; Homebox/Print-Agent offline → klare Meldung, Formulardaten bleiben erhalten.
 
 ### Proxmox-Installscript (`install/proxmox-install.sh`)

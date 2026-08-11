@@ -30,7 +30,7 @@
   "text_force_height_hint": "The label stays exactly as long as a single-line one, however small the type has to get. With two longer lines that can mean 1.5 mm or less: readable up close, not from across the room.",
   "text_preview": "Preview",
   "text_preview_empty": "Type something — the preview shows the finished label.",
-  "text_history": "Last printed",
+  "text_history": "Recently used",
   "history_recent": "Recently used",
   "err_text_empty": "Please enter at least one line of text.",
 

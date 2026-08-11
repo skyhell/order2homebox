@@ -29,11 +29,19 @@ Each version links to its GitHub release, which carries the full notes.
   its shop along, so picking one also selects the right shop — the same number
   at another shop is a different order.
 
-  Only entries that really worked are kept: an order number once the shop's page
-  answered for it, an asset ID once it resolved, a text line once the label came
-  out of the printer. They live in `data/prefs.json` next to the last used
-  location. The "last printed" chips on the text page are unchanged and now sit
-  next to the per-line lists, so a whole label is still one click.
+  Remembered on submit, not on success: expired cookies, a changed shop page or
+  a printer that is off are exactly when the same value is wanted again right
+  away, and a history that fills only after things worked would be empty then.
+  The one exception is an input the app itself rejected as no asset ID — a typo
+  is not worth offering again. The entries live in `data/prefs.json` next to the
+  last used location; the chips on the text page sit next to the per-line lists,
+  so a whole label is still one click.
+
+- **The rest of those three pages starts where it was left, too.** The shop on
+  *New order* is the one the last order number came from instead of always
+  Amazon, and the copy count on *Print label* and *Text label* starts at the
+  number last printed instead of always 1 — kept apart per kind of label, since
+  QR labels and text labels are different habits.
 
 ### Fixed
 
@@ -46,6 +54,11 @@ Each version links to its GitHub release, which carries the full notes.
   request every browser makes on its own, without a login.
 
 ### Changed
+
+- **"Print asset ID below the QR code" starts unticked.** The QR code carries
+  the asset ID anyway, so printing it as text below mainly costs tape. The
+  checkbox is still on every item card and every print button, and
+  `O2H_LABEL_SHOW_ASSET_ID=true` in `.env` brings the old preset back.
 
 - **The item name on the edit page is a text box that grows with its content.**
   It was a single-line input, and marketplace names run to 200 characters — the

@@ -152,7 +152,7 @@ Everything is configured via `.env` (prefix `O2H_`) — see
 | --- | --- |
 | `O2H_HOMEBOX_PUBLIC_URL` | URL encoded in QR codes if it differs from the API URL (reverse proxy) |
 | `O2H_LABEL_QR_PER_ROW` | 1–3 QR codes across the 29 mm width (default 2) |
-| `O2H_LABEL_SHOW_ASSET_ID` | print the asset ID under each QR (default true) |
+| `O2H_LABEL_SHOW_ASSET_ID` | print the asset ID under each QR (default false) |
 | `O2H_AMAZON_DOMAIN` | e.g. `www.amazon.de` / `www.amazon.com` |
 
 Label geometry details: [docs/label-layout.md](docs/label-layout.md).

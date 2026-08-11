@@ -36,7 +36,9 @@ class Settings(BaseSettings):
     default_language: str = "de"
 
     # Label layout
-    label_show_asset_id: bool = True
+    # Off by default: the QR code carries the asset ID anyway, and the printed
+    # text mainly costs tape. Every card and every print button can turn it on.
+    label_show_asset_id: bool = False
     label_qr_per_row: int = 2
 
     # Scraping

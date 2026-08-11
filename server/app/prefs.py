@@ -20,6 +20,9 @@ TEXT_KEEP_HEIGHT = "text_keep_height"  # superseded by the above; still read
 ORDERS = "orders"  # [{"shop": …, "order_no": …}] — the shop belongs to the number
 ASSET_REFS = "asset_refs"  # resolved asset IDs, not the pasted links
 TEXT_LINES = ("text_line1_history", "text_line2_history")
+LAST_COPIES = "last_copies"  # per kind: QR labels and text labels differ
+COPIES_KINDS = ("label", "text")
+COPIES_MAX = 20  # the same ceiling the forms enforce
 
 
 def _path() -> Path:
@@ -95,6 +98,38 @@ def remember_order(shop: str, order_no: str) -> None:
         return
     data = _read()
     _push(data, ORDERS, {"shop": shop, "order_no": order_no}, _is_order)
+    _write(data)
+
+
+def get_last_shop() -> str:
+    """The shop of the most recent order number — no state of its own, the
+    history already carries it. Empty when nothing was entered yet."""
+    orders = get_orders()
+    return orders[0]["shop"] if orders else ""
+
+
+def get_last_copies(kind: str) -> int:
+    """How many copies were printed last, per kind of label. 1 when unknown."""
+    values = _read().get(LAST_COPIES)
+    value = values.get(kind) if isinstance(values, dict) else None
+    if isinstance(value, int) and 1 <= value <= COPIES_MAX:
+        return value
+    return 1
+
+
+def set_last_copies(kind: str, count: int) -> None:
+    """Remember a copy count that was really asked for, so the next label of
+    the same kind starts there instead of at 1."""
+    if kind not in COPIES_KINDS:
+        return
+    count = max(1, min(int(count), COPIES_MAX))
+    data = _read()
+    values = data.get(LAST_COPIES)
+    values = dict(values) if isinstance(values, dict) else {}
+    if values.get(kind) == count:
+        return
+    values[kind] = count
+    data[LAST_COPIES] = values
     _write(data)
 
 

@@ -30,7 +30,7 @@
   "text_force_height_hint": "Das Etikett wird genauso lang wie einzeilig, egal wie klein die Schrift dafür wird. Bei zwei längeren Zeilen können das 1,5 mm oder weniger sein: von Nahem lesbar, nicht mehr aus dem Regal.",
   "text_preview": "Vorschau",
   "text_preview_empty": "Text eingeben — die Vorschau zeigt das fertige Etikett.",
-  "text_history": "Zuletzt gedruckt",
+  "text_history": "Zuletzt benutzt",
   "history_recent": "Zuletzt benutzt",
   "err_text_empty": "Bitte mindestens eine Zeile Text eingeben.",
 

@@ -268,8 +268,10 @@ def test_edit_page_offers_the_asset_id_checkbox_per_item(logged_in, monkeypatch)
     body = logged_in.get("/manual").text
     assert 'name="item-0-print"' in body
     assert 'name="item-0-showid"' in body
-    # follows LABEL_SHOW_ASSET_ID, which defaults to on
-    assert "checked" in body.split('name="item-0-showid"')[1].split("</label>")[0]
+    # follows LABEL_SHOW_ASSET_ID, which is off by default — the QR code
+    # carries the id anyway, printing it as text only costs tape
+    assert not _is_checked(body, "showid-0")
+    assert 'name="item-0-print" checked' in body  # printing itself stays on
 
 
 def test_item_card_wires_quantity_to_the_price(logged_in, monkeypatch):
@@ -655,9 +657,9 @@ def test_text_print_history_shows_up_on_the_page(logged_in, monkeypatch):
     assert 'data-line2="USB-C"' in response.text
 
 
-def test_text_print_does_not_remember_a_label_that_failed(logged_in, monkeypatch):
-    """The history is a list of labels that exist — a print that never came out
-    must not put text there."""
+def test_text_print_remembers_a_label_the_printer_refused(logged_in, monkeypatch):
+    """A label that did not come out is the one that gets typed again, so it is
+    remembered before the print — and the lists come back with the error."""
     import app.main as main
 
     _clear_text_prefs()
@@ -671,7 +673,12 @@ def test_text_print_does_not_remember_a_label_that_failed(logged_in, monkeypatch
 
     from app import prefs
 
-    assert prefs.get_text_labels() == []
+    assert prefs.get_text_labels() == [["Fehldruck"]]
+    assert prefs.get_text_line_history(0) == ["Fehldruck"]
+    # without the out-of-band lists the text would only appear after a reload
+    assert 'id="history-text-line1" hx-swap-oob="outerHTML"' in response.text
+    assert 'data-value="Fehldruck"' in response.text
+    _clear_text_prefs()
 
 
 def test_text_print_without_text_is_refused(logged_in, monkeypatch):
@@ -961,6 +968,111 @@ def test_a_field_history_keeps_the_newest_first_without_duplicates(tmp_path, mon
     assert history[0] == "000-011"  # the last one entered is on top
 
 
+def _rendered_history(body: str, field: str) -> list[str]:
+    """The values of one field's list, in the order the page shows them."""
+    import re
+
+    block = body.split(f'id="history-{field}"')[1].split("</div>\n</div>")[0]
+    return re.findall(r'data-value="([^"]*)"', block)
+
+
+def test_the_newest_entry_is_rendered_at_the_top(logged_in):
+    """What the list looks like on the page, not just what is stored: the value
+    entered last has to be the first one offered."""
+    from app import prefs
+
+    _clear_prefs(prefs.ASSET_REFS)
+    for asset_id in ("000-460", "000-641", "000-632", "000-629"):
+        logged_in.post("/label/resolve", data={"link": asset_id})
+
+    shown = _rendered_history(logged_in.get("/label").text, "label-link")
+    assert shown == ["000-629", "000-632", "000-641", "000-460"]
+    _clear_prefs(prefs.ASSET_REFS)
+
+
+def test_the_newest_order_number_is_rendered_at_the_top(logged_in, monkeypatch):
+    import app.main as main
+    from app import prefs
+    from app.scrapers.base import ScrapeError
+
+    _clear_prefs(prefs.ORDERS)
+
+    class DeadScraper:  # the numbers are remembered either way now
+        async def fetch_order(self, order_no):
+            raise ScrapeError("nope")
+
+    monkeypatch.setattr(main, "get_scraper", lambda shop: DeadScraper())
+    for number in ("028-111", "028-222", "028-333"):
+        logged_in.post("/fetch", data={"shop": "amazon", "order_no": number})
+
+    shown = _rendered_history(logged_in.get("/").text, "order-no")
+    assert shown == ["028-333", "028-222", "028-111"]
+    _clear_prefs(prefs.ORDERS)
+
+
+def test_the_shop_starts_where_the_last_order_came_from(logged_in, monkeypatch):
+    import app.main as main
+    from app import prefs
+    from app.scrapers.base import ScrapeError
+
+    _clear_prefs(prefs.ORDERS)
+    assert _is_checked(logged_in.get("/").text, "shop-amazon")  # nothing yet
+
+    class DeadScraper:
+        async def fetch_order(self, order_no):
+            raise ScrapeError("nope")
+
+    monkeypatch.setattr(main, "get_scraper", lambda shop: DeadScraper())
+    logged_in.post("/fetch", data={"shop": "banggood", "order_no": "116598360"})
+
+    body = logged_in.get("/").text
+    assert _is_checked(body, "shop-banggood")
+    assert not _is_checked(body, "shop-amazon")
+    _clear_prefs(prefs.ORDERS)
+
+
+def test_a_reference_homebox_could_not_answer_for_is_remembered_as_typed(
+    logged_in, monkeypatch
+):
+    """The input was usable, only Homebox was not — worth offering again. A
+    typo, which the app rejects itself, is not."""
+    import app.main as main
+    from app import prefs
+    from app.homebox import HomeboxError
+
+    _clear_prefs(prefs.ASSET_REFS)
+
+    async def fake_get_item(item_id):
+        raise HomeboxError("connection refused")
+
+    monkeypatch.setattr(main.homebox, "get_item", fake_get_item)
+    url = "https://box.example.com/item/a23e834c-861a-4b2c-8f0e-1234567890ab"
+    response = logged_in.post("/label/resolve", data={"link": url})
+    assert "banner-error" in response.text
+    assert prefs.get_asset_refs() == [url]
+    assert 'id="history-label-link" hx-swap-oob="outerHTML"' in response.text
+
+    logged_in.post("/label/resolve", data={"link": "not an id"})
+    assert prefs.get_asset_refs() == [url]  # the typo stayed out
+    _clear_prefs(prefs.ASSET_REFS)
+
+
+def test_the_copy_count_starts_where_it_was_left(logged_in, monkeypatch):
+    from app import prefs
+
+    _clear_prefs(prefs.LAST_COPIES)
+    _stub_printer(monkeypatch)
+
+    logged_in.post("/text/print", data={"line1": "Kabel", "copies": "4"})
+    logged_in.post("/print", data={"asset_id": "000-007", "copies": "2"})
+
+    assert 'id="text-copies" value="4"' in logged_in.get("/text").text
+    reprint = logged_in.post("/label/resolve", data={"link": "000-007"}).text
+    assert 'name="copies" value="2"' in reprint
+    _clear_prefs(prefs.LAST_COPIES)
+    _clear_text_prefs()
+
+
 def test_an_order_number_is_remembered_with_its_shop(tmp_path, monkeypatch):
     """The same number at another shop is a different order, and picking one
     has to bring its shop along."""
@@ -1020,8 +1132,9 @@ def test_fetching_an_order_puts_the_number_in_the_history(logged_in, monkeypatch
     _clear_prefs(prefs.ORDERS)
 
 
-def test_a_failed_fetch_is_not_remembered(logged_in, monkeypatch):
-    """Only what a shop really answered for is worth offering again."""
+def test_a_failed_fetch_is_remembered_too(logged_in, monkeypatch):
+    """Expired cookies are exactly when the same number is needed again right
+    away — so it is remembered before the attempt, not after it."""
     import app.main as main
     from app import prefs
     from app.scrapers.base import SessionExpired
@@ -1030,11 +1143,17 @@ def test_a_failed_fetch_is_not_remembered(logged_in, monkeypatch):
 
     class ExpiredScraper:
         async def fetch_order(self, order_no):
-            raise SessionExpired("cookies gone")
+            raise SessionExpired(main.Shop.amazon)
 
     monkeypatch.setattr(main, "get_scraper", lambda shop: ExpiredScraper())
-    logged_in.post("/fetch", data={"shop": "amazon", "order_no": "028-999"})
-    assert prefs.get_orders() == []
+    response = logged_in.post(
+        "/fetch", data={"shop": "amazon", "order_no": "028-999"}
+    )
+    assert "Cookies" in response.text or "cookie" in response.text.lower()
+    assert prefs.get_orders()[0] == {"shop": "amazon", "order_no": "028-999"}
+    # and the start page offers it straight away
+    assert 'data-value="028-999"' in logged_in.get("/").text
+    _clear_prefs(prefs.ORDERS)
 
 
 def test_resolving_a_label_remembers_the_asset_id(logged_in):

@@ -17,8 +17,10 @@
     <div class="field">
       <span>{{ t('shop_label') }}</span>
       <div class="segmented" role="radiogroup">
+        {# The shop of the most recent order number, first shop if there is none #}
         {% for s in shops %}
-        <input type="radio" name="shop" value="{{ s.value }}" id="shop-{{ s.value }}" {% if loop.first %}checked{% endif %}>
+        <input type="radio" name="shop" value="{{ s.value }}" id="shop-{{ s.value }}"
+               {% if s.value == selected_shop or (not selected_shop and loop.first) %}checked{% endif %}>
         <label for="shop-{{ s.value }}">{{ s.display_name }}</label>
         {% endfor %}
       </div>

@@ -102,6 +102,9 @@ def _context(request: Request, **context) -> dict:
         version=__version__,
         docs_url=DOCS_URL,
         show_asset_id_default=settings.label_show_asset_id,
+        # Copy counts are a habit, and a different one per kind of label.
+        copies_default=prefs.get_last_copies("label"),
+        text_copies_default=prefs.get_last_copies("text"),
         asset=asset_url,
         # The nav link back to a half-finished order; None while there is none.
         draft_info=draft_info,
@@ -200,7 +203,14 @@ def _order_history() -> list[dict]:
 def _render_index(request: Request, **context) -> HTMLResponse:
     """The start page, which four paths render — the history belongs on all of
     them, an error above the form least of all a reason to lose it."""
-    return render(request, "index.html", order_history=_order_history(), **context)
+    return render(
+        request,
+        "index.html",
+        order_history=_order_history(),
+        # Most orders come from the shop the last one came from.
+        selected_shop=prefs.get_last_shop(),
+        **context,
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -219,6 +229,9 @@ async def fetch_order(
     lang = get_lang(request)
     scraper = get_scraper(shop)
     warning = ""
+    # Remembered before the attempt, not after it: expired cookies or a changed
+    # shop page are exactly when the same number is needed again right away.
+    prefs.remember_order(shop.value, order_no)
     try:
         order = await scraper.fetch_order(order_no)
         cookie_store.record_success(shop)
@@ -240,10 +253,6 @@ async def fetch_order(
             request,
             error=t("err_scrape_crashed", lang, shop=shop.display_name, error=str(exc)),
         )
-    # Remembered on the way to the edit page, so also after ParseFailed: the
-    # shop answered for this number, only the parsing fell short. A number that
-    # never got that far is not worth offering again.
-    prefs.remember_order(shop.value, order_no)
     # This is the "next fetch" that replaces what was on the page; the browser
     # writes the new state back as soon as the page has loaded.
     draft.clear()
@@ -621,18 +630,27 @@ async def label_resolve(
     try:
         asset_id = await resolve_asset_id(link)
     except LabelRefError as exc:
+        # Nothing to remember: the app just said this is not a label reference,
+        # and a typo in the list would only be in the way.
         return HTMLResponse(
             f'<div class="banner banner-error">{t(exc.key, lang)}</div>'
         )
     except HomeboxError as exc:
-        return HTMLResponse(
-            f'<div class="banner banner-error">{t("err_homebox", lang)}: {exc}</div>'
-        )
-    # Only an ID that really resolved is worth offering again. The refreshed
-    # list rides along out of band, because this response targets the result.
+        # The input was usable, only Homebox did not answer — so it is worth
+        # offering again, as typed, since there is no resolved ID yet.
+        prefs.remember_asset_ref(link.strip())
+        banner = f'<div class="banner banner-error">{t("err_homebox", lang)}: {exc}</div>'
+        return HTMLResponse(banner + _asset_history_fragment(request))
+    # The resolved ID, not what was pasted: short, unambiguous, resolves again
+    # in one step. The refreshed list rides along out of band, because this
+    # response targets the result.
     prefs.remember_asset_ref(asset_id)
     result = render_fragment(request, "_label_result.html", asset_id=asset_id)
-    history = render_fragment(
+    return HTMLResponse(result + _asset_history_fragment(request))
+
+
+def _asset_history_fragment(request: Request) -> str:
+    return render_fragment(
         request,
         "_field_history.html",
         field="label-link",
@@ -640,7 +658,6 @@ async def label_resolve(
         entries=_asset_history(),
         oob=True,
     )
-    return HTMLResponse(result + history)
 
 
 # -- text-only labels ---------------------------------------------------------
@@ -702,16 +719,11 @@ async def print_text_label(
     if height_mode not in HEIGHT_MODES:
         height_mode = HEIGHT_GROW
     png = render_text_label_png(lines, height_mode=height_mode)
-    try:
-        await printer.print_png(png, copies=max(1, min(copies, 20)))
-    except printer.PrintError as exc:
-        return HTMLResponse(
-            f'<span class="print-status error-text">{t("print_failed", lang)}: {exc}</span>'
-        )
-    # Only a label that really came out is worth remembering — same rule as the
-    # last-used location. The list is swapped out of band because this response
-    # already targets the status line.
+    # Remembered before the print, not after: a label the printer refused is
+    # the one that gets typed again. The lists ride back out of band either
+    # way, because this response targets the status line.
     prefs.remember_text_label(lines, height_mode)
+    prefs.set_last_copies("text", copies)
     history = render_fragment(
         request, "_text_history.html", history=prefs.get_text_labels(), oob=True
     )
@@ -723,6 +735,13 @@ async def print_text_label(
             input_id=f"text-line{index + 1}",
             entries=_text_line_history(index),
             oob=True,
+        )
+    try:
+        await printer.print_png(png, copies=max(1, min(copies, 20)))
+    except printer.PrintError as exc:
+        return HTMLResponse(
+            f'<span class="print-status error-text">{t("print_failed", lang)}: {exc}</span>'
+            f"{history}"
         )
     return HTMLResponse(
         f'<span class="print-status ok-text">{t("print_ok", lang)}</span>{history}'
@@ -763,6 +782,7 @@ async def print_label(
     if not ASSET_ID_RE.match(asset_id):
         return HTMLResponse(f'<span class="print-status error-text">?</span>')
     qr_per_row = qr_per_row or settings.label_qr_per_row
+    prefs.set_last_copies("label", copies)
     png = render_label_png(
         asset_id,
         homebox.asset_qr_url(asset_id),

@@ -266,6 +266,10 @@ function textHeightMode() {
   return force && force.checked ? 'force' : 'keep';
 }
 
+// Set while the label on screen is no longer the one the status line talks
+// about — see textLabelPreview() and the print listeners below.
+var textLabelDirty = false;
+
 // Text-label tool: the preview is the real rendering, fetched from the server,
 // so what you see is exactly the PNG the printer gets. Debounced — every
 // keystroke would otherwise render a label.
@@ -273,6 +277,13 @@ function textLabelPreview() {
   var img = document.getElementById('text-preview-img');
   var empty = document.getElementById('text-preview-empty');
   if (!img) return;
+
+  // The status line belongs to the label it came from. Once the text or the
+  // height changes, it stands above something that is no longer there.
+  textLabelDirty = true;
+  var status = document.getElementById('text-print-status');
+  if (status) status.innerHTML = '';
+
   var line1 = (document.getElementById('text-line1').value || '').trim();
   var line2 = (document.getElementById('text-line2').value || '').trim();
   var any = line1 || line2;
@@ -319,6 +330,16 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('text-print-button').click();
     });
   });
+
+  document.getElementById('text-print-button')
+    .addEventListener('htmx:beforeRequest', function () { textLabelDirty = false; });
+  var status = document.getElementById('text-print-status');
+  status.addEventListener('htmx:afterSwap', function () {
+    // Kept typing while the printer was working: the success belongs to the
+    // label before. Errors stay — they are about the job, not about the text.
+    if (textLabelDirty && status.querySelector('.ok-text')) status.innerHTML = '';
+  });
+
   textLabelPreview(); // a value the browser restored must show up in the preview
 });
 

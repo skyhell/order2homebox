@@ -22,6 +22,14 @@ Each version links to its GitHub release, which carries the full notes.
   to the ID, because eight bare numbers say nothing about which label is which;
   reprinting keeps the name a created item brought along. Entries stored by the
   previous version are read unchanged.
+- **The green *Printed ✓* on *Text label* stood above the next label.** The
+  message was tied to the box it was swapped into, not to the label it came
+  from, so it stayed there until the page was reloaded — on a tool built to
+  print one label after another, that means it described the wrong text most of
+  the time. Typing a new line, picking one from the history or changing the
+  height now clears it, and an answer that arrives after such a change no
+  longer puts the badge back. Failed prints keep their message: those are about
+  the job, not about the text.
 
 ## [0.12.0] — 2026-08-11
 

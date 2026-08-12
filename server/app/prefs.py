@@ -19,6 +19,7 @@ TEXT_HEIGHT_MODE = "text_height_mode"
 TEXT_KEEP_HEIGHT = "text_keep_height"  # superseded by the above; still read
 ORDERS = "orders"  # [{"shop": …, "order_no": …}] — the shop belongs to the number
 ASSET_REFS = "asset_refs"  # resolved asset IDs, not the pasted links
+ASSET_NOTE_MAX = 80  # an item name, not a whole product title
 TEXT_LINES = ("text_line1_history", "text_line2_history")
 LAST_COPIES = "last_copies"  # per kind: QR labels and text labels differ
 COPIES_KINDS = ("label", "text")
@@ -133,18 +134,44 @@ def set_last_copies(kind: str, count: int) -> None:
     _write(data)
 
 
-def get_asset_refs() -> list[str]:
-    """Asset IDs last resolved on the reprint page, newest first."""
-    return _history(ASSET_REFS, _is_text)
+def _as_asset_entry(entry):
+    """Entries were plain ID strings before the item name came along — an
+    existing prefs.json must not lose its list, so a string still counts."""
+    if _is_text(entry):
+        return {"value": entry, "note": ""}
+    if isinstance(entry, dict) and _is_text(entry.get("value")):
+        note = entry.get("note")
+        return {"value": entry["value"], "note": note if _is_text(note) else ""}
+    return None
 
 
-def remember_asset_ref(asset_id: str) -> None:
-    """Remember the resolved ID, not what was pasted: it is short, unambiguous
-    and resolves again in one step."""
+def get_asset_refs() -> list[dict]:
+    """Asset IDs that went through the app, newest first — the item name rides
+    along as the note, because eight bare numbers say nothing."""
+    entries = _read().get(ASSET_REFS)
+    if not isinstance(entries, list):
+        return []
+    clean = [entry for entry in map(_as_asset_entry, entries) if entry]
+    return clean[:HISTORY_MAX]
+
+
+def remember_asset_ref(asset_id: str, name: str = "") -> None:
+    """Remember an asset ID the app itself handled: one that was just created,
+    one whose label was sent to the printer, or one resolved on the reprint
+    page. The resolved ID, not what was pasted — it is short, unambiguous and
+    resolves again in one step.
+
+    Deduplicated by the ID alone, and an empty name never clears one that is
+    already stored: printing knows only the ID, creating also knows the item.
+    """
     if not asset_id:
         return
     data = _read()
-    _push(data, ASSET_REFS, asset_id, _is_text)
+    old = [entry for entry in map(_as_asset_entry, data.get(ASSET_REFS) or []) if entry]
+    known = next((e["note"] for e in old if e["value"] == asset_id), "")
+    entry = {"value": asset_id, "note": (name.strip()[:ASSET_NOTE_MAX] or known)}
+    rest = [e for e in old if e["value"] != asset_id]
+    data[ASSET_REFS] = [entry] + rest[: HISTORY_MAX - 1]
     _write(data)
 
 

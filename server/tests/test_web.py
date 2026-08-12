@@ -959,13 +959,20 @@ def test_a_field_history_keeps_the_newest_first_without_duplicates(tmp_path, mon
     monkeypatch.setattr(settings, "data_dir", tmp_path)
     for asset_id in ("000-001", "000-002", "000-001"):
         prefs.remember_asset_ref(asset_id)
-    assert prefs.get_asset_refs() == ["000-001", "000-002"]
+    assert _asset_values() == ["000-001", "000-002"]
 
     for n in range(12):
         prefs.remember_asset_ref(f"000-{n:03d}")
-    history = prefs.get_asset_refs()
+    history = _asset_values()
     assert len(history) == prefs.HISTORY_MAX
     assert history[0] == "000-011"  # the last one entered is on top
+
+
+def _asset_values() -> list[str]:
+    """The stored asset IDs without their notes, newest first."""
+    from app import prefs
+
+    return [entry["value"] for entry in prefs.get_asset_refs()]
 
 
 def _rendered_history(body: str, field: str) -> list[str]:
@@ -1049,11 +1056,11 @@ def test_a_reference_homebox_could_not_answer_for_is_remembered_as_typed(
     url = "https://box.example.com/item/a23e834c-861a-4b2c-8f0e-1234567890ab"
     response = logged_in.post("/label/resolve", data={"link": url})
     assert "banner-error" in response.text
-    assert prefs.get_asset_refs() == [url]
+    assert _asset_values() == [url]
     assert 'id="history-label-link" hx-swap-oob="outerHTML"' in response.text
 
     logged_in.post("/label/resolve", data={"link": "not an id"})
-    assert prefs.get_asset_refs() == [url]  # the typo stayed out
+    assert _asset_values() == [url]  # the typo stayed out
     _clear_prefs(prefs.ASSET_REFS)
 
 
@@ -1165,7 +1172,7 @@ def test_resolving_a_label_remembers_the_asset_id(logged_in):
     response = logged_in.post(
         "/label/resolve", data={"link": "https://box.example.com/a/000-629"}
     )
-    assert prefs.get_asset_refs() == ["000-629"]
+    assert _asset_values() == ["000-629"]
     assert 'id="history-label-link" hx-swap-oob="outerHTML"' in response.text
     assert 'data-value="000-629"' in response.text
 
@@ -1178,7 +1185,115 @@ def test_a_rejected_label_reference_is_not_remembered(logged_in):
 
     _clear_prefs(prefs.ASSET_REFS)
     logged_in.post("/label/resolve", data={"link": "not an id"})
-    assert prefs.get_asset_refs() == []
+    assert _asset_values() == []
+
+
+def test_a_created_item_lands_in_the_reprint_history_with_its_name(
+    logged_in, monkeypatch
+):
+    """The reprint page used to fill only from typing into it, so an ID created
+    the normal way never appeared there. Not printing the label right away is
+    exactly the case a reprint is for, so it counts too."""
+    import app.main as main
+    from app import prefs
+
+    _clear_prefs(prefs.ASSET_REFS)
+    _clear_draft()
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-629"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    logged_in.post("/create-item", data={  # no item-1-print
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "USB-C Kabel 2 m", "item-1-quantity": "1",
+    })
+    assert prefs.get_asset_refs() == [{"value": "000-629", "note": "USB-C Kabel 2 m"}]
+
+    page = logged_in.get("/label").text
+    assert 'data-value="000-629"' in page
+    assert "USB-C Kabel 2 m" in page  # the name is what tells the IDs apart
+    _clear_prefs(prefs.ASSET_REFS)
+    _clear_draft()
+
+
+def test_a_refused_print_still_remembers_the_asset_id(logged_in, monkeypatch):
+    """The attempt, not the success — a label the agent refused is the one that
+    gets printed again in a moment."""
+    import app.main as main
+    from app import prefs
+
+    _clear_prefs(prefs.ASSET_REFS)
+
+    async def refuse(png, copies=1):
+        raise main.printer.PrintError("agent not reachable")
+
+    monkeypatch.setattr(main.printer, "print_png", refuse)
+    response = logged_in.post("/print", data={"asset_id": "000-042", "copies": "1"})
+    assert "error-text" in response.text
+    assert _asset_values() == ["000-042"]
+    _clear_prefs(prefs.ASSET_REFS)
+
+
+def test_a_reprint_keeps_the_name_and_moves_the_id_up(logged_in, monkeypatch):
+    """/print knows only the ID, so it must not wipe the name stored when the
+    item was created — and the ID must not end up in the list twice."""
+    from app import prefs
+
+    _clear_prefs(prefs.ASSET_REFS)
+    _stub_printer(monkeypatch)
+    prefs.remember_asset_ref("000-629", "USB-C Kabel 2 m")
+    prefs.remember_asset_ref("000-630", "Schrumpfschlauch-Set")
+
+    logged_in.post("/print", data={"asset_id": "000-629", "copies": "1"})
+    assert prefs.get_asset_refs() == [
+        {"value": "000-629", "note": "USB-C Kabel 2 m"},
+        {"value": "000-630", "note": "Schrumpfschlauch-Set"},
+    ]
+    _clear_prefs(prefs.ASSET_REFS)
+
+
+def test_ids_stored_before_the_names_still_show_up(logged_in):
+    """An existing prefs.json holds bare strings — it keeps its list."""
+    from app import prefs
+
+    data = prefs._read()
+    data[prefs.ASSET_REFS] = ["000-460", "000-641"]
+    prefs._write(data)
+
+    shown = _rendered_history(logged_in.get("/label").text, "label-link")
+    assert shown == ["000-460", "000-641"]
+
+    prefs.remember_asset_ref("000-641")  # and they take part in the reordering
+    assert _asset_values() == ["000-641", "000-460"]
+    _clear_prefs(prefs.ASSET_REFS)
+
+
+def test_creating_a_whole_order_fills_the_list_without_growing_it(
+    logged_in, monkeypatch
+):
+    import app.main as main
+    from app import prefs
+
+    _clear_prefs(prefs.ASSET_REFS)
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    _stub_printer(monkeypatch)
+    asset_ids = iter(["000-001", "000-002"])
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": next(asset_ids)}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    for n in range(9):
+        prefs.remember_asset_ref(f"000-9{n:02d}")
+
+    logged_in.post("/create", data=_draft_form())
+    history = _asset_values()
+    assert history[:2] == ["000-002", "000-001"]  # the last card is on top
+    assert len(history) == prefs.HISTORY_MAX
+    _clear_prefs(prefs.ASSET_REFS)
+    _clear_draft()
 
 
 def test_printing_text_fills_both_line_histories(logged_in, monkeypatch):

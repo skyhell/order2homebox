@@ -6,6 +6,23 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [Unreleased]
+
+### Fixed
+
+- **The history on *Print label* stayed empty.** The field there had the same
+  drop-down as the order number since 0.12.0, but it was filled in one single
+  place: when an ID was typed into that page itself. Every asset ID that came
+  the normal way — an item created on the edit page, a label sent to the
+  printer — passed it by, so the list never appeared for anyone who prints the
+  way the app is meant to be used. An ID is now remembered wherever the app
+  handles one: when the item is created (even if its label is not printed right
+  away — that is precisely the case a reprint is for) and on every print
+  attempt, refused ones included. The item name is kept alongside and shown next
+  to the ID, because eight bare numbers say nothing about which label is which;
+  reprinting keeps the name a created item brought along. Entries stored by the
+  previous version are read unchanged.
+
 ## [0.12.0] — 2026-08-11
 
 ### Added

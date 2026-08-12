@@ -476,6 +476,10 @@ async def _create_and_print(
     try:
         item = await homebox.create_item(item_draft, order, location_id, label_ids)
         entry["item"] = item
+        # Both create routes come through here, so the reprint page learns about
+        # every new asset ID — printing it is not the point, having it is: an
+        # item created without a label is precisely what gets reprinted later.
+        prefs.remember_asset_ref(str(item.get("assetId") or ""), item_draft.name)
     except HomeboxError as exc:
         entry["error"] = str(exc)
         return entry
@@ -614,7 +618,8 @@ async def resolve_asset_id(raw: str) -> str:
 
 
 def _asset_history() -> list[dict]:
-    return [{"value": asset_id} for asset_id in prefs.get_asset_refs()]
+    """Already history entries — value plus the item name as the note."""
+    return prefs.get_asset_refs()
 
 
 @app.get("/label", response_class=HTMLResponse)
@@ -783,6 +788,10 @@ async def print_label(
         return HTMLResponse(f'<span class="print-status error-text">?</span>')
     qr_per_row = qr_per_row or settings.label_qr_per_row
     prefs.set_last_copies("label", copies)
+    # Before the attempt, not after it: a label the agent refused is exactly the
+    # one that gets printed again in a moment. The name, if this ID has one, is
+    # already stored from when the item was created.
+    prefs.remember_asset_ref(asset_id)
     png = render_label_png(
         asset_id,
         homebox.asset_qr_url(asset_id),

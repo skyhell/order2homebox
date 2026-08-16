@@ -81,9 +81,14 @@ one-click chips.
 The settings page shows the Homebox connection and the printers with their
 status — one card per Pi, each with its own test print and shutdown button.
 *Use this one* decides where this computer prints; another computer keeps its
-own choice. The shop sessions have a page of their own next to it: they are
-what an order fetch runs on and expire every few weeks, while the settings are
-set up once.
+own choice.
+
+![Shop sessions](docs/screenshot-cookies.png)
+
+The shop sessions have a page of their own, because they are the one thing here
+that does not stay set: a session expires every few weeks and is pasted in
+again, usually right after a fetch failed on it — and the message about that
+links straight to this page.
 
 ## Architecture
 

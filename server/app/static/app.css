@@ -261,8 +261,12 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
 .printer-edit > summary { cursor: pointer; font-size: 14px; color: var(--text-secondary); }
 .printer-edit[open] > summary { margin-bottom: 14px; }
 .printer-edit .action-right { gap: 10px; }
-/* Says which Pi the button next to it prints on; only there with more than one. */
+/* Says which Pi the button below it prints on; only there with more than one.
+   In an action bar it takes the whole row, or it ends up squeezed against the
+   side of the button it belongs above. */
 .print-target { margin-bottom: 14px; }
+.action-bar { flex-wrap: wrap; }
+.action-bar .print-target { flex-basis: 100%; text-align: center; margin-bottom: 12px; }
 
 /* ---- items / results ---- */
 .item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }

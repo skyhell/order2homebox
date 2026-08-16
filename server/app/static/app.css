@@ -231,8 +231,11 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
 /* Not yet known — the row asks for the real state right after the page loads. */
 .status-dot.pending { background: var(--text-secondary); opacity: 0.4; }
 /* Test print and shutdown need an agent that answers. The row marks itself
-   .agent-offline while it does not, and the controls below it follow. */
-#agent-row.agent-offline ~ .agent-actions { display: none; }
+   .agent-offline while it does not, and the controls below it follow — inside
+   that printer's card only, which is why this is a class and not an id.
+   Changing or removing a printer stays reachable: an unreachable one is
+   precisely what gets a new address. */
+.agent-offline ~ .agent-actions { display: none; }
 .status-name { font-weight: 600; }
 .status-detail { color: var(--text-secondary); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-text { color: var(--text-secondary); font-size: 13px; }
@@ -240,6 +243,26 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
 /* The result card's one status line, below the print controls it belongs to.
    Empty until something was printed, hence :empty rather than a fixed margin. */
 .print-status-line:not(:empty) { margin-top: 10px; }
+
+/* ---- printers ---- */
+/* The card that prints gets an accent edge, so which one it is can be seen from
+   across the list instead of read off a badge. */
+.printer-active { box-shadow: var(--shadow), inset 3px 0 0 var(--accent); }
+.badge-active {
+  font-size: 13px; font-weight: 600;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+  padding: 3px 10px; border-radius: 980px;
+  white-space: nowrap;
+}
+/* Only inside a printer card: the "add a printer" card has nothing above the
+   line for it to separate. */
+.printer-card .printer-edit { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.printer-edit > summary { cursor: pointer; font-size: 14px; color: var(--text-secondary); }
+.printer-edit[open] > summary { margin-bottom: 14px; }
+.printer-edit .action-right { gap: 10px; }
+/* Says which Pi the button next to it prints on; only there with more than one. */
+.print-target { margin-bottom: 14px; }
 
 /* ---- items / results ---- */
 .item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }

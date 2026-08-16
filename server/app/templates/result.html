@@ -4,6 +4,7 @@
   <h1 class="page-title">{{ t('result_title') }}</h1>
   {% set created = results | selectattr('item') | list %}
   <p class="page-subtitle">{{ t('result_summary', n=created | length) }}</p>
+  {% include "_print_target.html" %}
 
   {% for r in results %}
   {% set idx = loop.index0 %}

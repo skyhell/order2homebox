@@ -81,7 +81,9 @@ order2homebox/
 │   │   │                     # Validierung, Status je Shop (vorhanden/abgelaufen)
 │   │   ├── labels.py         # PNG: 306 px breit, 2× QR (segno) nebeneinander,
 │   │   │                     # optional Asset-ID darunter (Pillow + mitgelieferter TTF)
-│   │   ├── printer.py        # POST PNG an Print-Agent, Health-Check
+│   │   ├── agents.py        # Liste der Print-Agents (data/agents.json, Keys verschlüsselt),
+│   │   │                     # Auswahl je Browser im Cookie o2h_printer
+│   │   ├── printer.py        # POST PNG an einen Print-Agent, Health-Check
 │   │   ├── locales/de.json, en.json
 │   │   ├── templates/        # base (Navbar: Sprache, Dark-Mode, Logout), login, index
 │   │   │                     # (Shop+Bestellnr.), edit (Artikel-Formulare), result
@@ -132,7 +134,7 @@ order2homebox/
 
 ### Cookie-Import (Settings-Seite)
 - Pro Shop ein Textfeld: JSON-Export der Cookie-Editor-Extension einfügen → Validierung → Speicherung als `data/cookies/{shop}.json` (chmod 600).
-- Statusanzeige je Shop (importiert am, letzter erfolgreicher Fetch, abgelaufen-Flag) + Verbindungstest Homebox/Print-Agent + Testdruck-Button.
+- Statusanzeige je Shop (importiert am, letzter erfolgreicher Fetch, abgelaufen-Flag) + Verbindungstest Homebox; die Drucker haben seit v0.13.0 einen eigenen Abschnitt mit einer Karte je Pi (Status, Testdruck, Herunterfahren, Ändern/Entfernen, „Diesen verwenden").
 
 ### Web-Login, Apple-Style, i18n
 - Single-User-Login: `WEB_USER` + bcrypt-Hash in `.env` (Installscript fragt Passwort ab und hasht); signiertes Session-Cookie (itsdangerous), `require_login`-Dependency auf allen Routen außer `/login` und `/health`.
@@ -147,6 +149,7 @@ order2homebox/
 - **Text-Etiketten (v0.9.0 ergänzt)**: `render_text_label(lines)` druckt 1–2 Zeilen reinen Text ohne QR-Code — für alles, was kein Homebox-Item ist. Die Schriftgröße ist keine Einstellung, sondern wird je Zeile per Binärsuche so groß gewählt, dass sie die 306 px ausfüllt (kurze Zeile → größer als eine lange daneben). Deckel 110 px ≈ 10 mm pro Zeile, sonst frisst ein Zwei-Buchstaben-Etikett eine Handbreit Endlosband; Zeilenhöhe aus der Ink-Box statt aus den Font-Metriken, sonst würde ungenutzter Oberlängen-Platz als Leerband gedruckt. Seite `GET /text`, Vorschau `GET /text.png?line1=&line2=`, Druck `POST /text/print`.
 
 ### Print-Agent (Raspberry Pi)
+- **Mehrere Agents (v0.13.0)**: Ein Pi mit einem QL-500 je Drucker. Die Liste liegt in `data/agents.json` (Name, URL, API-Key mit `secrets.encrypt` verschlüsselt, Datei 600) und wird auf der Settings-Seite gepflegt — Anlegen, Ändern, Entfernen, Testdruck und Herunterfahren je Karte (`/settings/printers/{id}/…`). Solange die Datei fehlt, *ist* der `.env`-Agent die Liste (`O2H_PRINT_AGENT_URL`/`_API_KEY`, id `default`); der erste hinzugefügte Drucker nimmt ihn in die Datei mit. **Welcher Drucker druckt, gehört zum Arbeitsplatz, nicht zur Installation** und steht deshalb im Cookie `o2h_printer` des jeweiligen Browsers (Fallback: der erste der Liste) — analog zur Sprache. `printer.py` bekommt den Agent bei jedem Aufruf übergeben, geraten wird nichts. Der letzte Drucker lässt sich nicht entfernen; ohne Drucker sagen die Druckrouten das, statt zu scheitern.
 - `POST /print`: PNG + `copies`, geschützt per statischem `X-Api-Key`; `brother_ql.conversion.convert` (model `QL-500`, label `29`) → Backend `linux_kernel` → `/dev/usb/lp0`.
 - `POST /shutdown` (v0.5.0 ergänzt): fährt den headless Pi sauber herunter, gleicher `X-Api-Key`; der Service-User darf per `/etc/sudoers.d/o2h-shutdown` genau `/usr/sbin/shutdown -h now` als root ausführen. Knopf mit Rückfrage auf der Settings-Seite.
 - `GET /health` für Statusanzeige in Settings. `--dry-run`-Modus schreibt PNG in Datei (Entwicklung ohne Drucker).

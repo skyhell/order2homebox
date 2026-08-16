@@ -1,0 +1,9 @@
+{# Which Pi the next label comes out of. Only shown once there is more than one
+   printer to choose from — with a single one the sentence would answer a
+   question nobody has. The choice itself is made on the settings page, and it
+   belongs to this browser. #}
+{%- if printers | length > 1 and print_target %}
+<p class="print-target hint">{{ t('printing_on', name=print_target.name) }}
+  <a class="subtle-link" href="/settings">{{ t('printing_on_change') }}</a>
+</p>
+{%- endif %}

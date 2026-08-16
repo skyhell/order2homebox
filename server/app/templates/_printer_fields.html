@@ -1,0 +1,24 @@
+{# The three fields of a printer, shared by the add form and every edit form so
+   the two cannot drift. `agent` is None while adding.
+
+   The API key is never rendered back: it leaves the server exactly once, when
+   it is typed in. An empty key on an existing printer therefore means "keep the
+   one you have", not "clear it". #}
+<div class="field">
+  <span>{{ t('printer_name') }}</span>
+  <input class="input" type="text" name="name" maxlength="40" required
+         autocomplete="off" placeholder="{{ t('printer_name_placeholder') }}"
+         value="{{ agent.name if agent else '' }}">
+</div>
+<div class="field">
+  <span>{{ t('printer_url') }}</span>
+  <input class="input input-mono" type="text" name="url" required
+         autocomplete="off" placeholder="http://raspberrypi.local:8010"
+         value="{{ agent.url if agent else '' }}">
+</div>
+<div class="field">
+  <span>{{ t('printer_key') }}</span>
+  <input class="input input-mono" type="password" name="api_key" autocomplete="new-password"
+         placeholder="{{ t('printer_key_keep') if agent else t('printer_key_placeholder') }}">
+  <p class="hint">{{ t('printer_key_hint') }}</p>
+</div>

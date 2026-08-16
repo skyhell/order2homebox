@@ -40,6 +40,8 @@
     {% endfor %}
 
     <div class="action-bar">
+      {# This button prints too, so it says where. #}
+      {% include "_print_target.html" %}
       <button class="btn btn-primary btn-large" type="submit" data-loading-text="{{ t('creating') }}">{{ t('create_submit') }}</button>
     </div>
   </form>

@@ -34,6 +34,10 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   type size at all.
 - 🖨️ **Print agent** on a Raspberry Pi (Brother QL-500 via USB, `brother_ql`),
   secured with an API key; dry-run mode for development without a printer.
+- 🏭 **Several printers, one per room** — add as many Pis as you have QL-500s on
+  the settings page, and every computer remembers which one it prints on. The
+  machine in the workshop keeps printing in the workshop, the one in the office
+  in the office, from the same server.
 - ⏻ **Shut the Pi down from the web UI** — the print agent is headless, so the
   settings page has a confirmed *Shut down Pi* button instead of you having to
   pull the plug (and eventually corrupt the SD card). The connection rows keep
@@ -74,8 +78,10 @@ one-click chips.
 
 ![Settings](docs/screenshot-settings.png)
 
-The settings page shows the Homebox and print-agent connection status and holds
-the per-shop session cookies.
+The settings page shows the Homebox connection, the printers with their status
+(one card per Pi, each with its own test print and shutdown button) and the
+per-shop session cookies. *Use this one* decides where this computer prints —
+another computer keeps its own choice.
 
 ## Architecture
 
@@ -122,6 +128,12 @@ Copy the printed **API key** into the server's `/opt/order2homebox/server/.env`
 `systemctl restart order2homebox`. Give the Pi a DHCP reservation first, so that
 address keeps working after a reboot.
 Details & troubleshooting: [printagent/deploy/install-pi.md](printagent/deploy/install-pi.md).
+
+**More than one printer?** Run the same installer on the next Pi and add it on
+the app's **Settings** page (*Printers → Add a printer*: name, address, the key
+that installer printed) — no `.env` edit and no restart. Each browser then picks
+the printer it prints on there, and remembers it. The key is stored encrypted in
+`data/agents.json`.
 
 ### 3. Shop cookies
 

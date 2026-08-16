@@ -3,7 +3,7 @@
 <div class="page-narrow">
   <h1 class="page-title">{{ t('settings_title') }}</h1>
 
-  {% if msg %}<div class="banner banner-info">{{ msg }}</div>{% endif %}
+  {% if msg %}<div class="banner {{ 'banner-error' if msg_error else 'banner-info' }}">{{ msg }}</div>{% endif %}
 
   <h2 class="section-title">{{ t('section_connections') }}</h2>
   <div class="card">
@@ -16,30 +16,84 @@
       <span class="status-detail"></span>
       <span class="status-text">{{ t('status_checking') }}</span>
     </div>
+  </div>
+
+  <h2 class="section-title">{{ t('section_printers') }}</h2>
+  <p class="page-subtitle">{{ t('printers_help') }}</p>
+
+  {% for agent in printers %}
+  <div class="card printer-card{% if print_target and agent.id == print_target.id %} printer-active{% endif %}">
+    <div class="item-head">
+      <h2>{{ agent.name }}</h2>
+      {% if print_target and agent.id == print_target.id %}
+      <span class="badge-active">{{ t('printer_active') }}</span>
+      {% else %}
+      {# One small form per printer instead of a radio group: radios in separate
+         forms are not mutually exclusive, and one form around all the cards
+         cannot hold the edit forms inside them. #}
+      <form method="post" action="/settings/printers/{{ agent.id }}/select">
+        <button class="btn btn-secondary btn-small" type="submit">{{ t('printer_select') }}</button>
+      </form>
+      {% endif %}
+    </div>
     {# starts out hidden-buttons: the state is unknown until the row answers #}
-    <div class="status-row agent-offline" id="agent-row"
-         hx-get="/settings/agent-status"
+    <div class="status-row agent-offline" id="agent-row-{{ agent.id }}"
+         hx-get="/settings/printers/{{ agent.id }}/status"
          hx-trigger="load, every 10s"
          hx-swap="outerHTML">
       <span class="status-dot pending"></span>
-      <span class="status-name">{{ t('printagent_label') }}</span>
+      <span class="status-name">{{ agent.url }}</span>
       <span class="status-detail"></span>
       <span class="status-text">{{ t('status_checking') }}</span>
     </div>
     <div class="status-row agent-actions">
       <button class="btn btn-secondary btn-small"
-              hx-post="/settings/test-print"
-              hx-target="#test-print-status"
+              hx-post="/settings/printers/{{ agent.id }}/test-print"
+              hx-target="#test-print-status-{{ agent.id }}"
               hx-swap="innerHTML">{{ t('test_print_button') }}</button>
-      <span id="test-print-status"></span>
+      <span id="test-print-status-{{ agent.id }}"></span>
       <button class="btn btn-secondary btn-small"
-              hx-post="/settings/shutdown-agent"
+              hx-post="/settings/printers/{{ agent.id }}/shutdown"
               hx-confirm="{{ t('shutdown_confirm') }}"
-              hx-target="#shutdown-status"
+              hx-target="#shutdown-status-{{ agent.id }}"
               hx-swap="innerHTML">{{ t('shutdown_button') }}</button>
-      <span id="shutdown-status"></span>
+      <span id="shutdown-status-{{ agent.id }}"></span>
     </div>
     <p class="hint agent-actions">{{ t('shutdown_hint') }}</p>
+    {# Editing and removing stay reachable while the Pi is unreachable — a
+       printer nobody answers for is exactly the one that gets a new address or
+       goes away. #}
+    <details class="printer-edit">
+      <summary>{{ t('printer_edit') }}</summary>
+      <form method="post" action="/settings/printers">
+        <input type="hidden" name="agent_id" value="{{ agent.id }}">
+        {% with agent=agent %}{% include "_printer_fields.html" %}{% endwith %}
+        <div class="action-right">
+          {# Belongs to the (empty) form below via form=… — nesting the two
+             would be invalid HTML, and stacking them puts one button per line. #}
+          <button class="btn btn-secondary" type="submit"
+                  form="printer-remove-{{ agent.id }}">{{ t('printer_remove') }}</button>
+          <button class="btn btn-secondary" type="submit">{{ t('printer_save') }}</button>
+        </div>
+      </form>
+      <form method="post" id="printer-remove-{{ agent.id }}"
+            action="/settings/printers/{{ agent.id }}/remove"
+            onsubmit="return confirm('{{ t('printer_remove_confirm', name=agent.name) }}')"></form>
+    </details>
+  </div>
+  {% endfor %}
+
+  <div class="card">
+    <details class="printer-edit">
+      <summary>{{ t('printer_add') }}</summary>
+      <form method="post" action="/settings/printers">
+        <input type="hidden" name="agent_id" value="">
+        {% with agent=None %}{% include "_printer_fields.html" %}{% endwith %}
+        <div class="action-right">
+          <button class="btn btn-secondary" type="submit">{{ t('printer_save') }}</button>
+        </div>
+      </form>
+    </details>
   </div>
 
   <h2 class="section-title">{{ t('section_cookies') }}</h2>

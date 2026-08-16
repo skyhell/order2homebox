@@ -71,7 +71,7 @@ def test_create_single_item_returns_result_fragment(logged_in, monkeypatch):
         )
         return {"id": "item1", "assetId": "000-007"}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         created_with["printed_copies"] = copies
         return {"status": "printed"}
 
@@ -100,7 +100,7 @@ def _stub_create_and_print(monkeypatch, rendered):
     async def fake_create_item(draft, order, location_id, label_ids):
         return {"id": "item1", "assetId": "000-007"}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
@@ -141,7 +141,7 @@ def _stub_create_and_capture(monkeypatch, captured):
     async def fake_create_item(draft, order, location_id, label_ids):
         return {"id": "item1", "assetId": "000-007"}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
@@ -217,7 +217,7 @@ def test_reprinting_three_up_never_adds_the_asset_id(logged_in, monkeypatch):
         captured.append({"show_asset_id": show_asset_id, "qr_per_row": qr_per_row})
         return b"PNG"
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     monkeypatch.setattr(main, "render_label_png", fake_render)
@@ -236,7 +236,7 @@ def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, mo
     async def fake_create_item(draft, order, location_id, label_ids):
         return {"id": "item1", "assetId": "000-00%d" % len(calls)}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
@@ -341,7 +341,7 @@ def test_result_card_print_controls_carry_no_form_field_names(logged_in, monkeyp
     async def fake_create_item(draft, order, location_id, label_ids):
         return {"id": "item1", "assetId": "000-007"}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
@@ -600,7 +600,7 @@ def _stub_printer(monkeypatch):
 
     printed = []
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         printed.append((png, copies))
 
     monkeypatch.setattr(main.printer, "print_png", fake_print)
@@ -664,7 +664,7 @@ def test_text_print_remembers_a_label_the_printer_refused(logged_in, monkeypatch
 
     _clear_text_prefs()
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         raise main.printer.PrintError("agent unreachable")
 
     monkeypatch.setattr(main.printer, "print_png", fake_print)
@@ -886,7 +886,7 @@ def test_a_created_item_comes_back_as_a_result_card(logged_in, monkeypatch):
     async def fake_create_item(item_draft, order, location_id, label_ids):
         return {"id": "item1", "assetId": "000-007"}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
@@ -918,7 +918,7 @@ def _create_item_with_failing_printer(logged_in, monkeypatch, message=LP0_MISSIN
     async def fake_create_item(item_draft, order, location_id, label_ids):
         return {"id": "item1", "assetId": "000-007"}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         raise main.printer.PrintError(message)
 
     monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
@@ -958,7 +958,7 @@ def test_a_reprint_that_worked_replaces_the_failure_for_good(logged_in, monkeypa
     _create_item_with_failing_printer(logged_in, monkeypatch)
     assert draft.load()["created"]["0"]["print_error"]
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     monkeypatch.setattr(main.printer, "print_png", fake_print)
@@ -985,7 +985,7 @@ def test_a_reprint_that_failed_is_remembered_too(logged_in, monkeypatch):
     async def fake_create_item(item_draft, order, location_id, label_ids):
         return {"id": "item1", "assetId": "000-007"}
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
@@ -993,7 +993,7 @@ def test_a_reprint_that_failed_is_remembered_too(logged_in, monkeypatch):
     logged_in.post("/create-item", data=dict(_draft_form(), idx="0"))
     assert draft.load()["created"]["0"]["printed"] is True
 
-    async def failing_print(png, copies=1):
+    async def failing_print(agent, png, copies=1):
         raise main.printer.PrintError("out of tape")
 
     monkeypatch.setattr(main.printer, "print_png", failing_print)
@@ -1015,7 +1015,7 @@ def test_a_card_index_from_a_replaced_page_writes_nowhere(logged_in, monkeypatch
     _clear_draft()
     _create_item_with_failing_printer(logged_in, monkeypatch)
 
-    async def fake_print(png, copies=1):
+    async def fake_print(agent, png, copies=1):
         return {"status": "printed"}
 
     monkeypatch.setattr(main.printer, "print_png", fake_print)
@@ -1371,7 +1371,7 @@ def test_a_refused_print_still_remembers_the_asset_id(logged_in, monkeypatch):
 
     _clear_prefs(prefs.ASSET_REFS)
 
-    async def refuse(png, copies=1):
+    async def refuse(agent, png, copies=1):
         raise main.printer.PrintError("agent not reachable")
 
     monkeypatch.setattr(main.printer, "print_png", refuse)
@@ -1490,12 +1490,12 @@ def test_shutdown_agent_reports_success(logged_in, monkeypatch):
 
     called = {}
 
-    async def fake_shutdown():
+    async def fake_shutdown(agent):
         called["yes"] = True
         return {"status": "shutting_down"}
 
     monkeypatch.setattr(main.printer, "shutdown", fake_shutdown)
-    response = logged_in.post("/settings/shutdown-agent")
+    response = logged_in.post("/settings/printers/default/shutdown")
     assert response.status_code == 200
     assert called == {"yes": True}
     assert "fährt herunter" in response.text  # German default
@@ -1504,18 +1504,18 @@ def test_shutdown_agent_reports_success(logged_in, monkeypatch):
 def test_shutdown_agent_shows_error_instead_of_500(logged_in, monkeypatch):
     import app.main as main
 
-    async def fake_shutdown():
+    async def fake_shutdown(agent):
         raise main.printer.PrintError("Print agent unreachable")
 
     monkeypatch.setattr(main.printer, "shutdown", fake_shutdown)
-    response = logged_in.post("/settings/shutdown-agent")
+    response = logged_in.post("/settings/printers/default/shutdown")
     assert response.status_code == 200
     assert "error-text" in response.text
     assert "unreachable" in response.text
 
 
 def test_shutdown_agent_requires_login(client):
-    response = client.post("/settings/shutdown-agent", headers={"HX-Request": "true"})
+    response = client.post("/settings/printers/default/shutdown", headers={"HX-Request": "true"})
     assert response.status_code == 401
     assert response.headers["HX-Redirect"] == "/login"
 
@@ -1526,13 +1526,13 @@ def test_settings_page_offers_the_shutdown_button(logged_in, monkeypatch):
     async def fake_status():
         return None
 
-    async def fake_health():
+    async def fake_health(agent):
         return {"ok": True, "dry_run": False}
 
     monkeypatch.setattr(main.homebox, "status", fake_status)
     monkeypatch.setattr(main.printer, "health", fake_health)
     response = logged_in.get("/settings")
-    assert 'hx-post="/settings/shutdown-agent"' in response.text
+    assert 'hx-post="/settings/printers/default/shutdown"' in response.text
     assert "hx-confirm=" in response.text  # never power off on a stray click
 
 
@@ -1541,13 +1541,13 @@ def test_agent_status_fragment_keeps_polling_itself(logged_in, monkeypatch):
     on, so the swapped-in fragment has to carry the poll trigger again."""
     import app.main as main
 
-    async def fake_health():
+    async def fake_health(agent):
         return {"ok": True, "dry_run": False}
 
     monkeypatch.setattr(main.printer, "health", fake_health)
-    response = logged_in.get("/settings/agent-status")
+    response = logged_in.get("/settings/printers/default/status")
     assert response.status_code == 200
-    assert 'hx-get="/settings/agent-status"' in response.text
+    assert 'hx-get="/settings/printers/default/status"' in response.text
     assert 'hx-trigger="every 10s"' in response.text
     assert "status-dot ok" in response.text
 
@@ -1555,17 +1555,17 @@ def test_agent_status_fragment_keeps_polling_itself(logged_in, monkeypatch):
 def test_agent_status_fragment_shows_the_pi_as_down(logged_in, monkeypatch):
     import app.main as main
 
-    async def fake_health():
+    async def fake_health(agent):
         return {"ok": False, "error": "Connection refused"}
 
     monkeypatch.setattr(main.printer, "health", fake_health)
-    response = logged_in.get("/settings/agent-status")
+    response = logged_in.get("/settings/printers/default/status")
     assert "status-dot err" in response.text
     assert "Connection refused" in response.text
 
 
 def test_agent_status_fragment_requires_login(client):
-    response = client.get("/settings/agent-status", headers={"HX-Request": "true"})
+    response = client.get("/settings/printers/default/status", headers={"HX-Request": "true"})
     assert response.status_code == 401
 
 
@@ -1573,11 +1573,11 @@ def test_agent_status_fragment_is_never_cached(logged_in, monkeypatch):
     """A polled fragment served from the browser cache would show a stale Pi."""
     import app.main as main
 
-    async def fake_health():
+    async def fake_health(agent):
         return {"ok": True, "dry_run": False}
 
     monkeypatch.setattr(main.printer, "health", fake_health)
-    response = logged_in.get("/settings/agent-status")
+    response = logged_in.get("/settings/printers/default/status")
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -1589,7 +1589,7 @@ def test_settings_page_does_not_wait_for_the_pi(logged_in, monkeypatch):
     async def fake_status():
         return None
 
-    async def exploding_health():
+    async def exploding_health(agent):
         raise AssertionError("settings page must not block on the print agent")
 
     monkeypatch.setattr(main.homebox, "status", fake_status)
@@ -1609,7 +1609,7 @@ def test_settings_page_waits_for_neither_connection(logged_in, monkeypatch):
     async def exploding_status():
         raise AssertionError("settings page must not block on Homebox")
 
-    async def exploding_health():
+    async def exploding_health(agent):
         raise AssertionError("settings page must not block on the print agent")
 
     monkeypatch.setattr(main.homebox, "status", exploding_status)
@@ -1660,18 +1660,18 @@ def test_agent_row_clears_the_shutdown_note_once_the_pi_is_down(logged_in, monke
     long back up — the note is only true until the Pi is actually gone."""
     import app.main as main
 
-    async def down():
+    async def down(agent):
         return {"ok": False, "error": "Connection refused"}
 
-    async def up():
+    async def up(agent):
         return {"ok": True, "dry_run": False}
 
     monkeypatch.setattr(main.printer, "health", down)
-    gone = logged_in.get("/settings/agent-status")
-    assert 'id="shutdown-status" hx-swap-oob="true"' in gone.text
+    gone = logged_in.get("/settings/printers/default/status")
+    assert 'id="shutdown-status-default" hx-swap-oob="true"' in gone.text
 
     monkeypatch.setattr(main.printer, "health", up)
-    alive = logged_in.get("/settings/agent-status")
+    alive = logged_in.get("/settings/printers/default/status")
     # still shutting down: the agent answers, so the note has to stay
     assert "hx-swap-oob" not in alive.text
 
@@ -1680,20 +1680,20 @@ def test_agent_controls_are_hidden_while_the_pi_does_not_answer(logged_in, monke
     """Test print and shutdown can only fail while the agent is unreachable."""
     import app.main as main
 
-    async def down():
+    async def down(agent):
         return {"ok": False, "error": "Connection refused"}
 
-    async def up():
+    async def up(agent):
         return {"ok": True, "dry_run": False}
 
     monkeypatch.setattr(main.printer, "health", down)
-    assert "agent-offline" in logged_in.get("/settings/agent-status").text
+    assert "agent-offline" in logged_in.get("/settings/printers/default/status").text
 
     monkeypatch.setattr(main.printer, "health", up)
-    assert "agent-offline" not in logged_in.get("/settings/agent-status").text
+    assert "agent-offline" not in logged_in.get("/settings/printers/default/status").text
 
     # unknown state on page load counts as offline — no flash of dead buttons
-    async def exploding():
+    async def exploding(agent):
         raise AssertionError("page must not block on the agent")
 
     async def fake_status():
@@ -1704,6 +1704,189 @@ def test_agent_controls_are_hidden_while_the_pi_does_not_answer(logged_in, monke
     page = logged_in.get("/settings").text
     assert 'class="status-row agent-offline"' in page
     assert page.count("agent-actions") == 2  # button row + hint follow the rule
+
+
+# -- several printers ---------------------------------------------------------
+
+
+@pytest.fixture()
+def two_printers():
+    """A second Pi next to the one from .env, and the file gone again
+    afterwards — the other tests expect the .env agent to be the whole list."""
+    from app import agents
+
+    second = agents.save("", "Büro", "http://pi-buero:8010", "key-2")
+    yield agents.load()[0], second
+    (agents.settings.data_dir / "agents.json").unlink(missing_ok=True)
+
+
+@pytest.fixture()
+def no_printer():
+    """Every printer removed — printing has nowhere to go."""
+    from app import agents
+
+    agents._write([])
+    yield
+    (agents.settings.data_dir / "agents.json").unlink(missing_ok=True)
+
+
+def _record_prints(monkeypatch):
+    import app.main as main
+
+    sent = []
+
+    async def fake_print(agent, png, copies=1):
+        sent.append(agent.id)
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    return sent
+
+
+def test_a_browser_prints_on_the_printer_it_chose(logged_in, monkeypatch, two_printers):
+    """The choice belongs to the computer in front of the printer, so it rides
+    along in a cookie — not in a setting that would move everyone at once."""
+    first, second = two_printers
+    sent = _record_prints(monkeypatch)
+
+    logged_in.post("/print", data={"asset_id": "000-007"})
+    logged_in.cookies.set("o2h_printer", second.id)
+    logged_in.post("/print", data={"asset_id": "000-007"})
+    logged_in.post("/text/print", data={"line1": "Schrauben"})
+    del logged_in.cookies["o2h_printer"]
+
+    assert sent == [first.id, second.id, second.id]
+
+
+def test_creating_an_item_prints_on_the_chosen_printer(logged_in, monkeypatch, two_printers):
+    """The label at creation time comes out of the same Pi as a reprint would."""
+    import app.main as main
+
+    _, second = two_printers
+    sent = _record_prints(monkeypatch)
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    logged_in.cookies.set("o2h_printer", second.id)
+    logged_in.post("/create-item", data=dict(_draft_form(), idx="0"))
+    del logged_in.cookies["o2h_printer"]
+    _clear_draft()
+
+    assert sent == [second.id]
+
+
+def test_a_cookie_naming_a_printer_that_is_gone_prints_anyway(logged_in, monkeypatch, two_printers):
+    first, _ = two_printers
+    sent = _record_prints(monkeypatch)
+
+    logged_in.cookies.set("o2h_printer", "sold-on-ebay")
+    logged_in.post("/print", data={"asset_id": "000-007"})
+    del logged_in.cookies["o2h_printer"]
+
+    assert sent == [first.id]
+
+
+def test_the_settings_page_lists_every_printer_but_never_a_key(logged_in, monkeypatch, two_printers):
+    import app.main as main
+
+    first, second = two_printers
+
+    async def fake_status():
+        return None
+
+    monkeypatch.setattr(main.homebox, "status", fake_status)
+    logged_in.cookies.set("o2h_printer", second.id)
+    page = logged_in.get("/settings").text
+    del logged_in.cookies["o2h_printer"]
+
+    assert "Büro" in page and first.url in page and second.url in page
+    assert "key-2" not in page  # the key leaves the browser once, never comes back
+    assert f'/settings/printers/{first.id}/select' in page  # the other one is a click away
+    assert page.count("Druckt hier") == 1
+
+
+def test_choosing_a_printer_is_remembered_by_this_browser(logged_in, two_printers):
+    _, second = two_printers
+    response = logged_in.post(f"/settings/printers/{second.id}/select")
+    assert response.status_code == 303
+    assert logged_in.cookies.get("o2h_printer") == second.id
+    del logged_in.cookies["o2h_printer"]
+
+
+def test_the_last_printer_cannot_be_removed_from_the_page(logged_in):
+    from app import agents
+
+    response = logged_in.post(f"/settings/printers/{agents.DEFAULT_ID}/remove")
+    assert response.status_code == 303
+    assert response.headers["location"] == "/settings?msg=err_last_printer"
+    assert len(agents.load()) == 1
+
+
+def test_a_printer_added_on_the_page_can_be_printed_on(logged_in, monkeypatch):
+    from app import agents
+
+    sent = _record_prints(monkeypatch)
+    response = logged_in.post(
+        "/settings/printers",
+        data={"agent_id": "", "name": "Werkstatt", "url": "http://pi-w:8010", "api_key": "k"},
+    )
+    assert response.headers["location"] == "/settings?msg=printer_saved"
+    logged_in.cookies.set("o2h_printer", "werkstatt")
+    logged_in.post("/print", data={"asset_id": "000-007"})
+    del logged_in.cookies["o2h_printer"]
+    (agents.settings.data_dir / "agents.json").unlink(missing_ok=True)
+
+    assert sent == ["werkstatt"]
+
+
+def test_a_printer_address_that_is_no_address_is_refused(logged_in, monkeypatch):
+    import app.main as main
+
+    async def fake_status():
+        return None
+
+    monkeypatch.setattr(main.homebox, "status", fake_status)
+    response = logged_in.post(
+        "/settings/printers",
+        data={"agent_id": "", "name": "Werkstatt", "url": "pi-w:8010", "api_key": "k"},
+    )
+    assert response.headers["location"] == "/settings?msg=err_printer_url"
+    page = logged_in.get(response.headers["location"]).text
+    assert "banner-error" in page  # a refusal is not an info notice
+    assert "http:// oder https://" in page
+
+
+def test_the_pages_name_the_printer_only_when_there_is_a_choice(logged_in, two_printers):
+    """With one Pi the sentence would answer a question nobody has."""
+    from app import agents
+
+    assert "Druckt auf" in logged_in.get("/text").text
+    (agents.settings.data_dir / "agents.json").unlink(missing_ok=True)
+    assert "Druckt auf" not in logged_in.get("/text").text
+
+
+def test_without_a_printer_the_page_says_so_instead_of_breaking(logged_in, no_printer):
+    response = logged_in.post("/print", data={"asset_id": "000-007"})
+    assert response.status_code == 200
+    assert "error-text" in response.text
+    assert "Kein Drucker" in response.text
+
+
+def test_an_item_created_without_a_printer_still_gets_created(logged_in, monkeypatch, no_printer):
+    """No label is a reason to say so on the card, not to lose the item."""
+    import app.main as main
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    response = logged_in.post("/create-item", data=dict(_draft_form(), idx="0"))
+    _clear_draft()
+
+    assert "000-007" in response.text
+    assert "Kein Drucker" in response.text
 
 
 def test_last_location_is_remembered_and_preselected_for_every_item(logged_in, monkeypatch):

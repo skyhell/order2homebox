@@ -1,19 +1,20 @@
-{# Polls itself so the row recovers on its own once the Pi is back up (it can be
-   shut down from this very page). Faster than the Homebox row: the Pi is on the
-   LAN and gets switched on and off from here. The buttons and their messages
-   live outside this fragment so a refresh does not wipe them.
+{# One printer's connection row. Polls itself so it recovers on its own once the
+   Pi is back up (it can be shut down from this very page). Faster than the
+   Homebox row: the Pi is on the LAN and gets switched on and off from here.
+   Name, buttons and their messages live outside this fragment so a refresh
+   neither moves them nor wipes what they said.
 
    The settings page ships a "pending" placeholder instead of this rendered
    fragment: with the Pi off nobody answers and the health check burns its full
    timeout, which the page load must not wait for. #}
-{# .agent-offline hides the buttons below (CSS sibling rule) — printing or
-   shutting down cannot work while nobody answers. #}
-<div class="status-row{% if not agent_status.ok %} agent-offline{% endif %}" id="agent-row"
-     hx-get="/settings/agent-status"
+{# .agent-offline hides the printing buttons below (CSS sibling rule) — printing
+   or shutting down cannot work while nobody answers. Removing it still can. #}
+<div class="status-row{% if not agent_status.ok %} agent-offline{% endif %}" id="agent-row-{{ agent.id }}"
+     hx-get="/settings/printers/{{ agent.id }}/status"
      hx-trigger="every 10s"
      hx-swap="outerHTML">
   <span class="status-dot {{ 'ok' if agent_status.ok else 'err' }}"></span>
-  <span class="status-name">{{ t('printagent_label') }}</span>
+  <span class="status-name">{{ agent.url }}</span>
   <span class="status-detail">{% if agent_status.ok and agent_status.get('dry_run') %}(dry-run){% endif %}{% if not agent_status.ok %}{{ agent_status.get('error', '') }}{% endif %}</span>
   <span class="status-text">{{ t('status_ok') if agent_status.ok else t('status_error') }}</span>
 </div>
@@ -22,5 +23,5 @@
    row says the rest. Without this the note would still sit there hours later,
    next to a Pi that is long back up. It survives the shutdown itself: while the
    Pi is still going down the agent keeps answering and this does not fire. #}
-<span id="shutdown-status" hx-swap-oob="true"></span>
+<span id="shutdown-status-{{ agent.id }}" hx-swap-oob="true"></span>
 {% endif %}

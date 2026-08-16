@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import __version__
+from . import agents
 from . import cookies as cookie_store
 from . import draft
 from . import prefs
@@ -98,7 +99,10 @@ def _print_error_parts(message: str, lang: str) -> tuple[str, str]:
     key = printer.error_key(message)
     if not key:
         return f"{t('print_failed', lang)}: {message}", ""
-    return f"{t('print_failed', lang)}: {t(key, lang)}", message
+    # Nothing technical happened here — no agent was asked — so there is no
+    # wording of one to keep.
+    detail = "" if message == printer.NO_PRINTER else message
+    return f"{t('print_failed', lang)}: {t(key, lang)}", detail
 
 
 def _print_status(request: Request, ok: bool, message: str, detail: str = "") -> str:
@@ -124,6 +128,7 @@ def _context(request: Request, **context) -> dict:
     # The edit page knows it is the draft before the browser has saved it (a
     # fetch clears the file first), so it may state its own card count.
     draft_info = context.pop("draft_info", None) or draft.summary()
+    printers = agents.load()
     context.update(
         request=request,
         lang=lang,
@@ -140,6 +145,10 @@ def _context(request: Request, **context) -> dict:
         asset=asset_url,
         # The nav link back to a half-finished order; None while there is none.
         draft_info=draft_info,
+        # Which Pi this browser prints on, and how many there are to choose
+        # from — with a single printer the pages say nothing about it at all.
+        printers=printers,
+        print_target=agents.selected(request, printers),
     )
     return context
 
@@ -492,6 +501,7 @@ async def _create_and_print(
     want_print: bool,
     show_id: bool,
     qr_per_row: int = 0,
+    agent: agents.Agent | None = None,
 ) -> dict:
     qr_per_row = qr_per_row or settings.label_qr_per_row
     entry = {
@@ -522,8 +532,13 @@ async def _create_and_print(
             show_asset_id=show_id,
             qr_per_row=qr_per_row,
         )
+        if agent is None:
+            # Nothing to print on: the item is created either way, and the card
+            # says why no label came out.
+            entry["print_error"] = printer.NO_PRINTER
+            return entry
         try:
-            await printer.print_png(png, copies=1)
+            await printer.print_png(agent, png, copies=1)
             entry["printed"] = True
         except printer.PrintError as exc:
             entry["print_error"] = str(exc)
@@ -539,13 +554,17 @@ async def create_items(request: Request, user: str = Depends(require_login)):
     draft.save(form)
     results = []
     count = int(form.get("item_count", 0))
+    # One printer for the whole order: it is the one this browser chose, and
+    # picking it per item would only mean reading the file again.
+    agent = agents.selected(request)
     for i in range(count):
         parsed = _item_from_form(form, i)
         if parsed is None or not parsed[0].name:
             continue  # card removed or already created via its own button
         item_draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
         entry = await _create_and_print(
-            item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row
+            item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row,
+            agent=agent,
         )
         if entry["item"]:
             prefs.set_last_location_id(location_id)
@@ -600,7 +619,8 @@ async def create_single_item(request: Request, user: str = Depends(require_login
         return await card_with_error(t("err_name_required", lang))
 
     entry = await _create_and_print(
-        item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row
+        item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row,
+        agent=agents.selected(request),
     )
     if entry["error"]:
         return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
@@ -773,8 +793,13 @@ async def print_text_label(
             entries=_text_line_history(index),
             oob=True,
         )
+    agent = agents.selected(request)
+    if agent is None:
+        message, detail = _print_error_parts(printer.NO_PRINTER, lang)
+        status = _print_status(request, ok=False, message=message, detail=detail)
+        return HTMLResponse(f"{status}{history}")
     try:
-        await printer.print_png(png, copies=max(1, min(copies, 20)))
+        await printer.print_png(agent, png, copies=max(1, min(copies, 20)))
     except printer.PrintError as exc:
         message, detail = _print_error_parts(str(exc), lang)
         status = _print_status(request, ok=False, message=message, detail=detail)
@@ -832,8 +857,12 @@ async def print_label(
         show_asset_id=show_text and qr_per_row != 3,
         qr_per_row=qr_per_row,
     )
+    agent = agents.selected(request)
+    if agent is None:
+        message, detail = _print_error_parts(printer.NO_PRINTER, lang)
+        return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
     try:
-        await printer.print_png(png, copies=max(1, min(copies, 20)))
+        await printer.print_png(agent, png, copies=max(1, min(copies, 20)))
     except printer.PrintError as exc:
         # The card is told about this attempt, not only the one at creation time:
         # what the page shows must survive a reload either way.
@@ -861,6 +890,9 @@ async def settings_page(
         "settings.html",
         shop_status=shop_status,
         msg=t(msg, lang) if msg else "",
+        # A refused printer address is not news, it is a problem — the banner
+        # says so in the colour it is read in.
+        msg_error=msg.startswith("err_"),
     )
 
 
@@ -887,20 +919,77 @@ async def import_cookies(
     return RedirectResponse("/settings?msg=cookies_saved", status_code=303)
 
 
-@app.get("/settings/agent-status", response_class=HTMLResponse)
-async def agent_status_fragment(request: Request, user: str = Depends(require_login)):
-    """Polled by the settings page so the print-agent row goes green again by
-    itself after the Pi was shut down from here and switched back on."""
-    response = render(request, "_agent_status.html", agent_status=await printer.health())
+@app.get("/settings/printers/{agent_id}/status", response_class=HTMLResponse)
+async def agent_status_fragment(
+    agent_id: str, request: Request, user: str = Depends(require_login)
+):
+    """Polled by the settings page so a printer row goes green again by itself
+    after its Pi was shut down from here and switched back on."""
+    agent = agents.by_id(agent_id)
+    if agent is None:
+        # Removed in another tab: an empty row is the truth, and it stops the
+        # poll from asking after a printer that is gone.
+        return HTMLResponse("")
+    response = render(
+        request, "_printer_status.html", agent=agent, agent_status=await printer.health(agent)
+    )
     # A poll served from the browser cache would show a state that is minutes
     # old — the one thing this endpoint must never do.
     response.headers["Cache-Control"] = "no-store"
     return response
 
 
-@app.post("/settings/test-print")
-async def test_print(request: Request, user: str = Depends(require_login)):
+@app.post("/settings/printers")
+async def save_printer(
+    request: Request,
+    agent_id: str = Form(""),
+    name: str = Form(""),
+    url: str = Form(""),
+    api_key: str = Form(""),
+    user: str = Depends(require_login),
+):
+    """Add a printer, or change one. Blank key on a change keeps the stored one."""
+    try:
+        agents.save(agent_id, name, url, api_key)
+    except agents.AgentError as exc:
+        return RedirectResponse(f"/settings?msg={exc}", status_code=303)
+    return RedirectResponse("/settings?msg=printer_saved", status_code=303)
+
+
+@app.post("/settings/printers/{agent_id}/select")
+async def select_printer(
+    agent_id: str, request: Request, user: str = Depends(require_login)
+):
+    """Print on this one from now on — on this computer. Another desk keeps its
+    own choice, which is the whole point of putting it in a cookie."""
+    response = RedirectResponse("/settings", status_code=303)
+    if agents.by_id(agent_id):
+        response.set_cookie(
+            agents.PRINTER_COOKIE,
+            agent_id,
+            max_age=agents.COOKIE_MAX_AGE,
+            samesite="lax",
+        )
+    return response
+
+
+@app.post("/settings/printers/{agent_id}/remove")
+async def remove_printer(
+    agent_id: str, request: Request, user: str = Depends(require_login)
+):
+    try:
+        agents.remove(agent_id)
+    except agents.AgentError as exc:
+        return RedirectResponse(f"/settings?msg={exc}", status_code=303)
+    return RedirectResponse("/settings?msg=printer_removed", status_code=303)
+
+
+@app.post("/settings/printers/{agent_id}/test-print")
+async def test_print(agent_id: str, request: Request, user: str = Depends(require_login)):
     lang = get_lang(request)
+    agent = agents.by_id(agent_id)
+    if agent is None:
+        return HTMLResponse(_print_status(request, ok=False, message=t("err_no_printer", lang)))
     png = render_label_png(
         "000-000",
         homebox.asset_qr_url("000-000"),
@@ -908,19 +997,24 @@ async def test_print(request: Request, user: str = Depends(require_login)):
         qr_per_row=settings.label_qr_per_row,
     )
     try:
-        await printer.print_png(png, copies=1)
+        await printer.print_png(agent, png, copies=1)
     except printer.PrintError as exc:
         message, detail = _print_error_parts(str(exc), lang)
         return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
     return HTMLResponse(_print_status(request, ok=True, message=t("test_print_sent", lang)))
 
 
-@app.post("/settings/shutdown-agent")
-async def shutdown_agent(request: Request, user: str = Depends(require_login)):
-    """Power the Raspberry Pi down cleanly (it is headless)."""
+@app.post("/settings/printers/{agent_id}/shutdown")
+async def shutdown_agent(agent_id: str, request: Request, user: str = Depends(require_login)):
+    """Power this Raspberry Pi down cleanly (it is headless)."""
     lang = get_lang(request)
+    agent = agents.by_id(agent_id)
+    if agent is None:
+        return HTMLResponse(
+            f'<span class="print-status error-text">{t("err_no_printer", lang)}</span>'
+        )
     try:
-        await printer.shutdown()
+        await printer.shutdown(agent)
     except printer.PrintError as exc:
         return HTMLResponse(
             f'<span class="print-status error-text">{t("shutdown_failed", lang)}: {exc}</span>'

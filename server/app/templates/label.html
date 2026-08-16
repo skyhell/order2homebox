@@ -3,6 +3,7 @@
 <div class="page-narrow">
   <h1 class="page-title">{{ t('label_title') }}</h1>
   <p class="page-subtitle">{{ t('label_subtitle') }}</p>
+  {% include "_print_target.html" %}
 
   <form class="card" hx-post="/label/resolve" hx-target="#label-result-wrap" hx-swap="innerHTML">
     <div class="field">

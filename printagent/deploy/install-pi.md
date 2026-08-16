@@ -17,6 +17,11 @@ prints the generated **API key** at the end. Enter that key on the server as
 `O2H_PRINT_AGENT_URL=http://<pi>:8010`, then restart the server:
 `systemctl restart order2homebox`.
 
+That is the way to set up the *first* printer. **Every further Pi** runs the
+same script and is then added on the app's settings page (*Printers → Add a
+printer*) with the key it printed — no `.env` edit and no restart. Each browser
+chooses there which of the printers it prints on and remembers it.
+
 Give the Pi a fixed address before you write that URL — a DHCP reservation in
 your router, then either its IP or its hostname works. Plain `.local` (mDNS)
 usually does **not** resolve from a minimal Debian LXC, which has no

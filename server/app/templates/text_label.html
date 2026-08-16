@@ -3,6 +3,7 @@
 <div class="page-narrow">
   <h1 class="page-title">{{ t('text_title') }}</h1>
   <p class="page-subtitle">{{ t('text_subtitle') }}</p>
+  {% include "_print_target.html" %}
 
   {# No <form> around the inputs on purpose: the print button reads them via
      hx-vals, and an enclosing form would push its fields into the POST as well

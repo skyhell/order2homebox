@@ -6,6 +6,25 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [Unreleased]
+
+### Added
+
+- **Several print agents, and each computer prints on the one in its own room.**
+  The app knew exactly one Raspberry Pi, named in `.env` — so a second QL-500
+  meant a second installation. Printers are now a list managed on the settings
+  page (name, address, API key), and *which* of them a browser prints on is kept
+  in a cookie on that computer: the machine in the workshop keeps printing in
+  the workshop while the one in the office prints in the office, with one
+  server. Each printer has its own status row, test print and shutdown button;
+  the pages that print name their target once there is more than one to choose
+  from. Existing installations need to change nothing — as long as no printer
+  was added, the `.env` values *are* the list, and the first added one takes
+  them along into `data/agents.json`. The keys are stored encrypted with the
+  same key file as the `.env` secrets and are never rendered back into the page.
+  The print agent on the Pi is unchanged: further Pis just run the same
+  installer, no update of the existing one.
+
 ## [0.12.1] — 2026-08-16
 
 ### Fixed

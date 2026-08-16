@@ -57,6 +57,15 @@ created in Homebox and their QR labels printed. Correcting a quantity re-splits
 the price the order actually charged, and each item decides for itself whether
 its label carries the asset ID or three codes instead of two.
 
+![Result](docs/screenshot-result.png)
+
+Afterwards every item has its asset ID, a preview of the label that was printed
+and a button to print it again — more copies, with or without the ID. Each card
+has exactly one line saying what printing did, and every attempt replaces the
+one before it, so the card never shows a failure the reprint has long since
+fixed. A printer that is off or unplugged is named as such, with the print
+agent's own wording kept behind it.
+
 ![Text label](docs/screenshot-text-label.png)
 
 The *Text label* page prints one or two lines without a QR code. The preview is

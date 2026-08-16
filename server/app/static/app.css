@@ -237,6 +237,9 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
 .status-detail { color: var(--text-secondary); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-text { color: var(--text-secondary); font-size: 13px; }
 .print-status { font-size: 14px; }
+/* The result card's one status line, below the print controls it belongs to.
+   Empty until something was printed, hence :empty rather than a fixed margin. */
+.print-status-line:not(:empty) { margin-top: 10px; }
 
 /* ---- items / results ---- */
 .item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }

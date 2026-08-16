@@ -1,0 +1,5 @@
+{# The one answer a print attempt leaves behind. Rendered into the result card
+   for the automatic print and swapped into that same box by every reprint, so
+   the two can never end up contradicting each other on the card. #}
+<span class="print-status {{ 'ok-text' if status.ok else 'error-text' }}">{{ status.message }}</span>
+{%- if status.detail %} <span class="hint">{{ status.detail }}</span>{% endif %}

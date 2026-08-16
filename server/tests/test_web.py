@@ -905,6 +905,152 @@ def test_a_created_item_comes_back_as_a_result_card(logged_in, monkeypatch):
     _clear_draft()
 
 
+LP0_MISSING = (
+    'Print agent error (HTTP 502): {"detail":"printer error: '
+    "[Errno 2] No such file or directory: '/dev/usb/lp0'\"}"
+)
+
+
+def _create_item_with_failing_printer(logged_in, monkeypatch, message=LP0_MISSING):
+    """Card 0 created while the printer refuses — the state this all starts in."""
+    import app.main as main
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(png, copies=1):
+        raise main.printer.PrintError(message)
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    return logged_in.post("/create-item", data=dict(_draft_form(), idx="0")).text
+
+
+def _status_line(body: str, idx: int = 0) -> str:
+    match = re.search(
+        rf'<p class="print-status-line" id="print-status-{idx}">(.*?)</p>', body, re.S
+    )
+    assert match, "the card has no status line"
+    return match.group(1)
+
+
+def test_the_card_has_a_single_place_for_what_printing_did(logged_in, monkeypatch):
+    """The automatic print wrote its answer above the controls, a reprint into a
+    span behind the button — so a failure and the retry that worked stood on the
+    card at the same time. Both belong in the same box."""
+    _clear_draft()
+    body = _create_item_with_failing_printer(logged_in, monkeypatch)
+
+    assert body.count('id="print-status-0"') == 1
+    assert "Druck fehlgeschlagen" in _status_line(body)
+    assert body.count("error-text") == 1  # nothing outside that one line
+    _clear_draft()
+
+
+def test_a_reprint_that_worked_replaces_the_failure_for_good(logged_in, monkeypatch):
+    """Not only on screen: the failed attempt is in the draft file and would come
+    back with the next visit to /edit."""
+    import app.main as main
+    from app import draft
+
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    _create_item_with_failing_printer(logged_in, monkeypatch)
+    assert draft.load()["created"]["0"]["print_error"]
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    response = logged_in.post(
+        "/print", data={"asset_id": "000-007", "copies": "1", "card_idx": "0"}
+    )
+    assert "ok-text" in response.text and "error-text" not in response.text
+
+    entry = draft.load()["created"]["0"]
+    assert entry["print_error"] == "" and entry["printed"] is True
+    body = logged_in.get("/edit").text
+    assert "Druck fehlgeschlagen" not in body
+    assert "Etikett wurde gedruckt" in _status_line(body)
+    _clear_draft()
+
+
+def test_a_reprint_that_failed_is_remembered_too(logged_in, monkeypatch):
+    import app.main as main
+    from app import draft
+
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    logged_in.post("/create-item", data=dict(_draft_form(), idx="0"))
+    assert draft.load()["created"]["0"]["printed"] is True
+
+    async def failing_print(png, copies=1):
+        raise main.printer.PrintError("out of tape")
+
+    monkeypatch.setattr(main.printer, "print_png", failing_print)
+    logged_in.post(
+        "/print", data={"asset_id": "000-007", "copies": "1", "card_idx": "0"}
+    )
+
+    entry = draft.load()["created"]["0"]
+    assert entry["printed"] is False and entry["print_error"] == "out of tape"
+    _clear_draft()
+
+
+def test_a_card_index_from_a_replaced_page_writes_nowhere(logged_in, monkeypatch):
+    """The index only says where the button was, the asset id says which item —
+    and only the asset id can be trusted after the page was rebuilt."""
+    import app.main as main
+    from app import draft
+
+    _clear_draft()
+    _create_item_with_failing_printer(logged_in, monkeypatch)
+
+    async def fake_print(png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    logged_in.post(
+        "/print", data={"asset_id": "000-999", "copies": "1", "card_idx": "0"}
+    )
+
+    assert draft.load()["created"]["0"]["print_error"]  # untouched
+    _clear_draft()
+
+
+def test_a_printer_that_is_not_plugged_in_gets_a_sentence(logged_in, monkeypatch):
+    """The agent hands the OS error through verbatim; the everyday cause deserves
+    words, with the technical wording kept behind it."""
+    _clear_draft()
+    body = _status_line(_create_item_with_failing_printer(logged_in, monkeypatch))
+
+    assert "Drucker nicht angeschlossen oder ausgeschaltet" in body
+    assert "/dev/usb/lp0" in body  # still there, as the detail
+    _clear_draft()
+
+
+def test_an_unknown_print_error_stays_word_for_word(logged_in, monkeypatch):
+    """Guessing wrong is worse than not guessing: an unrecognised message is the
+    only clue there is."""
+    _clear_draft()
+    body = _status_line(
+        _create_item_with_failing_printer(logged_in, monkeypatch, "cover is open")
+    )
+
+    assert "Druck fehlgeschlagen: cover is open" in body
+    assert "hint" not in body  # nothing was moved to the back
+    _clear_draft()
+
+
 def test_a_new_fetch_replaces_the_stored_page(logged_in, monkeypatch):
     import app.main as main
     from app import draft

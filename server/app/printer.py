@@ -8,6 +8,23 @@ class PrintError(Exception):
     """User-facing print failure."""
 
 
+def error_key(message: str) -> str:
+    """The locale key naming the cause behind a print failure, or "" when the
+    message says nothing we recognise.
+
+    The agent hands the operating system's words through verbatim, and the two
+    everyday causes arrive as a missing device file (printer off or unplugged)
+    and as no answer at all (the Pi is down). Both are read here rather than
+    stored: an error written into the draft weeks ago should still turn into a
+    sentence, and into the language the page is being read in.
+    """
+    if "No such file or directory" in message and "/dev/" in message:
+        return "err_printer_offline"
+    if "unreachable" in message:
+        return "err_agent_unreachable"
+    return ""
+
+
 async def print_png(png: bytes, copies: int = 1) -> dict:
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:

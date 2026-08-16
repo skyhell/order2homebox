@@ -87,6 +87,8 @@
   "print_button": "Etikett drucken",
   "print_ok": "Gedruckt ✓",
   "print_failed": "Druck fehlgeschlagen",
+  "err_printer_offline": "Drucker nicht angeschlossen oder ausgeschaltet",
+  "err_agent_unreachable": "Druckdienst auf dem Raspberry Pi nicht erreichbar",
   "printed_auto": "Etikett wurde gedruckt",
   "item_failed": "Konnte nicht angelegt werden",
   "new_order_button": "Weitere Bestellung erfassen",

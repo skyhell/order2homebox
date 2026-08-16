@@ -6,8 +6,6 @@
         <span class="asset-badge">{{ t('asset_id_label') }} {{ r.item.assetId }}</span>
         <a class="subtle-link" href="{{ homebox_url }}/item/{{ r.item.id }}" target="_blank" rel="noopener">{{ t('open_in_homebox') }} ↗</a>
       </p>
-      {% if r.printed %}<p class="ok-text">{{ t('printed_auto') }} ✓</p>{% endif %}
-      {% if r.print_error %}<p class="error-text">{{ t('print_failed') }}: {{ r.print_error }}</p>{% endif %}
       {# The card sits inside #create-form on the edit page, and htmx always adds
          the enclosing form's fields to a POST — where they even override
          hx-include. Named inputs would therefore collide across cards (every
@@ -29,11 +27,18 @@
         {% if r.qr_per_row == 3 %}<span class="hint">{{ t('printed_three_up') }}</span>{% endif %}
         <button type="button" class="btn btn-primary"
                 hx-post="/print"
-                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("show-text-{{ idx }}").checked, qr_per_row: {{ r.qr_per_row }}}'
+                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("show-text-{{ idx }}").checked, qr_per_row: {{ r.qr_per_row }}, card_idx: {{ idx }}}'
                 hx-target="#print-status-{{ idx }}"
                 hx-swap="innerHTML">{{ t('print_button') }}</button>
-        <span id="print-status-{{ idx }}"></span>
       </div>
+      {# One status per card, and the automatic print writes into the very box
+         the reprint button swaps: a second attempt replaces the answer of the
+         first instead of standing next to it. #}
+      <p class="print-status-line" id="print-status-{{ idx }}">
+        {%- with status = card_print_status(r) %}
+          {%- if status %}{% include "_print_status.html" %}{% endif %}
+        {%- endwith -%}
+      </p>
     </div>
     <div class="result-preview">
       <img id="preview-{{ idx }}" src="/label/{{ r.item.assetId }}.png?text={{ 1 if r.show_asset_id else 0 }}&count={{ r.qr_per_row }}" alt="Label preview" class="label-preview">

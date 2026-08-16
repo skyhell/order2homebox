@@ -123,6 +123,27 @@ def mark_created(idx: int, entry: dict) -> None:
     _write(data)
 
 
+def update_print_result(idx: int, asset_id: str, printed: bool, error: str) -> None:
+    """Overwrite what a created card remembers about printing, so a reprint that
+    worked also survives a reload of the edit page — the failed attempt from the
+    moment the item was created is not the last word on it.
+
+    The asset ID is the guard: a card index travelling with a page that has since
+    been replaced must not write onto whatever item sits at that index now.
+    """
+    data = load()
+    if not data or idx < 0 or not asset_id:
+        return
+    created = created_items(data)
+    entry = created.get(str(idx))
+    if not entry or entry.get("asset_id") != asset_id:
+        return
+    entry["printed"] = printed
+    entry["print_error"] = error
+    data["created"] = created
+    _write(data)
+
+
 def summary() -> dict | None:
     """What the nav link needs: order number, shop and how many cards — None
     while there is no draft, and then no link is shown at all."""

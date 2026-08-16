@@ -87,6 +87,8 @@
   "print_button": "Print label",
   "print_ok": "Printed ✓",
   "print_failed": "Print failed",
+  "err_printer_offline": "Printer not connected or switched off",
+  "err_agent_unreachable": "Print agent on the Raspberry Pi not reachable",
   "printed_auto": "Label was printed",
   "item_failed": "Could not be created",
   "new_order_button": "Capture another order",

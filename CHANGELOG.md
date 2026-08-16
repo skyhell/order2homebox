@@ -22,6 +22,22 @@ Each version links to its GitHub release, which carries the full notes.
   to the ID, because eight bare numbers say nothing about which label is which;
   reprinting keeps the name a created item brought along. Entries stored by the
   previous version are read unchanged.
+- **A failed print stayed on the item card after the reprint had worked.** The
+  card had two places for the same answer: the automatic print when the item was
+  created wrote above the controls, the *Print label* button swapped its result
+  into a span behind the button. Plugging the printer in and printing again
+  therefore put a green *Printed ✓* next to a red *Print failed* about the same
+  label. Both now write into one box below the controls, so every attempt
+  replaces the answer of the one before — and a reprint that worked is also
+  stored, instead of the old failure coming back with the next visit to the edit
+  page.
+- **Print errors said what the operating system said.** A printer that was off
+  or unplugged came out as `[Errno 2] No such file or directory: '/dev/usb/lp0'`
+  in the middle of a line of JSON. The two everyday causes — printer not
+  connected, print agent not reachable — are now named in a sentence, in German
+  and English, with the agent's own wording kept small behind it. Anything not
+  recognised is still shown word for word; guessing wrong would be worse than
+  not guessing.
 - **The green *Printed ✓* on *Text label* stood above the next label.** The
   message was tied to the box it was swapped into, not to the label it came
   from, so it stayed there until the page was reloaded — on a tool built to

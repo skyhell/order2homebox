@@ -88,6 +88,37 @@ def asset_url(name: str) -> str:
     return f"/static/{name}?v={stamp}"
 
 
+def _print_error_parts(message: str, lang: str) -> tuple[str, str]:
+    """The red line about a failed print, and the technical detail behind it.
+
+    A cause we recognise gets a sentence of its own and the agent's wording moves
+    to the back, small; anything else stays verbatim up front, where it is the
+    only clue there is.
+    """
+    key = printer.error_key(message)
+    if not key:
+        return f"{t('print_failed', lang)}: {message}", ""
+    return f"{t('print_failed', lang)}: {t(key, lang)}", message
+
+
+def _print_status(request: Request, ok: bool, message: str, detail: str = "") -> str:
+    """The status fragment every print route answers with — the same markup the
+    result card is rendered with, so a swap cannot change how it looks."""
+    status = {"ok": ok, "message": message, "detail": detail}
+    return render_fragment(request, "_print_status.html", status=status)
+
+
+def _card_print_status(entry: dict, lang: str) -> dict | None:
+    """What a result card says about printing, in the shape the print routes
+    swap in — None while nothing was tried, so the box stays empty."""
+    if entry.get("printed"):
+        return {"ok": True, "message": f"{t('printed_auto', lang)} ✓", "detail": ""}
+    if entry.get("print_error"):
+        message, detail = _print_error_parts(entry["print_error"], lang)
+        return {"ok": False, "message": message, "detail": detail}
+    return None
+
+
 def _context(request: Request, **context) -> dict:
     lang = get_lang(request)
     # The edit page knows it is the draft before the browser has saved it (a
@@ -97,6 +128,7 @@ def _context(request: Request, **context) -> dict:
         request=request,
         lang=lang,
         t=lambda key, **kw: t(key, lang, **kw),
+        card_print_status=lambda entry: _card_print_status(entry, lang),
         shops=list(Shop),
         homebox_url=settings.qr_base_url,
         version=__version__,
@@ -719,7 +751,7 @@ async def print_text_label(
     lines = _text_lines(line1, line2)
     if not lines:
         return HTMLResponse(
-            f'<span class="print-status error-text">{t("err_text_empty", lang)}</span>'
+            _print_status(request, ok=False, message=t("err_text_empty", lang))
         )
     if height_mode not in HEIGHT_MODES:
         height_mode = HEIGHT_GROW
@@ -744,13 +776,11 @@ async def print_text_label(
     try:
         await printer.print_png(png, copies=max(1, min(copies, 20)))
     except printer.PrintError as exc:
-        return HTMLResponse(
-            f'<span class="print-status error-text">{t("print_failed", lang)}: {exc}</span>'
-            f"{history}"
-        )
-    return HTMLResponse(
-        f'<span class="print-status ok-text">{t("print_ok", lang)}</span>{history}'
-    )
+        message, detail = _print_error_parts(str(exc), lang)
+        status = _print_status(request, ok=False, message=message, detail=detail)
+        return HTMLResponse(f"{status}{history}")
+    status = _print_status(request, ok=True, message=t("print_ok", lang))
+    return HTMLResponse(f"{status}{history}")
 
 
 # -- labels & printing --------------------------------------------------------
@@ -781,11 +811,14 @@ async def print_label(
     copies: int = Form(1),
     show_text: bool = Form(False),
     qr_per_row: int = Form(0),
+    # Only the result cards of the edit page send one: they are the only labels
+    # whose print result is remembered anywhere.
+    card_idx: int = Form(-1),
     user: str = Depends(require_login),
 ):
     lang = get_lang(request)
     if not ASSET_ID_RE.match(asset_id):
-        return HTMLResponse(f'<span class="print-status error-text">?</span>')
+        return HTMLResponse(_print_status(request, ok=False, message="?"))
     qr_per_row = qr_per_row or settings.label_qr_per_row
     prefs.set_last_copies("label", copies)
     # Before the attempt, not after it: a label the agent refused is exactly the
@@ -802,12 +835,13 @@ async def print_label(
     try:
         await printer.print_png(png, copies=max(1, min(copies, 20)))
     except printer.PrintError as exc:
-        return HTMLResponse(
-            f'<span class="print-status error-text">{t("print_failed", lang)}: {exc}</span>'
-        )
-    return HTMLResponse(
-        f'<span class="print-status ok-text">{t("print_ok", lang)}</span>'
-    )
+        # The card is told about this attempt, not only the one at creation time:
+        # what the page shows must survive a reload either way.
+        draft.update_print_result(card_idx, asset_id, printed=False, error=str(exc))
+        message, detail = _print_error_parts(str(exc), lang)
+        return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
+    draft.update_print_result(card_idx, asset_id, printed=True, error="")
+    return HTMLResponse(_print_status(request, ok=True, message=t("print_ok", lang)))
 
 
 # -- settings -----------------------------------------------------------------
@@ -876,12 +910,9 @@ async def test_print(request: Request, user: str = Depends(require_login)):
     try:
         await printer.print_png(png, copies=1)
     except printer.PrintError as exc:
-        return HTMLResponse(
-            f'<span class="print-status error-text">{t("print_failed", lang)}: {exc}</span>'
-        )
-    return HTMLResponse(
-        f'<span class="print-status ok-text">{t("test_print_sent", lang)}</span>'
-    )
+        message, detail = _print_error_parts(str(exc), lang)
+        return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
+    return HTMLResponse(_print_status(request, ok=True, message=t("test_print_sent", lang)))
 
 
 @app.post("/settings/shutdown-agent")

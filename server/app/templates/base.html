@@ -39,6 +39,9 @@
       {% endif %}
       <a href="/label" class="nav-link{% if request.url.path == '/label' %} active{% endif %}">{{ t('nav_label') }}</a>
       <a href="/text" class="nav-link{% if request.url.path == '/text' %} active{% endif %}">{{ t('nav_text') }}</a>
+      {# Own entry, not a section of the settings: a session expires every few
+         weeks and is refreshed from here, while the settings are set up once. #}
+      <a href="/cookies" class="nav-link{% if request.url.path == '/cookies' %} active{% endif %}">{{ t('nav_cookies') }}</a>
       <a href="/settings" class="nav-link{% if request.url.path == '/settings' %} active{% endif %}">{{ t('nav_settings') }}</a>
     </div>
     <div class="nav-actions">

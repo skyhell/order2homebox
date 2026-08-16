@@ -4,6 +4,7 @@
   "nav_draft": "Bestellung",
   "nav_label": "Etikett drucken",
   "nav_text": "Textetikett",
+  "nav_cookies": "Shop-Sitzungen",
   "nav_settings": "Einstellungen",
   "nav_logout": "Abmelden",
   "theme_toggle": "Dark Mode umschalten",
@@ -48,7 +49,7 @@
   "fetch_submit": "Daten holen",
   "fetch_loading": "Bestellung wird geladen …",
   "manual_link": "Oder manuell ohne Abruf erfassen",
-  "go_to_settings": "Zu den Einstellungen",
+  "go_to_cookies": "Zu den Shop-Sitzungen",
 
   "edit_title": "Artikel prüfen und bearbeiten",
   "edit_order_info": "Bestellung {order_no} bei {shop}",
@@ -97,7 +98,7 @@
   "new_order_button": "Weitere Bestellung erfassen",
 
   "settings_title": "Einstellungen",
-  "section_cookies": "Shop-Sitzungen (Cookies)",
+  "cookies_title": "Shop-Sitzungen (Cookies)",
   "cookies_help": "Im Browser beim Shop einloggen, dann die Cookies mit der Extension „Cookie-Editor“ als JSON exportieren und hier einfügen. Die Cookies bleiben lokal auf diesem Server.",
   "cookies_placeholder": "JSON-Export von Cookie-Editor hier einfügen …",
   "save_cookies": "Cookies speichern",
@@ -143,7 +144,7 @@
   "shutdown_sent": "Pi fährt herunter ✓ — Strom erst trennen, wenn die grüne LED aus bleibt",
   "shutdown_failed": "Herunterfahren fehlgeschlagen",
 
-  "err_session_expired": "Die {shop}-Sitzung ist abgelaufen oder es wurden noch keine Cookies importiert. Bitte in den Einstellungen die Cookies erneuern.",
+  "err_session_expired": "Die {shop}-Sitzung ist abgelaufen oder es wurden noch keine Cookies importiert. Bitte unter Shop-Sitzungen die Cookies erneuern.",
   "err_parse_failed": "Auf der {shop}-Bestellseite wurden keine Artikel erkannt (Seitenaufbau geändert?). Die Daten können manuell eingegeben werden.",
   "err_homebox": "Homebox-Fehler",
   "err_nothing_created": "Es wurde kein Artikel angelegt — mindestens ein Artikel braucht einen Namen.",

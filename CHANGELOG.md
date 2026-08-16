@@ -8,6 +8,15 @@ Each version links to its GitHub release, which carries the full notes.
 
 ## [Unreleased]
 
+### Changed
+
+- **The shop sessions have their own menu entry** (between *Text label* and
+  *Settings*) instead of sitting at the bottom of the settings page. They are
+  the one thing there that is not set up once and forgotten: a session expires
+  every few weeks and has to be pasted in again, usually right after a fetch
+  failed. The banner about an expired session now links straight to that page,
+  and the settings page is down to the connections and the printers.
+
 ### Added
 
 - **Several print agents, and each computer prints on the one in its own room.**

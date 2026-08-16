@@ -78,10 +78,12 @@ one-click chips.
 
 ![Settings](docs/screenshot-settings.png)
 
-The settings page shows the Homebox connection, the printers with their status
-(one card per Pi, each with its own test print and shutdown button) and the
-per-shop session cookies. *Use this one* decides where this computer prints —
-another computer keeps its own choice.
+The settings page shows the Homebox connection and the printers with their
+status — one card per Pi, each with its own test print and shutdown button.
+*Use this one* decides where this computer prints; another computer keeps its
+own choice. The shop sessions have a page of their own next to it: they are
+what an order fetch runs on and expire every few weeks, while the settings are
+set up once.
 
 ## Architecture
 
@@ -143,9 +145,10 @@ headless browser using your session:
 1. Log in to the shop in your normal browser.
 2. Export the cookies as JSON with the [Cookie-Editor](https://cookie-editor.com/)
    extension (Export → JSON).
-3. Paste them on the app's **Settings** page.
+3. Paste them on the app's **Shop sessions** page.
 
-When a session expires, the app tells you exactly which shop needs fresh cookies.
+When a session expires, the app tells you exactly which shop needs fresh cookies
+and links straight to that page.
 Cookies are stored only on your server (`data/cookies/`, mode 600).
 
 ## Updating

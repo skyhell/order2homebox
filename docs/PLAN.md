@@ -5,7 +5,7 @@
 Neues Greenfield-Projekt in `C:\Users\johan\claude\order2homebox`. Ziel: Bestellungen von AliExpress, Temu oder Amazon per **Bestellnummer** als Homebox-Assets erfassen und sofort ein QR-Etikett drucken. Ablauf: Shop + Bestellnummer eingeben → **Scraper holt die Bestelldaten von der Order-Detailseite** (mit importierten Session-Cookies) → Daten in der Web-UI editieren (inkl. Lagerort-Auswahl/-Anlage) → Item per Homebox-API anlegen → QR-Label (2 QR nebeneinander, optional Asset-ID darunter) auf Brother QL-500 mit DK-22211 (29 mm endlos) drucken. Drucker per USB am Raspberry Pi; App im Proxmox-LXC; Veröffentlichung auf GitHub.
 
 **Geklärte Entscheidungen (User):**
-- Datenbeschaffung: **Scraping** der Order-Detailseite, ein eigenständiger Scraper pro Shop (leicht änderbar). Session via **Cookie-Import**: User exportiert Cookies per Browser-Extension (z. B. Cookie-Editor) und fügt sie in der Settings-Seite ein.
+- Datenbeschaffung: **Scraping** der Order-Detailseite, ein eigenständiger Scraper pro Shop (leicht änderbar). Session via **Cookie-Import**: User exportiert Cookies per Browser-Extension (z. B. Cookie-Editor) und fügt sie auf der Seite „Shop-Sitzungen“ ein.
 - Label: **2 QR-Codes nebeneinander über die 29-mm-Breite** (je ~14 mm), optional Asset-ID darunter.
 - Stack: **Python + FastAPI** (Server-UI mit Jinja2 + htmx; Print-Agent ebenfalls Python).
 - Lagerorte: live aus Homebox lesen, im Formular wählbar, **neue Lagerorte direkt anlegbar**.
@@ -87,8 +87,8 @@ order2homebox/
 │   │   ├── locales/de.json, en.json
 │   │   ├── templates/        # base (Navbar: Sprache, Dark-Mode, Logout), login, index
 │   │   │                     # (Shop+Bestellnr.), edit (Artikel-Formulare), result
-│   │   │                     # (Asset-IDs, Label-Vorschau, Druck), settings (Cookies je Shop,
-│   │   │                     # Status Homebox/Print-Agent, Testdruck)
+│   │   │                     # (Asset-IDs, Label-Vorschau, Druck), cookies (Shop-Sitzungen),
+│   │   │                     # settings (Status Homebox, Drucker: Status, Testdruck, Auswahl)
 │   │   └── static/app.css    # Apple-Design: -apple-system-Fontstack, Cards, CSS-Variablen;
 │   │       app.js            # Dark-Mode: prefers-color-scheme + manueller Toggle (localStorage)
 │   ├── tests/                # pytest: Scraper-Parsing gegen eingecheckte HTML-Fixtures
@@ -132,9 +132,10 @@ order2homebox/
 - Erkennung „nicht eingeloggt“ (Login-Redirect/Selektor) → `SessionExpired` → UI verlinkt auf Settings („Cookies für Amazon erneuern“).
 - Extrahiert je Artikel: Name, Menge, Einzelpreis, Produkt-URL; plus Bestellnummer/-datum → `purchaseFrom`, `purchaseTime`, Beschreibung.
 
-### Cookie-Import (Settings-Seite)
+### Cookie-Import (eigene Seite `/cookies`, v0.13.0)
+- **Eigener Menüpunkt** zwischen Textetikett und Einstellungen: eine Sitzung läuft alle paar Wochen ab und wird dann sofort erneuert — meist direkt nachdem ein Abruf gescheitert ist; die Meldung darüber verlinkt genau dorthin. Die Einstellungen daneben werden einmal eingerichtet.
 - Pro Shop ein Textfeld: JSON-Export der Cookie-Editor-Extension einfügen → Validierung → Speicherung als `data/cookies/{shop}.json` (chmod 600).
-- Statusanzeige je Shop (importiert am, letzter erfolgreicher Fetch, abgelaufen-Flag) + Verbindungstest Homebox; die Drucker haben seit v0.13.0 einen eigenen Abschnitt mit einer Karte je Pi (Status, Testdruck, Herunterfahren, Ändern/Entfernen, „Diesen verwenden").
+- Statusanzeige je Shop (importiert am, letzter erfolgreicher Fetch, abgelaufen-Flag). Die Einstellungsseite behält den Verbindungstest zu Homebox und die Drucker (seit v0.13.0 eine Karte je Pi: Status, Testdruck, Herunterfahren, Ändern/Entfernen, „Diesen verwenden").
 
 ### Web-Login, Apple-Style, i18n
 - Single-User-Login: `WEB_USER` + bcrypt-Hash in `.env` (Installscript fragt Passwort ab und hasht); signiertes Session-Cookie (itsdangerous), `require_login`-Dependency auf allen Routen außer `/login` und `/health`.

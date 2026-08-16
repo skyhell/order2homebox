@@ -7,8 +7,10 @@
   {% if error %}
   <div class="banner banner-error">
     {{ error }}
+    {# The only thing that banner asks for is fresh cookies, so it links where
+       they are pasted, not at the settings in general. #}
     {% if error_settings_link %}
-    <a class="banner-link" href="/settings">{{ t('go_to_settings') }} →</a>
+    <a class="banner-link" href="/cookies">{{ t('go_to_cookies') }} →</a>
     {% endif %}
   </div>
   {% endif %}

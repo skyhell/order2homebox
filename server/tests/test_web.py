@@ -1706,6 +1706,69 @@ def test_agent_controls_are_hidden_while_the_pi_does_not_answer(logged_in, monke
     assert page.count("agent-actions") == 2  # button row + hint follow the rule
 
 
+# -- shop sessions on their own page -------------------------------------------
+
+
+def test_the_shop_sessions_have_their_own_page(logged_in):
+    page = logged_in.get("/cookies")
+    assert page.status_code == 200
+    assert 'action="/cookies/amazon"' in page.text
+    assert page.text.count("cookies_json") == 4  # one form per shop
+
+
+def test_the_settings_page_no_longer_holds_the_cookies(logged_in, monkeypatch):
+    """Two things that are used at completely different moments: a session
+    expires every few weeks, the settings are set up once."""
+    import app.main as main
+
+    async def fake_status():
+        return None
+
+    monkeypatch.setattr(main.homebox, "status", fake_status)
+    page = logged_in.get("/settings").text
+    assert "cookies_json" not in page
+    assert 'href="/cookies"' in page  # but it is one click away, from every page
+
+
+def test_the_sessions_entry_sits_before_the_settings(logged_in):
+    nav = logged_in.get("/").text
+    assert nav.index('href="/cookies"') < nav.index('href="/settings"')
+    assert nav.index('href="/text"') < nav.index('href="/cookies"')
+
+
+def test_importing_cookies_lands_back_on_that_page(logged_in):
+    export = '[{"name": "session-id", "value": "abc", "domain": ".amazon.de"}]'
+    response = logged_in.post("/cookies/amazon", data={"cookies_json": export})
+    assert response.headers["location"] == "/cookies?msg=cookies_saved"
+    page = logged_in.get(response.headers["location"]).text
+    assert "banner-info" in page and "1 Cookies" in page
+
+
+def test_a_broken_export_says_so_in_red(logged_in):
+    response = logged_in.post("/cookies/temu", data={"cookies_json": "not json"})
+    assert response.headers["location"] == "/cookies?msg=cookies_invalid"
+    page = logged_in.get(response.headers["location"]).text
+    assert "banner-error" in page
+
+
+def test_the_sessions_page_requires_login(client):
+    assert client.get("/cookies").status_code == 303
+    assert client.post("/cookies/amazon", data={"cookies_json": "[]"}).status_code == 303
+
+
+def test_an_expired_session_links_to_where_the_cookies_are_pasted(logged_in, monkeypatch):
+    import app.main as main
+    from app.scrapers.base import SessionExpired
+
+    class ExpiredScraper:
+        async def fetch_order(self, order_no):
+            raise SessionExpired(main.Shop.amazon)
+
+    monkeypatch.setattr(main, "get_scraper", lambda shop: ExpiredScraper())
+    page = logged_in.post("/fetch", data={"shop": "amazon", "order_no": "028-999"}).text
+    assert 'class="banner-link" href="/cookies"' in page
+
+
 # -- several printers ---------------------------------------------------------
 
 

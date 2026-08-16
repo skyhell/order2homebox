@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-narrow">
+  <h1 class="page-title">{{ t('cookies_title') }}</h1>
+  <p class="page-subtitle">{{ t('cookies_help') }}</p>
+
+  {% if msg %}<div class="banner {{ 'banner-error' if msg_error else 'banner-info' }}">{{ msg }}</div>{% endif %}
+
+  {% for shop, status in shop_status.items() %}
+  <div class="card">
+    <div class="item-head">
+      <h2>{{ shop.display_name }}</h2>
+      <span class="status-text">
+        {% if status.imported %}
+          {{ t('status_imported', count=status.count, date=status.imported_at) }}
+          {% if status.expired_count %} · <span class="error-text">{{ t('status_expired', n=status.expired_count) }}</span>{% endif %}
+        {% else %}
+          {{ t('status_none') }}
+        {% endif %}
+      </span>
+    </div>
+    {% if status.last_success %}
+    <p class="hint">{{ t('status_last_success', date=status.last_success) }}</p>
+    {% endif %}
+    <form method="post" action="/cookies/{{ shop.value }}">
+      <textarea class="input input-mono" name="cookies_json" rows="4" placeholder="{{ t('cookies_placeholder') }}" required></textarea>
+      <div class="action-right">
+        <button class="btn btn-secondary" type="submit">{{ t('save_cookies') }}</button>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

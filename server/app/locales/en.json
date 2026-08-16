@@ -4,6 +4,7 @@
   "nav_draft": "Order",
   "nav_label": "Print label",
   "nav_text": "Text label",
+  "nav_cookies": "Shop sessions",
   "nav_settings": "Settings",
   "nav_logout": "Sign out",
   "theme_toggle": "Toggle dark mode",
@@ -48,7 +49,7 @@
   "fetch_submit": "Fetch data",
   "fetch_loading": "Loading order …",
   "manual_link": "Or enter manually without fetching",
-  "go_to_settings": "Open settings",
+  "go_to_cookies": "Open shop sessions",
 
   "edit_title": "Review and edit items",
   "edit_order_info": "Order {order_no} at {shop}",
@@ -97,7 +98,7 @@
   "new_order_button": "Capture another order",
 
   "settings_title": "Settings",
-  "section_cookies": "Shop sessions (cookies)",
+  "cookies_title": "Shop sessions (cookies)",
   "cookies_help": "Sign in to the shop in your browser, export the cookies as JSON with the “Cookie-Editor” extension and paste them here. Cookies never leave this server.",
   "cookies_placeholder": "Paste the Cookie-Editor JSON export here …",
   "save_cookies": "Save cookies",
@@ -143,7 +144,7 @@
   "shutdown_sent": "Pi is shutting down ✓ — wait for the green LED to stay off before cutting power",
   "shutdown_failed": "Shutdown failed",
 
-  "err_session_expired": "The {shop} session has expired or no cookies were imported yet. Please refresh the cookies in the settings.",
+  "err_session_expired": "The {shop} session has expired or no cookies were imported yet. Please refresh the cookies under Shop sessions.",
   "err_parse_failed": "No items were recognized on the {shop} order page (page layout changed?). You can enter the data manually.",
   "err_homebox": "Homebox error",
   "err_nothing_created": "Nothing was created — at least one item needs a name.",

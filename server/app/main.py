@@ -873,6 +873,32 @@ async def print_label(
     return HTMLResponse(_print_status(request, ok=True, message=t("print_ok", lang)))
 
 
+# -- shop sessions -------------------------------------------------------------
+
+
+def _msg_is_error(key: str) -> bool:
+    """Whether a message named in a redirect is bad news — a refusal must not
+    arrive in the same calm blue as "saved"."""
+    return key.startswith("err_") or key.endswith("_invalid")
+
+
+@app.get("/cookies", response_class=HTMLResponse)
+async def cookies_page(
+    request: Request, msg: str = "", user: str = Depends(require_login)
+):
+    """The shop sessions have a page of their own: they are what an order fetch
+    runs on and need refreshing every few weeks, while the settings next door
+    are set up once."""
+    lang = get_lang(request)
+    return render(
+        request,
+        "cookies.html",
+        shop_status={shop: cookie_store.cookie_status(shop) for shop in Shop},
+        msg=t(msg, lang) if msg else "",
+        msg_error=_msg_is_error(msg),
+    )
+
+
 # -- settings -----------------------------------------------------------------
 
 
@@ -881,18 +907,16 @@ async def settings_page(
     request: Request, msg: str = "", user: str = Depends(require_login)
 ):
     lang = get_lang(request)
-    shop_status = {shop: cookie_store.cookie_status(shop) for shop in Shop}
     # Neither connection is checked here: an unreachable host answers with
     # nothing at all, so the check sits out its full timeout before any HTML is
     # sent. Both rows fetch their own state once the page has loaded.
     return render(
         request,
         "settings.html",
-        shop_status=shop_status,
         msg=t(msg, lang) if msg else "",
         # A refused printer address is not news, it is a problem — the banner
         # says so in the colour it is read in.
-        msg_error=msg.startswith("err_"),
+        msg_error=_msg_is_error(msg),
     )
 
 
@@ -908,15 +932,15 @@ async def homebox_status_fragment(request: Request, user: str = Depends(require_
     return response
 
 
-@app.post("/settings/cookies/{shop}")
+@app.post("/cookies/{shop}")
 async def import_cookies(
     shop: Shop, cookies_json: str = Form(...), user: str = Depends(require_login)
 ):
     try:
         cookie_store.save_cookies(shop, cookies_json)
     except cookie_store.CookieError:
-        return RedirectResponse("/settings?msg=cookies_invalid", status_code=303)
-    return RedirectResponse("/settings?msg=cookies_saved", status_code=303)
+        return RedirectResponse("/cookies?msg=cookies_invalid", status_code=303)
+    return RedirectResponse("/cookies?msg=cookies_saved", status_code=303)
 
 
 @app.get("/settings/printers/{agent_id}/status", response_class=HTMLResponse)

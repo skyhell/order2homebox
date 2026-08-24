@@ -10,7 +10,7 @@
 | Printer resolution | 300 dpi |
 | Printable width | **306 px** (fixed — the renderer always outputs exactly this) |
 | Label length | dynamic, ≈ 178 px ≈ 15 mm with default settings |
-| QR codes per row | 2 (default via `O2H_LABEL_QR_PER_ROW`, 1–3; per item on the edit page) |
+| QR codes per row | 2 (default via `O2H_LABEL_QR_PER_ROW`, 1–3; per item on the edit page, and again per print on the result card) |
 | QR content | `{O2H_HOMEBOX_PUBLIC_URL or O2H_HOMEBOX_URL}/a/{asset_id}` |
 | Error correction | M |
 | Quiet zone | 2 modules |
@@ -25,9 +25,10 @@ integer so QR modules map 1:1 onto printer dots (no dithering artifacts).
 
 ### How many codes per row
 
-Every item card and the *Print label* page offer *three small labels instead of
-two*, for small parts you have several of. What that costs, measured with a
-39-character QR URL
+Every item card, every result card and the *Print label* page offer *three small
+labels instead of two*, for small parts you have several of — on the result card
+too, because the first label out of the printer is what makes you decide. What
+that costs, measured with a 39-character QR URL
 (`https://box.example.org/a/000-629`, version 3, 29 modules):
 
 | Per row | Cell | Module scale | Code | Label length |
@@ -50,7 +51,7 @@ for scratched or dirty labels.
 
 The asset ID is **not** printed at three per row. A cell is 102 px and an id
 like `12345-678` is 121 px at the default size — it would print straight across
-the neighbouring code and make it unscannable. Both pages untick and disable the
+the neighbouring code and make it unscannable. All three untick and disable the
 id checkbox (`applyThreeUp` in `app.js` is the one definition), `/print` refuses
 the combination, and the renderer shrinks the font to fit as a last resort,
 because `O2H_LABEL_QR_PER_ROW=3` can still be combined with

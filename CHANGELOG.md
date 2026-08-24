@@ -6,6 +6,19 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.13.1] — 2026-08-24
+
+### Fixed
+
+- **Two or three codes per label can be chosen on the result page too.** The
+  card shown after an item was created only *replayed* the count it had been
+  printed with — it was baked into the reprint button — so the decision one
+  actually makes with the first label in hand ("this part is tiny, three would
+  do") meant going to *Print label* and typing the asset ID in again. The card
+  now carries the same *Three small labels instead of two* checkbox as the edit
+  card and the reprint page, with the preview following it; the asset ID greys
+  out while three are selected, because there is no room for it beside them.
+
 ## [0.13.0] — 2026-08-16
 
 ### Changed
@@ -471,6 +484,7 @@ orders.
 - **Deployment** — Proxmox host script that creates the LXC, in-container
   installer and `update.sh`, plus `install-pi.sh` / `update-pi.sh` for the Pi.
 
+[0.13.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.1
 [0.13.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.0
 [0.12.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.12.1
 [0.12.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.12.0

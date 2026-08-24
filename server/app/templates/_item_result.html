@@ -16,18 +16,27 @@
           <span>{{ t('print_copies') }}</span>
           <input class="input input-sm" type="number" id="copies-{{ idx }}" value="{{ copies_default }}" min="1" max="20">
         </label>
-        {# At three codes per row the id has no room beside them, so it is not
-           offered here either — the hidden checkbox keeps the hx-vals below
-           working without a second code path. #}
-        <label class="check{% if r.qr_per_row == 3 %} hidden{% endif %}">
-          <input type="checkbox" id="show-text-{{ idx }}" {% if r.show_asset_id %}checked{% endif %}
-                 onchange="labelPreview('preview-{{ idx }}', '{{ r.item.assetId }}', this.checked, {{ r.qr_per_row }})">
+        {# Same ids as the edit card, so initQrCounts() in app.js initializes these
+           too: at three per row the id has no room beside the codes, and
+           applyThreeUp unticks and disables the box rather than hiding it. #}
+        <label class="check">
+          <input type="checkbox" id="showid-{{ idx }}" {% if r.show_asset_id %}checked{% endif %}
+                 onchange="refreshResultControls('{{ idx }}', '{{ r.item.assetId }}')">
           <span>{{ t('print_with_id') }}</span>
         </label>
-        {% if r.qr_per_row == 3 %}<span class="hint">{{ t('printed_three_up') }}</span>{% endif %}
+        {# What was printed is a starting point, not a verdict: the count is the
+           first thing you change after looking at the label that came out. #}
+        <label class="check">
+          <input type="checkbox" id="qr3-{{ idx }}" {% if r.qr_per_row == 3 %}checked{% endif %}
+                 onchange="refreshResultControls('{{ idx }}', '{{ r.item.assetId }}')">
+          <span>{{ t('print_three_up') }}</span>
+        </label>
+        <span class="hint" id="qr3-hint-{{ idx }}" hidden>{{ t('print_three_up_hint') }}</span>
+        {# 0, not 2: /print then falls back to the configured default, so an
+           installation set to one code per row keeps printing one. #}
         <button type="button" class="btn btn-primary"
                 hx-post="/print"
-                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("show-text-{{ idx }}").checked, qr_per_row: {{ r.qr_per_row }}, card_idx: {{ idx }}}'
+                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("showid-{{ idx }}").checked, qr_per_row: document.getElementById("qr3-{{ idx }}").checked ? 3 : 0, card_idx: {{ idx }}}'
                 hx-target="#print-status-{{ idx }}"
                 hx-swap="innerHTML">{{ t('print_button') }}</button>
       </div>

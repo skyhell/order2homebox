@@ -19,8 +19,9 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   QR codes side by side (cut in half → two labels per asset), optional asset ID
   text — switchable per item right on its card, so a single item can get a bare
   QR label without changing the default. Small parts you have several of can be
-  printed three-up instead, which drops the asset ID for want of room. QR content
-  is Homebox's native `…/a/{asset_id}` deep link.
+  printed three-up instead, which drops the asset ID for want of room — chosen on
+  the item card and still changeable on the result card, once the first label is
+  in your hand. QR content is Homebox's native `…/a/{asset_id}` deep link.
 - 🔗 **Reprint from a link** — paste any Homebox link (an `…/a/{asset_id}` deep
   link, an `…/item/{uuid}` page URL, or just an asset ID like `000-629`) on the
   *Print label* page and reprint its QR label without going through an order,
@@ -64,11 +65,12 @@ its label carries the asset ID or three codes instead of two.
 ![Result](docs/screenshot-result.png)
 
 Afterwards every item has its asset ID, a preview of the label that was printed
-and a button to print it again — more copies, with or without the ID. Each card
-has exactly one line saying what printing did, and every attempt replaces the
-one before it, so the card never shows a failure the reprint has long since
-fixed. A printer that is off or unplugged is named as such, with the print
-agent's own wording kept behind it.
+and a button to print it again — more copies, with or without the ID, two or
+three codes across the tape; the preview follows every one of those switches.
+Each card has exactly one line saying what printing did, and every attempt
+replaces the one before it, so the card never shows a failure the reprint has
+long since fixed. A printer that is off or unplugged is named as such, with the
+print agent's own wording kept behind it.
 
 ![Text label](docs/screenshot-text-label.png)
 

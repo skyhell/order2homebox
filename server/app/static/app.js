@@ -140,6 +140,19 @@ function refreshLabelControls(assetId) {
   labelPreview('label-preview-img', assetId, showText.checked, three ? 3 : 0);
 }
 
+// Result card: the same two boxes as the reprint page, and a preview that has
+// to follow both of them.
+function refreshResultControls(idx, assetId) {
+  var showId = document.getElementById('showid-' + idx);
+  var three = applyThreeUp(
+    document.getElementById('qr3-' + idx), showId,
+    document.getElementById('qr3-hint-' + idx)
+  );
+  // 0 rather than 2: the preview route falls back to the configured default,
+  // the same one /print uses when the box is off.
+  labelPreview('preview-' + idx, assetId, showId.checked, three ? 3 : 0);
+}
+
 function initQrCounts() {
   document.querySelectorAll('input[id^="qr3-"]').forEach(function (box) {
     updateQrCount(box.id.slice('qr3-'.length));

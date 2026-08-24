@@ -126,12 +126,12 @@ def test_item_card_asset_id_checkbox_controls_the_printed_label(logged_in, monke
     response = logged_in.post("/create-item", data=data)  # no item-1-showid
     assert rendered["show_asset_id"] is False
     assert "?text=0" in response.text
-    assert 'id="show-text-1" checked' not in response.text
+    assert 'id="showid-1" checked' not in response.text
 
     response = logged_in.post("/create-item", data={**data, "item-1-showid": "on"})
     assert rendered["show_asset_id"] is True
     assert "?text=1" in response.text
-    assert 'id="show-text-1" checked' in response.text
+    assert 'id="showid-1" checked' in response.text
 
 
 def _stub_create_and_capture(monkeypatch, captured):
@@ -203,8 +203,24 @@ def test_three_up_travels_into_the_result_card(logged_in, monkeypatch):
         "item-1-print": "on", "item-1-qr3": "on",
     }).text
     assert "count=3" in body  # preview
-    assert "qr_per_row: 3" in body  # reprint
-    assert 'class="check hidden"' in body  # the id checkbox is not on offer
+    assert 'id="qr3-1" checked' in body  # and the box the reprint reads
+    assert 'document.getElementById("qr3-1").checked ? 3 : 0' in body
+    assert 'id="showid-1" checked' not in body  # no room for the id at three
+
+
+def test_result_card_lets_the_count_be_changed(logged_in, monkeypatch):
+    """Two or three is decided again after looking at the label that came out.
+    The card used to bake the count into its hx-vals, so the only way to change
+    it was to go to the reprint page with the asset id."""
+    _stub_create_and_capture(monkeypatch, [])
+    body = logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "USB Hub", "item-1-quantity": "1",
+        "item-1-print": "on",
+    }).text  # no item-1-qr3: printed two up
+    assert 'id="qr3-1"' in body
+    assert 'id="qr3-1" checked' not in body  # offered, not preselected
+    assert 'document.getElementById("qr3-1").checked ? 3 : 0' in body
 
 
 def test_reprinting_three_up_never_adds_the_asset_id(logged_in, monkeypatch):
@@ -227,6 +243,31 @@ def test_reprinting_three_up_never_adds_the_asset_id(logged_in, monkeypatch):
         "asset_id": "000-007", "copies": "1", "show_text": "true", "qr_per_row": "3",
     })
     assert captured == [{"show_asset_id": False, "qr_per_row": 3}]
+
+
+def test_reprinting_without_a_count_uses_the_configured_one(logged_in, monkeypatch):
+    """An unticked three-up box sends 0, from the result card as from the
+    reprint page — that must mean the configured count, not a hardcoded two."""
+    import app.main as main
+
+    captured = []
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append(qr_per_row)
+        return b"PNG"
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "qr_per_row": "0",
+    })
+    from app.config import settings
+
+    assert captured == [settings.label_qr_per_row]
 
 
 def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, monkeypatch):
@@ -352,13 +393,14 @@ def test_result_card_print_controls_carry_no_form_field_names(logged_in, monkeyp
         "item_count": "2", "item-1-name": "USB Hub", "item-1-quantity": "1",
     })
     body = response.text
-    for name in ("asset_id", "copies", "show_text"):
+    for name in ("asset_id", "copies", "show_text", "qr_per_row"):
         assert f'name="{name}"' not in body
-    assert 'id="copies-1"' in body and 'id="show-text-1"' in body
+    assert 'id="copies-1"' in body and 'id="showid-1"' in body
     assert 'asset_id: "000-007"' in body  # the card's own id, not a shared field
-    # the preview must follow the checkbox, else it shows a label that is not printed
+    # the preview must follow both checkboxes, else it shows a label that is not
+    # printed
     assert 'id="preview-1"' in body
-    assert "labelPreview('preview-1', '000-007', this.checked, 2)" in body
+    assert body.count("refreshResultControls('1', '000-007')") == 2
 
 
 def test_create_single_item_without_name_keeps_card(logged_in, monkeypatch):

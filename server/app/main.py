@@ -456,6 +456,14 @@ def _order_from_form(form) -> Order:
     )
 
 
+def _qr_per_row_off() -> int:
+    """How many codes an unticked three-up box asks for: the configured count —
+    unless that is three, because then the box could never be turned off and
+    two codes are what "not three small ones" leaves. One definition, so the
+    preview, the item card and /print cannot drift apart on it."""
+    return settings.label_qr_per_row if settings.label_qr_per_row != 3 else 2
+
+
 def _item_from_form(form, i: int):
     """Item fields for index i → (item_draft, location_id, label_ids,
     want_print, show_id, qr_per_row), or None when the card was removed in the
@@ -487,7 +495,7 @@ def _item_from_form(form, i: int):
     # Three small codes for a small part you have several of. The id has no
     # room next to them, so it is not printed regardless of the checkbox — a
     # disabled checkbox is not submitted at all, this just makes it explicit.
-    qr_per_row = 3 if form.get(f"item-{i}-qr3") is not None else settings.label_qr_per_row
+    qr_per_row = 3 if form.get(f"item-{i}-qr3") is not None else _qr_per_row_off()
     if qr_per_row == 3:
         show_id = False
     return item_draft, location_id, label_ids, want_print, show_id, qr_per_row
@@ -503,7 +511,7 @@ async def _create_and_print(
     qr_per_row: int = 0,
     agent: agents.Agent | None = None,
 ) -> dict:
-    qr_per_row = qr_per_row or settings.label_qr_per_row
+    qr_per_row = qr_per_row or _qr_per_row_off()
     entry = {
         "draft": item_draft,
         "error": "",
@@ -820,11 +828,14 @@ async def label_preview(
 ):
     if not ASSET_ID_RE.match(asset_id):
         return Response(status_code=404)
+    qr_per_row = count or _qr_per_row_off()
     png = render_label_png(
         asset_id,
         homebox.asset_qr_url(asset_id),
-        show_asset_id=bool(text),
-        qr_per_row=count or settings.label_qr_per_row,
+        # The same rule /print applies: at three per row the id has no room, so
+        # a preview that showed one would promise a label nothing can print.
+        show_asset_id=bool(text) and qr_per_row != 3,
+        qr_per_row=qr_per_row,
     )
     return Response(content=png, media_type="image/png")
 
@@ -844,7 +855,9 @@ async def print_label(
     lang = get_lang(request)
     if not ASSET_ID_RE.match(asset_id):
         return HTMLResponse(_print_status(request, ok=False, message="?"))
-    qr_per_row = qr_per_row or settings.label_qr_per_row
+    qr_per_row = qr_per_row or _qr_per_row_off()
+    # Reprinting must not put the id back where there is no room for it.
+    show_id = show_text and qr_per_row != 3
     prefs.set_last_copies("label", copies)
     # Before the attempt, not after it: a label the agent refused is exactly the
     # one that gets printed again in a moment. The name, if this ID has one, is
@@ -853,8 +866,7 @@ async def print_label(
     png = render_label_png(
         asset_id,
         homebox.asset_qr_url(asset_id),
-        # Reprinting must not put the id back where there is no room for it.
-        show_asset_id=show_text and qr_per_row != 3,
+        show_asset_id=show_id,
         qr_per_row=qr_per_row,
     )
     agent = agents.selected(request)
@@ -866,10 +878,16 @@ async def print_label(
     except printer.PrintError as exc:
         # The card is told about this attempt, not only the one at creation time:
         # what the page shows must survive a reload either way.
-        draft.update_print_result(card_idx, asset_id, printed=False, error=str(exc))
+        draft.update_print_result(
+            card_idx, asset_id, printed=False, error=str(exc),
+            show_asset_id=show_id, qr_per_row=qr_per_row,
+        )
         message, detail = _print_error_parts(str(exc), lang)
         return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
-    draft.update_print_result(card_idx, asset_id, printed=True, error="")
+    draft.update_print_result(
+        card_idx, asset_id, printed=True, error="",
+        show_asset_id=show_id, qr_per_row=qr_per_row,
+    )
     return HTMLResponse(_print_status(request, ok=True, message=t("print_ok", lang)))
 
 

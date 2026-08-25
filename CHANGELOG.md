@@ -6,6 +6,24 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.13.2] — 2026-08-25
+
+### Fixed
+
+- **A reprint from the result card forgot the layout it had just printed.**
+  Only the print *result* was written back into the draft, so after a reload of
+  `/edit` the card showed the checkboxes and the preview of the label from the
+  moment the item was created — with "Etikett wurde gedruckt" standing next to
+  a label that had never come out. The count and the asset ID are now stored
+  with the result.
+- **The preview could show an asset ID that three codes leave no room for.**
+  `/print` drops the ID at three per row, the preview route did not, and an
+  unticked box asking for "the configured count" meant three codes again where
+  `O2H_LABEL_QR_PER_ROW=3` — a checkbox that could not be turned off. Both
+  routes now resolve a request the same way: one definition of what an unticked
+  box means (the configured count, or two where that is three), and the same
+  rule about the ID everywhere.
+
 ## [0.13.1] — 2026-08-24
 
 ### Fixed
@@ -484,6 +502,7 @@ orders.
 - **Deployment** — Proxmox host script that creates the LXC, in-container
   installer and `update.sh`, plus `install-pi.sh` / `update-pi.sh` for the Pi.
 
+[0.13.2]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.2
 [0.13.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.1
 [0.13.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.0
 [0.12.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.12.1

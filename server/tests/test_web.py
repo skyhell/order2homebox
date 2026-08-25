@@ -52,6 +52,22 @@ def test_label_preview_requires_valid_asset_id(logged_in):
     assert bad.status_code in (404, 422)
 
 
+def test_label_preview_drops_the_id_at_three_per_row(logged_in, monkeypatch):
+    """The preview and /print resolve the same request into the same label: at
+    three per row there is no room for the id, whatever text= asks for."""
+    import app.main as main
+
+    captured = []
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append({"show_asset_id": show_asset_id, "qr_per_row": qr_per_row})
+        return b"PNG"
+
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+    logged_in.get("/label/000-123.png?text=1&count=3")
+    assert captured == [{"show_asset_id": False, "qr_per_row": 3}]
+
+
 def test_login_page_available(client):
     response = client.get("/login")
     assert response.status_code == 200
@@ -247,9 +263,12 @@ def test_reprinting_three_up_never_adds_the_asset_id(logged_in, monkeypatch):
 
 def test_reprinting_without_a_count_uses_the_configured_one(logged_in, monkeypatch):
     """An unticked three-up box sends 0, from the result card as from the
-    reprint page — that must mean the configured count, not a hardcoded two."""
+    reprint page — that must mean the configured count, not a hardcoded two.
+    Configured to one here, so a hardcoded two cannot pass as the default."""
     import app.main as main
+    from app.config import settings
 
+    monkeypatch.setattr(settings, "label_qr_per_row", 1)
     captured = []
 
     def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
@@ -265,9 +284,34 @@ def test_reprinting_without_a_count_uses_the_configured_one(logged_in, monkeypat
     logged_in.post("/print", data={
         "asset_id": "000-007", "copies": "1", "qr_per_row": "0",
     })
+    assert captured == [1]
+
+
+def test_an_installation_that_defaults_to_three_can_still_untick_the_box(
+    logged_in, monkeypatch
+):
+    """0 means "the configured count" — but where that is three, the three-up
+    box would be one that cannot be turned off. Off then means two codes."""
+    import app.main as main
     from app.config import settings
 
-    assert captured == [settings.label_qr_per_row]
+    monkeypatch.setattr(settings, "label_qr_per_row", 3)
+    captured = []
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append(qr_per_row)
+        return b"PNG"
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "qr_per_row": "0",
+    })
+    assert captured == [2]
 
 
 def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, monkeypatch):
@@ -1045,6 +1089,41 @@ def test_a_reprint_that_failed_is_remembered_too(logged_in, monkeypatch):
 
     entry = draft.load()["created"]["0"]
     assert entry["printed"] is False and entry["print_error"] == "out of tape"
+    _clear_draft()
+
+
+def test_a_reprint_remembers_the_layout_it_printed(logged_in, monkeypatch):
+    """The result card may change the count before it reprints. Coming back to
+    /edit with the boxes of the first label would leave "Etikett wurde gedruckt"
+    standing next to a label that was never printed."""
+    import app.main as main
+    from app import draft
+
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    logged_in.post("/create-item", data=dict(_draft_form(), idx="0"))
+    assert draft.load()["created"]["0"]["qr_per_row"] == 2
+
+    logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "show_text": "true",
+        "qr_per_row": "3", "card_idx": "0",
+    })
+    entry = draft.load()["created"]["0"]
+    # show_text came with it, but three codes leave no room for the id.
+    assert entry["qr_per_row"] == 3 and entry["show_asset_id"] is False
+
+    body = logged_in.get("/edit").text
+    assert 'id="qr3-0" checked' in body
+    assert "?text=0&count=3" in body
     _clear_draft()
 
 

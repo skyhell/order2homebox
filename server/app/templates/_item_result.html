@@ -32,8 +32,8 @@
           <span>{{ t('print_three_up') }}</span>
         </label>
         <span class="hint" id="qr3-hint-{{ idx }}" hidden>{{ t('print_three_up_hint') }}</span>
-        {# 0, not 2: /print then falls back to the configured default, so an
-           installation set to one code per row keeps printing one. #}
+        {# 0, not 2: /print then falls back to what an unticked box means for
+           this installation — one code per row where that is configured. #}
         <button type="button" class="btn btn-primary"
                 hx-post="/print"
                 hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("showid-{{ idx }}").checked, qr_per_row: document.getElementById("qr3-{{ idx }}").checked ? 3 : 0, card_idx: {{ idx }}}'

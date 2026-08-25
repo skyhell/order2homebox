@@ -123,10 +123,21 @@ def mark_created(idx: int, entry: dict) -> None:
     _write(data)
 
 
-def update_print_result(idx: int, asset_id: str, printed: bool, error: str) -> None:
+def update_print_result(
+    idx: int,
+    asset_id: str,
+    printed: bool,
+    error: str,
+    show_asset_id: bool | None = None,
+    qr_per_row: int | None = None,
+) -> None:
     """Overwrite what a created card remembers about printing, so a reprint that
     worked also survives a reload of the edit page — the failed attempt from the
     moment the item was created is not the last word on it.
+
+    The layout goes with it: the card can change the count and the id before it
+    reprints, and a "printed ✓" that came back next to the boxes of the earlier
+    label would name a label nobody has.
 
     The asset ID is the guard: a card index travelling with a page that has since
     been replaced must not write onto whatever item sits at that index now.
@@ -140,6 +151,10 @@ def update_print_result(idx: int, asset_id: str, printed: bool, error: str) -> N
         return
     entry["printed"] = printed
     entry["print_error"] = error
+    if show_asset_id is not None:
+        entry["show_asset_id"] = bool(show_asset_id)
+    if qr_per_row is not None:
+        entry["qr_per_row"] = int(qr_per_row)
     data["created"] = created
     _write(data)
 

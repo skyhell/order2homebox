@@ -148,8 +148,8 @@ function refreshResultControls(idx, assetId) {
     document.getElementById('qr3-' + idx), showId,
     document.getElementById('qr3-hint-' + idx)
   );
-  // 0 rather than 2: the preview route falls back to the configured default,
-  // the same one /print uses when the box is off.
+  // 0 rather than 2: both routes resolve it the same way, so the preview shows
+  // the label the print button would send.
   labelPreview('preview-' + idx, assetId, showId.checked, three ? 3 : 0);
 }
 

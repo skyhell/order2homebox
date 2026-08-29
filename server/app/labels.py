@@ -71,13 +71,23 @@ def _asset_id_font(draw: ImageDraw.ImageDraw, asset_id: str, max_width: int):
     return font
 
 
+MAX_QR_PER_ROW = 3  # a fourth code on 306 px is no longer scannable
+
+
+def clamp_qr_per_row(qr_per_row: int) -> int:
+    """The number of codes that will actually be drawn. Whoever decides whether
+    the asset ID still has room must ask this first: a caller that reads a 4
+    where the renderer draws 3 answers for a label that is never printed."""
+    return max(1, min(qr_per_row, MAX_QR_PER_ROW))
+
+
 def render_label(
     asset_id: str,
     qr_content: str,
     show_asset_id: bool = True,
     qr_per_row: int = 2,
 ) -> Image.Image:
-    qr_per_row = max(1, min(qr_per_row, 3))
+    qr_per_row = clamp_qr_per_row(qr_per_row)
     cell_width = LABEL_WIDTH // qr_per_row
     qr_img = _qr_image(qr_content, cell_width - 2 * CELL_PADDING)
 

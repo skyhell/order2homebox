@@ -6,6 +6,29 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.13.3] — 2026-08-29
+
+### Fixed
+
+- **A reprint with no printer left the earlier "Etikett wurde gedruckt"
+  standing.** That case returned before writing anything into the draft, unlike
+  both other outcomes of a reprint, so a reload of `/edit` brought back the
+  success of a label printed earlier — next to the boxes the failed attempt had
+  meanwhile changed. The attempt is recorded now, the way the item cards have
+  always recorded it.
+- **The test print on the settings page ignored the rule the rest of the app
+  follows.** It asked for the configured count *with* the asset ID, so where
+  `O2H_LABEL_QR_PER_ROW=3` it printed the one layout no other route can produce
+  any more: three codes with the ID squeezed under each. A test label that shows
+  what the printer will emit has to be the label an unticked three-up box makes,
+  and now is.
+- **A count above three put the asset ID back on the label.** The renderer draws
+  three codes at most, but the routes that decide whether the ID still has room
+  compared the untrimmed number — so `/label/…png?count=4`, or
+  `O2H_LABEL_QR_PER_ROW=4`, meant three codes *with* the ID after all. Trimming
+  the count to what can be drawn is one function now, and every caller that
+  reads a count asks it before it answers for the ID.
+
 ## [0.13.2] — 2026-08-25
 
 ### Fixed
@@ -502,6 +525,7 @@ orders.
 - **Deployment** — Proxmox host script that creates the LXC, in-container
   installer and `update.sh`, plus `install-pi.sh` / `update-pi.sh` for the Pi.
 
+[0.13.3]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.3
 [0.13.2]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.2
 [0.13.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.1
 [0.13.0]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.0

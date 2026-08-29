@@ -314,6 +314,81 @@ def test_an_installation_that_defaults_to_three_can_still_untick_the_box(
     assert captured == [2]
 
 
+def test_a_count_above_three_cannot_smuggle_the_asset_id_back(logged_in, monkeypatch):
+    """The renderer draws three codes at most. A route that still reads the 4 it
+    was handed decides the id has room — and the label comes out with the id
+    squeezed under three codes, the one combination that is never printed."""
+    import app.main as main
+
+    captured = []
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append({"show_asset_id": show_asset_id, "qr_per_row": qr_per_row})
+        return b"PNG"
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    logged_in.get("/label/000-007.png?text=1&count=4")
+    logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "show_text": "true", "qr_per_row": "9",
+    })
+    assert captured == [{"show_asset_id": False, "qr_per_row": 3}] * 2
+
+
+def test_a_configured_count_above_three_falls_back_like_three_does(logged_in, monkeypatch):
+    """.env is not validated. Four per row is three once drawn, so an unticked
+    box means two — the same answer the box gets where three is configured."""
+    import app.main as main
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "label_qr_per_row", 4)
+    captured = []
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append({"show_asset_id": show_asset_id, "qr_per_row": qr_per_row})
+        return b"PNG"
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "show_text": "true", "qr_per_row": "0",
+    })
+    assert captured == [{"show_asset_id": True, "qr_per_row": 2}]
+
+
+def test_the_test_print_prints_what_an_unticked_box_prints(logged_in, monkeypatch):
+    """It is there to show what comes out of the printer, so it may not be the
+    one label the rest of the app can no longer produce: three codes with the
+    asset ID crammed under each, where three per row is configured."""
+    import app.main as main
+    from app import agents
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "label_qr_per_row", 3)
+    captured = []
+
+    def fake_render(asset_id, url, show_asset_id=True, qr_per_row=2):
+        captured.append({"show_asset_id": show_asset_id, "qr_per_row": qr_per_row})
+        return b"PNG"
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main, "render_label_png", fake_render)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    logged_in.post(f"/settings/printers/{agents.load()[0].id}/test-print")
+    assert captured == [{"show_asset_id": True, "qr_per_row": 2}]
+
+
 def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, monkeypatch):
     calls = []
     import app.main as main
@@ -1124,6 +1199,43 @@ def test_a_reprint_remembers_the_layout_it_printed(logged_in, monkeypatch):
     body = logged_in.get("/edit").text
     assert 'id="qr3-0" checked' in body
     assert "?text=0&count=3" in body
+    _clear_draft()
+
+
+def test_a_reprint_with_no_printer_replaces_the_earlier_success(logged_in, monkeypatch):
+    """The label came out at creation time; by the time it is reprinted the
+    printer is gone. The status line says so, and the draft has to as well —
+    otherwise the next reload of /edit brings "Etikett wurde gedruckt" back,
+    next to the boxes this attempt has meanwhile changed."""
+    import app.main as main
+    from app import draft
+
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+    logged_in.post("/create-item", data=dict(_draft_form(), idx="0"))
+    assert draft.load()["created"]["0"]["printed"] is True
+
+    monkeypatch.setattr(main.agents, "selected", lambda request, printers=None: None)
+    response = logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "qr_per_row": "3", "card_idx": "0",
+    })
+    assert "Kein Drucker" in response.text
+
+    entry = draft.load()["created"]["0"]
+    assert entry["printed"] is False
+    assert entry["print_error"] == main.printer.NO_PRINTER
+    body = logged_in.get("/edit").text
+    assert "Etikett wurde gedruckt" not in body
+    assert 'id="qr3-0" checked' in body  # the layout this attempt asked for
     _clear_draft()
 
 

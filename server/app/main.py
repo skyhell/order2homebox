@@ -36,6 +36,7 @@ from .labels import (
     HEIGHT_KEEP,
     HEIGHT_MODES,
     clean_text_line,
+    clamp_qr_per_row,
     render_label_png,
     render_text_label_png,
 )
@@ -460,8 +461,12 @@ def _qr_per_row_off() -> int:
     """How many codes an unticked three-up box asks for: the configured count —
     unless that is three, because then the box could never be turned off and
     two codes are what "not three small ones" leaves. One definition, so the
-    preview, the item card and /print cannot drift apart on it."""
-    return settings.label_qr_per_row if settings.label_qr_per_row != 3 else 2
+    preview, the item card and /print cannot drift apart on it.
+
+    The count is clamped first: .env is not validated, and a 4 that only the
+    renderer trims would slip past the "three per row" test below."""
+    configured = clamp_qr_per_row(settings.label_qr_per_row)
+    return configured if configured != 3 else 2
 
 
 def _item_from_form(form, i: int):
@@ -828,7 +833,8 @@ async def label_preview(
 ):
     if not ASSET_ID_RE.match(asset_id):
         return Response(status_code=404)
-    qr_per_row = count or _qr_per_row_off()
+    # Clamped here, not only in the renderer: the ID rule below reads it.
+    qr_per_row = clamp_qr_per_row(count) if count else _qr_per_row_off()
     png = render_label_png(
         asset_id,
         homebox.asset_qr_url(asset_id),
@@ -855,7 +861,7 @@ async def print_label(
     lang = get_lang(request)
     if not ASSET_ID_RE.match(asset_id):
         return HTMLResponse(_print_status(request, ok=False, message="?"))
-    qr_per_row = qr_per_row or _qr_per_row_off()
+    qr_per_row = clamp_qr_per_row(qr_per_row) if qr_per_row else _qr_per_row_off()
     # Reprinting must not put the id back where there is no room for it.
     show_id = show_text and qr_per_row != 3
     prefs.set_last_copies("label", copies)
@@ -871,6 +877,14 @@ async def print_label(
     )
     agent = agents.selected(request)
     if agent is None:
+        # Also an attempt, and the card has to remember it: leaving the draft
+        # untouched would bring an earlier "printed ✓" back on the next reload,
+        # next to the boxes this attempt has already changed. The item cards
+        # record the same condition the same way (see _create_and_print).
+        draft.update_print_result(
+            card_idx, asset_id, printed=False, error=printer.NO_PRINTER,
+            show_asset_id=show_id, qr_per_row=qr_per_row,
+        )
         message, detail = _print_error_parts(printer.NO_PRINTER, lang)
         return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
     try:
@@ -1035,8 +1049,11 @@ async def test_print(agent_id: str, request: Request, user: str = Depends(requir
     png = render_label_png(
         "000-000",
         homebox.asset_qr_url("000-000"),
+        # The layout an unticked three-up box asks for, like everywhere else: a
+        # test label no other route can produce would test the wrong thing. And
+        # that count is never three, so the ID always has its room.
         show_asset_id=True,
-        qr_per_row=settings.label_qr_per_row,
+        qr_per_row=_qr_per_row_off(),
     )
     try:
         await printer.print_png(agent, png, copies=1)

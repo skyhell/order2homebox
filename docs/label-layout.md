@@ -10,7 +10,7 @@
 | Printer resolution | 300 dpi |
 | Printable width | **306 px** (fixed — the renderer always outputs exactly this) |
 | Label length | dynamic, ≈ 178 px ≈ 15 mm with default settings |
-| QR codes per row | 2 (default via `O2H_LABEL_QR_PER_ROW`, 1–3; per item on the edit page, and again per print on the result card) |
+| QR codes per row | 2 (default via `O2H_LABEL_QR_PER_ROW`, 1–3 — anything outside is clamped; per item on the edit page, and again per print on the result card) |
 | QR content | `{O2H_HOMEBOX_PUBLIC_URL or O2H_HOMEBOX_URL}/a/{asset_id}` |
 | Error correction | M |
 | Quiet zone | 2 modules |
@@ -52,10 +52,23 @@ for scratched or dirty labels.
 The asset ID is **not** printed at three per row. A cell is 102 px and an id
 like `12345-678` is 121 px at the default size — it would print straight across
 the neighbouring code and make it unscannable. All three untick and disable the
-id checkbox (`applyThreeUp` in `app.js` is the one definition), `/print` refuses
-the combination, and the renderer shrinks the font to fit as a last resort,
-because `O2H_LABEL_QR_PER_ROW=3` can still be combined with
-`O2H_LABEL_SHOW_ASSET_ID=1` in `.env`.
+id checkbox (`applyThreeUp` in `app.js` is the one definition), and `/print`
+applies the same rule to whatever it is asked for, so the combination cannot be
+reached through the UI at all. The renderer still shrinks the font to fit as a
+last resort, for a caller that renders a label directly.
+
+Switching the codes off again brings the id back: three per row *hides* the
+answer, it does not replace it. That takes some care, because a disabled
+checkbox is not submitted at all — so the answer travels beside the box, as
+`data-was-checked` in the page and as the hidden `item-{i}-showid-want` field in
+the form, and the server keeps it as `want_asset_id` next to the `show_asset_id`
+that describes the label which actually came out. Without that pair, a reload of
+`/edit` would come back with the choice silently gone.
+
+How many codes are really drawn is `labels.clamp_qr_per_row()`, and everything
+that decides whether the id still fits asks it first. `O2H_LABEL_QR_PER_ROW=4`
+is therefore three codes without the id, not four codes with it — the untrimmed
+number used to pass the "is this three?" test and put the id back on.
 
 ## Text labels
 

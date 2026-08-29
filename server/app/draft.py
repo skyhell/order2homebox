@@ -117,6 +117,7 @@ def mark_created(idx: int, entry: dict) -> None:
         "printed": bool(entry.get("printed")),
         "print_error": entry.get("print_error", ""),
         "show_asset_id": bool(entry.get("show_asset_id")),
+        "want_asset_id": bool(entry.get("want_asset_id", entry.get("show_asset_id"))),
         "qr_per_row": int(entry.get("qr_per_row") or 2),
     }
     data["created"] = created
@@ -130,6 +131,7 @@ def update_print_result(
     error: str,
     show_asset_id: bool | None = None,
     qr_per_row: int | None = None,
+    want_asset_id: bool | None = None,
 ) -> None:
     """Overwrite what a created card remembers about printing, so a reprint that
     worked also survives a reload of the edit page — the failed attempt from the
@@ -137,7 +139,9 @@ def update_print_result(
 
     The layout goes with it: the card can change the count and the id before it
     reprints, and a "printed ✓" that came back next to the boxes of the earlier
-    label would name a label nobody has.
+    label would name a label nobody has. What was asked for is kept beside what
+    was printed — at three codes per row the id is dropped, and only the answer
+    itself can bring the box back when the count comes down again.
 
     The asset ID is the guard: a card index travelling with a page that has since
     been replaced must not write onto whatever item sits at that index now.
@@ -153,6 +157,8 @@ def update_print_result(
     entry["print_error"] = error
     if show_asset_id is not None:
         entry["show_asset_id"] = bool(show_asset_id)
+    if want_asset_id is not None:
+        entry["want_asset_id"] = bool(want_asset_id)
     if qr_per_row is not None:
         entry["qr_per_row"] = int(qr_per_row)
     data["created"] = created

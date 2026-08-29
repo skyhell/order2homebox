@@ -21,7 +21,8 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   QR label without changing the default. Small parts you have several of can be
   printed three-up instead, which drops the asset ID for want of room — chosen on
   the item card and still changeable on the result card, once the first label is
-  in your hand. QR content is Homebox's native `…/a/{asset_id}` deep link.
+  in your hand. Switching back to two brings the ID with it: three-up hides that
+  choice, it never answers it, and the card still knows it after a reload. QR content is Homebox's native `…/a/{asset_id}` deep link.
 - 🔗 **Reprint from a link** — paste any Homebox link (an `…/a/{asset_id}` deep
   link, an `…/item/{uuid}` page URL, or just an asset ID like `000-629`) on the
   *Print label* page and reprint its QR label without going through an order,
@@ -81,7 +82,9 @@ one-click chips.
 ![Settings](docs/screenshot-settings.png)
 
 The settings page shows the Homebox connection and the printers with their
-status — one card per Pi, each with its own test print and shutdown button.
+status — one card per Pi, each with its own test print and shutdown button. The
+test print is the label an unticked *three small labels* box makes, so it shows
+what the printer will actually emit.
 *Use this one* decides where this computer prints; another computer keeps its
 own choice.
 
@@ -182,7 +185,7 @@ Everything is configured via `.env` (prefix `O2H_`) — see
 | Variable | Meaning |
 | --- | --- |
 | `O2H_HOMEBOX_PUBLIC_URL` | URL encoded in QR codes if it differs from the API URL (reverse proxy) |
-| `O2H_LABEL_QR_PER_ROW` | 1–3 QR codes across the 29 mm width (default 2) |
+| `O2H_LABEL_QR_PER_ROW` | 1–3 QR codes across the 29 mm width (default 2); anything outside is clamped |
 | `O2H_LABEL_SHOW_ASSET_ID` | print the asset ID under each QR (default false) |
 | `O2H_AMAZON_DOMAIN` | e.g. `www.amazon.de` / `www.amazon.com` |
 

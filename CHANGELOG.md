@@ -6,6 +6,18 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.13.4] — 2026-08-29
+
+### Fixed
+
+- **Ticking "drei nebeneinander" erased the asset-ID choice instead of hiding
+  it.** The ID box is disabled at three codes per row — and a disabled checkbox
+  is not submitted at all, so the answer never reached the server: it survived
+  only in the page itself. After a reload of `/edit`, unticking the box left the
+  ID off, and the next label came out without it. What was asked for is now kept
+  beside what was printed, in the draft as well as on the card, so the box comes
+  back with the count.
+
 ## [0.13.3] — 2026-08-29
 
 ### Fixed
@@ -525,6 +537,7 @@ orders.
 - **Deployment** — Proxmox host script that creates the LXC, in-container
   installer and `update.sh`, plus `install-pi.sh` / `update-pi.sh` for the Pi.
 
+[0.13.4]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.4
 [0.13.3]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.3
 [0.13.2]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.2
 [0.13.1]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.1

@@ -314,6 +314,93 @@ def test_an_installation_that_defaults_to_three_can_still_untick_the_box(
     assert captured == [2]
 
 
+def test_ticking_three_up_hides_the_id_choice_instead_of_erasing_it(logged_in, monkeypatch):
+    """The box is disabled at three per row, and a disabled checkbox is not
+    submitted at all — so the answer travels in the hidden field beside it.
+    Without that the result card would have nothing to give back."""
+    captured = []
+    _stub_create_and_capture(monkeypatch, captured)
+    body = logged_in.post("/create-item", data={
+        "idx": "1", "shop": "amazon", "order_no": "028-111", "order_date": "",
+        "item_count": "2", "item-1-name": "O-Ring", "item-1-quantity": "1",
+        "item-1-print": "on", "item-1-qr3": "on", "item-1-showid-want": "1",
+    }).text
+
+    assert captured == [{"show_asset_id": False, "qr_per_row": 3}]  # not printed
+    assert not _is_checked(body, "showid-1")  # and not offered on the card
+    assert _remembers_choice(body, "showid-1")  # but not forgotten either
+    # and the reprint button sends the answer, not the box that overrode it
+    assert 'show_text: wantsAssetId(document.getElementById("showid-1"))' in body
+
+
+def test_a_reload_gives_back_the_id_choice_the_count_hid(logged_in, monkeypatch):
+    """The point of keeping the answer: /edit is left and come back to, and
+    unticking three-up has to restore the box afterwards as well as before.
+    The card is rendered from the draft file then, not from the DOM."""
+    import app.main as main
+    from app import draft
+
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    _stub_create_and_capture(monkeypatch, [])
+    logged_in.post("/create-item", data=dict(
+        _draft_form(), idx="0", **{"item-0-qr3": "on", "item-0-showid-want": "1"}
+    ))
+
+    entry = draft.load()["created"]["0"]
+    assert entry["show_asset_id"] is False  # three codes left it no room
+    assert entry["want_asset_id"] is True  # what was asked for, all the same
+
+    body = logged_in.get("/edit").text
+    assert not _is_checked(body, "showid-0") and _remembers_choice(body, "showid-0")
+    assert "?text=0&count=3" in body  # the preview still shows what was printed
+    _clear_draft()
+    assert main  # imported for the stubs above
+
+
+def test_an_uncreated_card_comes_back_with_the_choice_too(logged_in, monkeypatch):
+    """Same for a card that is still an input: the edit page is rebuilt from
+    the stored form, where only the hidden field speaks for a disabled box."""
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    form = _draft_form()  # item-1 has the three-up box ticked
+    form["item-1-showid-want"] = "1"
+    logged_in.post("/draft", data=form)
+
+    body = logged_in.get("/edit").text
+    assert not _is_checked(body, "showid-1") and _remembers_choice(body, "showid-1")
+    assert 'value="1"' in _input_tag(body, "showid-want-1")  # ready to travel again
+    _clear_draft()
+
+
+def test_a_reprint_keeps_the_choice_the_count_overrode(logged_in, monkeypatch):
+    """The reprint button sends the answer and /print applies the rule to it,
+    so the draft ends up with both: the label that came out, and the box to
+    offer once the count comes down."""
+    import app.main as main
+    from app import draft
+
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    _stub_create_and_capture(monkeypatch, [])
+    logged_in.post("/create-item", data=dict(
+        _draft_form(), idx="0", **{"item-0-showid": "on"}
+    ))
+    assert draft.load()["created"]["0"]["want_asset_id"] is True
+
+    logged_in.post("/print", data={
+        "asset_id": "000-007", "copies": "1", "show_text": "true",
+        "qr_per_row": "3", "card_idx": "0",
+    })
+    entry = draft.load()["created"]["0"]
+    assert entry["show_asset_id"] is False and entry["want_asset_id"] is True
+
+    body = logged_in.get("/edit").text
+    assert not _is_checked(body, "showid-0") and _remembers_choice(body, "showid-0")
+    _clear_draft()
+    assert main
+
+
 def test_a_count_above_three_cannot_smuggle_the_asset_id_back(logged_in, monkeypatch):
     """The renderer draws three codes at most. A route that still reads the 4 it
     was handed decides the id has room — and the label comes out with the id
@@ -750,10 +837,22 @@ def _clear_prefs(*keys):
     prefs._write(data)
 
 
-def _is_checked(page: str, element_id: str) -> bool:
-    """Whether that one input carries `checked` — not just the page somewhere."""
+def _input_tag(page: str, element_id: str) -> str:
     tag = re.search(r'<input[^>]*id="%s"[^>]*>' % re.escape(element_id), page)
-    return tag is not None and "checked" in tag.group(0)
+    return tag.group(0) if tag else ""
+
+
+def _is_checked(page: str, element_id: str) -> bool:
+    """Whether that one input carries `checked` — not just the page somewhere,
+    and not the `data-was-checked` that spells the word again."""
+    tag = _input_tag(page, element_id)
+    return re.search(r'(?<![-\w])checked(?![-\w=])', tag) is not None
+
+
+
+def _remembers_choice(page: str, element_id: str) -> bool:
+    """Whether the box carries the answer three per row has switched off."""
+    return 'data-was-checked="1"' in _input_tag(page, element_id)
 
 
 def _stub_printer(monkeypatch):

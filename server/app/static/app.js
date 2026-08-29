@@ -106,6 +106,8 @@ document.addEventListener('htmx:load', updateApplyAllButtons);
 // Three codes across the width leave a 102 px cell, and an asset id can be
 // 121 px wide — it would print across the neighbouring code. So the id is not
 // a choice at three per row: the box goes off and stays off while it is on.
+// Off, not answered — data-was-checked keeps what was asked for, and the server
+// renders it back onto the box so a reload does not lose it either.
 // One definition, used by the item cards and by the reprint page.
 function applyThreeUp(threeBox, showIdBox, hint) {
   if (!threeBox || !showIdBox) return false;
@@ -122,12 +124,29 @@ function applyThreeUp(threeBox, showIdBox, hint) {
   return threeBox.checked;
 }
 
+// What the asset-id box would say if three per row were not holding it down:
+// while it is, .checked is the override and the answer sits on the element.
+function wantsAssetId(showIdBox) {
+  return showIdBox.checked || showIdBox.dataset.wasChecked === '1';
+}
+
+// A disabled checkbox is not submitted at all, so on the item cards the answer
+// travels in a hidden field beside it that is never disabled. Without it,
+// ticking three per row would not hide the choice but erase it — and creating
+// the item would hand the result card nothing to give back.
+function rememberAssetIdChoice(idx) {
+  var want = document.getElementById('showid-want-' + idx);
+  var box = document.getElementById('showid-' + idx);
+  if (want && box) want.value = wantsAssetId(box) ? '1' : '0';
+}
+
 function updateQrCount(idx) {
   applyThreeUp(
     document.getElementById('qr3-' + idx),
     document.getElementById('showid-' + idx),
     document.getElementById('qr3-hint-' + idx)
   );
+  rememberAssetIdChoice(idx);
 }
 
 // Reprint page: one set of controls, and the preview has to follow both boxes.

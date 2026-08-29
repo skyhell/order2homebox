@@ -340,14 +340,16 @@ async def edit_draft(request: Request, user: str = Depends(require_login)):
         parsed = _item_from_form(stored, idx)
         if parsed is None:
             continue  # the card was removed before leaving the page
-        item, location_id, label_ids, want_print, show_id, qr_per_row = parsed
+        item, location_id, label_ids, want_print, _, want_show_id, qr_per_row = parsed
         cards.append({
             "idx": idx,
             "item": item,
             "location_id": location_id,
             "label_ids": label_ids,
             "want_print": want_print,
-            "want_show_id": show_id,
+            # The answer, not the label: at three per row the card shows the box
+            # off and disabled, but unticking three-up has to give this back.
+            "want_show_id": want_show_id,
             "want_qr3": qr_per_row == 3,
             "result": None,
         })
@@ -365,6 +367,9 @@ def _result_from_created(entry: dict) -> dict:
         "print_error": entry.get("print_error", ""),
         "error": "",
         "show_asset_id": entry.get("show_asset_id", False),
+        # Drafts written before the answer was kept apart from the label only
+        # have the label; then they are the same thing.
+        "want_asset_id": entry.get("want_asset_id", entry.get("show_asset_id", False)),
         "qr_per_row": entry.get("qr_per_row", 2),
     }
 
@@ -471,8 +476,11 @@ def _qr_per_row_off() -> int:
 
 def _item_from_form(form, i: int):
     """Item fields for index i → (item_draft, location_id, label_ids,
-    want_print, show_id, qr_per_row), or None when the card was removed in the
-    UI. `form` is either a real FormData or a draft.StoredForm."""
+    want_print, show_id, want_show_id, qr_per_row), or None when the card was
+    removed in the UI. `form` is either a real FormData or a draft.StoredForm.
+
+    `show_id` is what goes on the label, `want_show_id` what was asked for —
+    they differ only at three codes per row, where the id has no room."""
     if f"item-{i}-name" not in form:
         return None
     try:
@@ -497,13 +505,22 @@ def _item_from_form(form, i: int):
     label_ids = [str(v) for v in form.getlist(f"item-{i}-labels")]
     want_print = form.get(f"item-{i}-print") is not None
     show_id = form.get(f"item-{i}-showid") is not None
+    want_show_id = show_id
     # Three small codes for a small part you have several of. The id has no
-    # room next to them, so it is not printed regardless of the checkbox — a
-    # disabled checkbox is not submitted at all, this just makes it explicit.
+    # room next to them, so it is not printed regardless of the checkbox.
     qr_per_row = 3 if form.get(f"item-{i}-qr3") is not None else _qr_per_row_off()
     if qr_per_row == 3:
+        # The box is disabled here, and a disabled checkbox is not submitted at
+        # all — so what it would have said rides along in a hidden field beside
+        # it. Remembered, not obeyed: ticking three per row hides the choice,
+        # it does not answer it, and the card has to give it back when the box
+        # is unticked again. Only read where the checkbox is silenced, so a
+        # page whose JS never ran is still taken at its checkbox.
+        want_show_id = str(form.get(f"item-{i}-showid-want", "")) == "1"
         show_id = False
-    return item_draft, location_id, label_ids, want_print, show_id, qr_per_row
+    return (
+        item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row
+    )
 
 
 async def _create_and_print(
@@ -515,6 +532,7 @@ async def _create_and_print(
     show_id: bool,
     qr_per_row: int = 0,
     agent: agents.Agent | None = None,
+    want_show_id: bool | None = None,
 ) -> dict:
     qr_per_row = qr_per_row or _qr_per_row_off()
     entry = {
@@ -526,6 +544,10 @@ async def _create_and_print(
         # Carried into the result card so its checkbox and preview show what
         # was actually printed, not the global default.
         "show_asset_id": show_id,
+        # And what was asked for, which is the same thing except at three per
+        # row: the card offers a reprint, and a choice the id had no room for
+        # has to come back when the count does.
+        "want_asset_id": show_id if want_show_id is None else want_show_id,
         "qr_per_row": qr_per_row,
     }
     try:
@@ -574,10 +596,12 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         parsed = _item_from_form(form, i)
         if parsed is None or not parsed[0].name:
             continue  # card removed or already created via its own button
-        item_draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
+        item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row = (
+            parsed
+        )
         entry = await _create_and_print(
             item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row,
-            agent=agent,
+            agent=agent, want_show_id=want_show_id,
         )
         if entry["item"]:
             prefs.set_last_location_id(location_id)
@@ -605,7 +629,9 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     parsed = _item_from_form(form, idx)
     if parsed is None:
         return HTMLResponse(status_code=400)
-    item_draft, location_id, label_ids, want_print, show_id, qr_per_row = parsed
+    item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row = (
+        parsed
+    )
 
     async def card_with_error(message: str) -> HTMLResponse:
         try:
@@ -624,7 +650,7 @@ async def create_single_item(request: Request, user: str = Depends(require_login
             selected_location_id=location_id,
             selected_label_ids=label_ids,
             want_print=want_print,
-            want_show_id=show_id,
+            want_show_id=want_show_id,
             want_qr3=qr_per_row == 3,
         )
 
@@ -633,7 +659,7 @@ async def create_single_item(request: Request, user: str = Depends(require_login
 
     entry = await _create_and_print(
         item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row,
-        agent=agents.selected(request),
+        agent=agents.selected(request), want_show_id=want_show_id,
     )
     if entry["error"]:
         return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
@@ -883,7 +909,7 @@ async def print_label(
         # record the same condition the same way (see _create_and_print).
         draft.update_print_result(
             card_idx, asset_id, printed=False, error=printer.NO_PRINTER,
-            show_asset_id=show_id, qr_per_row=qr_per_row,
+            show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row,
         )
         message, detail = _print_error_parts(printer.NO_PRINTER, lang)
         return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
@@ -894,13 +920,13 @@ async def print_label(
         # what the page shows must survive a reload either way.
         draft.update_print_result(
             card_idx, asset_id, printed=False, error=str(exc),
-            show_asset_id=show_id, qr_per_row=qr_per_row,
+            show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row,
         )
         message, detail = _print_error_parts(str(exc), lang)
         return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
     draft.update_print_result(
         card_idx, asset_id, printed=True, error="",
-        show_asset_id=show_id, qr_per_row=qr_per_row,
+        show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row,
     )
     return HTMLResponse(_print_status(request, ok=True, message=t("print_ok", lang)))
 

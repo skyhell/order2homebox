@@ -18,9 +18,14 @@
         </label>
         {# Same ids as the edit card, so initQrCounts() in app.js initializes these
            too: at three per row the id has no room beside the codes, and
-           applyThreeUp unticks and disables the box rather than hiding it. #}
+           applyThreeUp unticks and disables the box rather than hiding it. The
+           box is off because the label had no room, data-was-checked is what
+           was asked for — unticking three-up puts that back, after a reload as
+           well as before one. So the button sends the answer, not the override:
+           /print applies the same rule to it that the label was made with. #}
         <label class="check">
           <input type="checkbox" id="showid-{{ idx }}" {% if r.show_asset_id %}checked{% endif %}
+                 {% if r.want_asset_id %}data-was-checked="1"{% endif %}
                  onchange="refreshResultControls('{{ idx }}', '{{ r.item.assetId }}')">
           <span>{{ t('print_with_id') }}</span>
         </label>
@@ -36,7 +41,7 @@
            this installation — one code per row where that is configured. #}
         <button type="button" class="btn btn-primary"
                 hx-post="/print"
-                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: document.getElementById("showid-{{ idx }}").checked, qr_per_row: document.getElementById("qr3-{{ idx }}").checked ? 3 : 0, card_idx: {{ idx }}}'
+                hx-vals='js:{asset_id: "{{ r.item.assetId }}", copies: document.getElementById("copies-{{ idx }}").value, show_text: wantsAssetId(document.getElementById("showid-{{ idx }}")), qr_per_row: document.getElementById("qr3-{{ idx }}").checked ? 3 : 0, card_idx: {{ idx }}}'
                 hx-target="#print-status-{{ idx }}"
                 hx-swap="innerHTML">{{ t('print_button') }}</button>
       </div>

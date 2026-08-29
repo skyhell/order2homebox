@@ -80,12 +80,20 @@
       </label>
       {# Three codes leave a 102 px cell; an asset id can be 121 px wide and
          would print across the neighbouring code. So the id is not on offer
-         here — app.js unticks and disables it. #}
+         here — app.js unticks and disables it. The answer is not lost with it:
+         it stays on the box as data-was-checked (for unticking three-up again)
+         and in the hidden field (for the server, which never sees a disabled
+         checkbox). #}
+      {% set want_id = want_show_id | default(show_asset_id_default) %}
       <label class="check">
         <input type="checkbox" name="item-{{ idx }}-showid" id="showid-{{ idx }}"
-               {% if want_show_id | default(show_asset_id_default) %}checked{% endif %}>
+               {% if want_id and not want_qr3 | default(false) %}checked{% endif %}
+               {% if want_id %}data-was-checked="1"{% endif %}
+               onchange="rememberAssetIdChoice('{{ idx }}')">
         <span>{{ t('print_with_id') }}</span>
       </label>
+      <input type="hidden" name="item-{{ idx }}-showid-want" id="showid-want-{{ idx }}"
+             value="{{ 1 if want_id else 0 }}">
       <label class="check">
         <input type="checkbox" name="item-{{ idx }}-qr3" id="qr3-{{ idx }}"
                {% if want_qr3 | default(false) %}checked{% endif %}

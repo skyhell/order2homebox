@@ -386,7 +386,10 @@ def _fresh_cards(order: Order) -> list[dict]:
             "label_ids": [],
             "want_print": True,
             "want_show_id": settings.label_show_asset_id,
-            "want_qr3": settings.label_qr_per_row == 3,
+            # Clamped like everywhere else: .env is not validated, and an
+            # untrimmed 4 would fail the "is this three?" test and start the
+            # card at two codes, where a request for 4 draws three.
+            "want_qr3": clamp_qr_per_row(settings.label_qr_per_row) == 3,
             "result": None,
         }
         for idx, item in enumerate(order.items)
@@ -603,6 +606,10 @@ async def create_items(request: Request, user: str = Depends(require_login)):
             item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row,
             agent=agent, want_show_id=want_show_id,
         )
+        # The card's index in the form, not its place in this list: skipped
+        # cards make the two drift apart, and the draft is keyed by the former.
+        # The print button on the result page sends this number back.
+        entry["card_idx"] = i
         if entry["item"]:
             prefs.set_last_location_id(location_id)
             draft.mark_created(i, entry)

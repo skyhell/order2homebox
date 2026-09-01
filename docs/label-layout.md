@@ -66,9 +66,11 @@ that describes the label which actually came out. Without that pair, a reload of
 `/edit` would come back with the choice silently gone.
 
 How many codes are really drawn is `labels.clamp_qr_per_row()`, and everything
-that decides whether the id still fits asks it first. `O2H_LABEL_QR_PER_ROW=4`
-is therefore three codes without the id, not four codes with it — the untrimmed
-number used to pass the "is this three?" test and put the id back on.
+that decides whether the id still fits asks it first — the fresh item card
+(`_fresh_cards`) included, so a configured 4 comes up with the three-up box
+ticked instead of falling back to two. `O2H_LABEL_QR_PER_ROW=4` is therefore
+three codes without the id, not four codes with it — the untrimmed number used
+to pass the "is this three?" test and put the id back on.
 
 ## Text labels
 

@@ -476,6 +476,23 @@ def test_the_test_print_prints_what_an_unticked_box_prints(logged_in, monkeypatc
     assert captured == [{"show_asset_id": True, "qr_per_row": 2}]
 
 
+def test_a_configured_count_above_three_starts_the_card_ticked(logged_in, monkeypatch):
+    """The same clamp on the way in. Read untrimmed, a configured 4 failed the
+    "is this three?" test, so the box came up unticked and the card printed two
+    codes — while the very same 4 sent to /label or /print draws three."""
+    import app.main as main
+    from app.config import settings
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(settings, "label_qr_per_row", 4)
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    assert _is_checked(logged_in.get("/manual").text, "qr3-0")
+
+
 def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, monkeypatch):
     calls = []
     import app.main as main
@@ -501,6 +518,29 @@ def test_create_all_items_prints_each_with_its_own_asset_id_choice(logged_in, mo
         "item-1-name": "Without id", "item-1-quantity": "1", "item-1-print": "on",
     })
     assert calls == [True, False]
+
+
+def test_a_result_card_keeps_the_index_the_draft_is_keyed_by(logged_in, monkeypatch):
+    """A card created by its own button has no fields left in the form, so
+    "create all" skips it — and the result page is then one card shorter than
+    the form is wide. Numbering the cards by their place in that list would
+    point the print button at another card's draft entry, where the asset-ID
+    guard drops the write and a reload shows the status from creation time."""
+    import app.main as main
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-009"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    body = logged_in.post("/create", data={
+        "shop": "amazon", "order_no": "028-111", "order_date": "", "item_count": "2",
+        # item 0 sends nothing at all: its card is already a result card
+        "item-1-name": "Second", "item-1-quantity": "1",
+    }).text
+    assert 'id="item-card-1"' in body
+    assert "card_idx: 1}" in body
+    _clear_draft()
 
 
 def test_edit_page_offers_the_asset_id_checkbox_per_item(logged_in, monkeypatch):

@@ -83,8 +83,9 @@ one-click chips.
 
 The settings page shows the Homebox connection and the printers with their
 status — one card per Pi, each with its own test print and shutdown button. The
-test print is the label an unticked *three small labels* box makes, so it shows
-what the printer will actually emit.
+test print uses the same codes-per-row an unticked *three small labels* box
+asks for, so the layout is one the app can really produce (it always prints the
+asset ID, which item labels only do when their box is ticked).
 *Use this one* decides where this computer prints; another computer keeps its
 own choice.
 

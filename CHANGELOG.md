@@ -6,6 +6,34 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.13.5] — 2026-09-01
+
+### Fixed
+
+- **After "Alle anlegen", the reprint buttons on the result page wrote into the
+  wrong draft entry — or none.** The page numbered its cards by their position
+  in the list, while the draft is keyed by the card's index in the edit form.
+  Any card `/create` skips leaves a hole between the two — a card already
+  created by its own button, or one removed in the UI — and every card after it
+  then sent a stale index with its reprint. The asset ID guarding
+  `draft.update_print_result` kept that from landing on another item, so the
+  result was silently dropped instead: a reprint that worked was gone again
+  after a reload of `/edit`, which showed the status from creation time. The
+  form index now travels with the card.
+- **`O2H_LABEL_QR_PER_ROW=4` printed two codes from a fresh card and three from
+  a request.** The card was the last place left reading the setting untrimmed:
+  4 is not 3, so the three-up box came up unticked and the card fell back to two
+  codes, while `/label?count=4` and `/print` clamp to the three the renderer can
+  actually draw. The card clamps first now, like everything else that answers
+  for a count.
+
+### Changed
+
+- **The README promised more of the test print than it shows.** It called the
+  test label "what the printer will actually emit"; that holds for the codes per
+  row, but the test print always carries the asset ID, which item labels only do
+  when their box is ticked.
+
 ## [0.13.4] — 2026-08-29
 
 ### Fixed
@@ -537,6 +565,7 @@ orders.
 - **Deployment** — Proxmox host script that creates the LXC, in-container
   installer and `update.sh`, plus `install-pi.sh` / `update-pi.sh` for the Pi.
 
+[0.13.5]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.5
 [0.13.4]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.4
 [0.13.3]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.3
 [0.13.2]: https://github.com/skyhell/order2homebox/releases/tag/v0.13.2

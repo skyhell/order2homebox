@@ -122,9 +122,24 @@ async def test_the_order_row_stacks_on_a_phone(page, live_server):
     order_date = await page.locator('input[name="order_date"]').bounding_box()
 
     assert shop["y"] < order_no["y"] < order_date["y"], "one field per row"
-    # The card, not the document: the nav bar overflows a phone on its own and
-    # has nothing to do with this row.
+    # Measured against the card rather than the document: this test answers for
+    # the order row, the bar above it has its own.
     card = await page.locator(".meta-card").bounding_box()
     assert card["x"] + card["width"] <= PHONE["width"]
     for field in (shop, order_no, order_date):
         assert field["x"] + field["width"] <= card["x"] + card["width"]
+
+
+async def test_the_nav_bar_fits_a_phone(page, live_server):
+    """The brand name beside the language switch, theme toggle and logout link
+    came to more than 400 px, and none of them can shrink — so every page
+    scrolled sideways on a phone. The name goes, the icon stays."""
+    await page.goto(f"{live_server}/manual?shop=temu")
+    assert await page.locator(".brand-name").is_visible(), "kept where there is room"
+
+    await page.set_viewport_size(PHONE)
+    assert not await page.locator(".brand-name").is_visible()
+    scrolled = await page.evaluate("document.documentElement.scrollWidth")
+    assert scrolled <= PHONE["width"], "no page may scroll sideways on a phone"
+    assert await page.locator(".brand-icon").is_visible(), "still the way home"
+    assert await page.locator('.nav-actions a[href="/logout"]').is_visible()

@@ -28,7 +28,10 @@
   <div class="nav-inner">
     <a class="brand" href="/">
       <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v10"/></svg>
-      {{ t('app_name') }}
+      {# Its own element so a phone can drop the name and keep the icon: the
+         name plus the actions on the right are wider than 400 px, and neither
+         of them can shrink. #}
+      <span class="brand-name">{{ t('app_name') }}</span>
     </a>
     <div class="nav-links">
       <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}">{{ t('nav_new') }}</a>

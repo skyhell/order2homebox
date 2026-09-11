@@ -400,5 +400,9 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
   .field-row, .result-grid { flex-direction: column; }
   .meta-card { grid-template-columns: 1fr; }
   .nav-links { display: none; }
+  /* The icon stays the way home; the name is what made the bar overflow. With
+     the links gone there is nothing left to push the actions over, either. */
+  .brand-name { display: none; }
+  .nav-actions { margin-left: auto; }
   .page-title { font-size: 26px; }
 }

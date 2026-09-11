@@ -17,6 +17,11 @@ Each version links to its GitHub release, which carries the full notes.
   selected shop no longer legible at all. The card is a two-column grid now:
   the shop keeps the first row to itself, order number and date share the
   second.
+- **Every page scrolled sideways on a phone.** The navigation bar drops its
+  links below 640 px but kept the app name next to the language switch, theme
+  toggle and logout link — together wider than a 400 px screen, and none of
+  them can shrink. The name goes on a phone now; the icon beside it is still
+  the way back to the start page.
 - **The line above the form kept naming the shop the page was opened with.**
   It is rendered once on the server, which was right while the shop was a
   hidden field — but 0.14.0 made it editable on that very page. It follows the

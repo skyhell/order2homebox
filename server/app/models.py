@@ -35,7 +35,16 @@ class OrderItemDraft(BaseModel):
 
 
 class Order(BaseModel):
-    shop: Shop
+    # A str, not Shop: a fetched order always carries one of the four shops
+    # with a scraper, but a manual or hand-edited one can name any shop —
+    # there is nothing to validate it against.
+    shop: str
     order_no: str
     order_date: str = ""  # ISO date (YYYY-MM-DD) if known
     items: list[OrderItemDraft] = Field(default_factory=list)
+
+    @property
+    def shop_display_name(self) -> str:
+        """One of the four known shops gets its proper-case name; anything
+        else is already exactly what the user typed."""
+        return SHOP_DISPLAY_NAMES.get(self.shop, self.shop)

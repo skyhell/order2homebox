@@ -42,6 +42,6 @@
     <button class="btn btn-primary btn-block" type="submit" data-loading-text="{{ t('fetch_loading') }}">{{ t('fetch_submit') }}</button>
   </form>
 
-  <p class="center-note"><a class="subtle-link" href="/manual">{{ t('manual_link') }}</a></p>
+  <p class="center-note"><a class="subtle-link" href="/manual" onclick="return withSelectedShop(this)">{{ t('manual_link') }}</a></p>
 </div>
 {% endblock %}

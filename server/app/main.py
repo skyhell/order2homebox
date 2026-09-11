@@ -46,6 +46,10 @@ from .scrapers import ParseFailed, ScrapeError, SessionExpired, get_scraper
 
 BASE_DIR = Path(__file__).parent
 DOCS_URL = "https://github.com/skyhell/order2homebox#readme"
+# The edit page's shop <select> carries this instead of a shop name when
+# "Sonstiges" is picked; _order_from_form then takes the real name from the
+# text box next to it. Never a value a user could type themselves.
+SHOP_OTHER = "__other__"
 # Homebox renders an item's asset id as the last three digits of an
 # incrementing integer, dash-separated and zero-padded to at least three:
 # 1 -> 000-001, 629 -> 000-629, 12345678 -> 12345-678. So the group after the
@@ -137,6 +141,7 @@ def _context(request: Request, **context) -> dict:
         t=lambda key, **kw: t(key, lang, **kw),
         card_print_status=lambda entry: _card_print_status(entry, lang),
         shops=list(Shop),
+        shop_other=SHOP_OTHER,
         homebox_url=settings.qr_base_url,
         version=__version__,
         docs_url=DOCS_URL,
@@ -427,7 +432,7 @@ async def _edit_page(
         locations=locations,
         hb_labels=labels,
         warning=warning,
-        draft_info={"order_no": order.order_no, "shop": order.shop.value,
+        draft_info={"order_no": order.order_no, "shop": order.shop,
                     "cards": len(cards)},
     )
 
@@ -481,8 +486,13 @@ async def create_location(request: Request, user: str = Depends(require_login)):
 
 
 def _order_from_form(form) -> Order:
+    shop = str(form.get("shop", "amazon"))
+    if shop == SHOP_OTHER:
+        # Falls back to "amazon" rather than storing the sentinel itself if the
+        # box was picked but left empty — an unnamed shop is not a shop.
+        shop = str(form.get("shop_custom", "")).strip() or "amazon"
     return Order(
-        shop=Shop(form.get("shop", "amazon")),
+        shop=shop,
         order_no=str(form.get("order_no", "")).strip(),
         order_date=str(form.get("order_date", "")).strip(),
     )

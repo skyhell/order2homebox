@@ -103,6 +103,26 @@ document.addEventListener('DOMContentLoaded', updateApplyAllButtons);
 // changes how many location selects are left.
 document.addEventListener('htmx:load', updateApplyAllButtons);
 
+// Shows the free-text box next to the shop <select> only for "Sonstiges" —
+// its value is the SHOP_OTHER sentinel from main.py, resolved server-side
+// into the actual shop name from this box, never stored as-is.
+function toggleCustomShop(select) {
+  var custom = document.getElementById('shop-custom');
+  if (!custom) return;
+  var isOther = select.value === '__other__';
+  custom.classList.toggle('hidden', !isOther);
+  if (isOther) custom.focus();
+}
+
+// Carries the shop radio picked on the index page over to /manual, so
+// switching to manual entry does not silently fall back to whatever shop
+// happens to be first (Amazon) regardless of what was actually selected.
+function withSelectedShop(link) {
+  var checked = document.querySelector('input[name="shop"]:checked');
+  if (checked) link.href = '/manual?shop=' + encodeURIComponent(checked.value);
+  return true;
+}
+
 // Fired by POST /locations only on success (see the HX-Trigger header there).
 // Clears and hides the box so a name already turned into a location can't be
 // retyped into existence again by "Create item"'s own fallback for one that

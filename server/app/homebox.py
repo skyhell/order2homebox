@@ -279,7 +279,7 @@ class HomeboxClient:
 
         update = self._item_to_update(item)
         update["quantity"] = draft.quantity
-        update["purchaseFrom"] = order.shop.display_name
+        update["purchaseFrom"] = order.shop_display_name
         if draft.unit_price is not None:
             update["purchasePrice"] = draft.unit_price
         if order.order_date:
@@ -351,7 +351,7 @@ class HomeboxClient:
 
         update = self._entity_to_update(item)
         update["quantity"] = draft.quantity
-        update["purchaseFrom"] = order.shop.display_name
+        update["purchaseFrom"] = order.shop_display_name
         if draft.unit_price is not None:
             update["purchasePrice"] = draft.unit_price
         if order.order_date:

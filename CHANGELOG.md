@@ -6,6 +6,19 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.14.0] — 2026-09-11
+
+### Added
+
+- **The shop on the edit page was a hidden field, so manual entries always
+  landed in Homebox as "Amazon" and could not be corrected afterwards.** The
+  shop is now a visible, editable dropdown on the edit page itself (not just
+  on the start page before a fetch), and it carries the choice made there into
+  "enter manually" instead of dropping it. A new "Sonstiges …" option also
+  accepts a shop name of its own for orders from anywhere the app has no
+  scraper for — it round-trips through a saved draft and reaches Homebox's
+  purchase reference exactly as typed.
+
 ## [0.13.6] — 2026-09-11
 
 ### Fixed

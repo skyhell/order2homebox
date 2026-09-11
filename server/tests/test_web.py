@@ -685,6 +685,119 @@ def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
     assert 'id="item-card-0"' in response.text
     assert 'hx-post="/create-item"' in response.text  # per-item button present
     assert "Büro" in response.text and "Elektronik" in response.text
+    assert '<option value="temu" selected>' in response.text
+
+
+def test_manual_entry_defaults_to_amazon_but_the_shop_is_editable(logged_in, monkeypatch):
+    """Without a ?shop= query the page still starts at Amazon, but — unlike
+    before — the field is a real <select>, not a hidden input: the user can
+    correct it before creating the item."""
+    import app.main as main
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    response = logged_in.get("/manual")
+    assert response.status_code == 200
+    assert '<select class="input" name="shop" id="shop-select"' in response.text
+    assert '<option value="amazon" selected>' in response.text
+    assert '<option value="banggood" >' in response.text
+    assert '<option value="__other__" >' in response.text  # not selected
+    assert 'id="shop-custom"' in response.text and 'class="input hidden"' in response.text
+
+
+def test_a_custom_shop_survives_a_reload_and_is_used_for_purchase_from(
+    logged_in, monkeypatch
+):
+    """A shop that is not one of the four known ones is stored as typed, shown
+    back pre-filled with "Sonstiges" picked, and reaches Homebox verbatim."""
+    import app.main as main
+
+    captured = {}
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        captured["shop"] = order.shop
+        captured["display"] = order.shop_display_name
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    response = logged_in.post("/create-item", data={
+        "idx": "0", "shop": main.SHOP_OTHER, "shop_custom": "Kleinanzeigen",
+        "order_no": "", "order_date": "",
+        "item_count": "1", "item-0-name": "Thing", "item-0-quantity": "1",
+        "item-0-location": "loc1",
+    })
+    assert response.status_code == 200
+    assert captured["shop"] == "Kleinanzeigen"
+    assert captured["display"] == "Kleinanzeigen"
+
+    page = logged_in.get("/edit").text
+    assert '<option value="__other__" selected>' in page
+    assert 'value="Kleinanzeigen"' in page
+
+
+def test_a_custom_shop_left_empty_falls_back_to_amazon(logged_in, monkeypatch):
+    """Picking "Sonstiges" but typing nothing must not store the sentinel
+    itself as the shop name."""
+    import app.main as main
+
+    captured = {}
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        captured["shop"] = order.shop
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    logged_in.post("/create-item", data={
+        "idx": "0", "shop": main.SHOP_OTHER, "shop_custom": "   ",
+        "order_no": "", "order_date": "",
+        "item_count": "1", "item-0-name": "Thing", "item-0-quantity": "1",
+        "item-0-location": "loc1",
+    })
+    assert captured["shop"] == "amazon"
+
+
+def test_the_shop_picked_on_the_edit_page_is_what_gets_created(logged_in, monkeypatch):
+    """Regression guard: _order_from_form must keep reading the plain "shop"
+    field now that it comes from a <select> instead of a hidden input."""
+    import app.main as main
+
+    captured = {}
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        captured["shop"] = order.shop
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    logged_in.post("/create-item", data={
+        "idx": "0", "shop": "banggood", "order_no": "", "order_date": "",
+        "item_count": "1", "item-0-name": "Thing", "item-0-quantity": "1",
+        "item-0-location": "loc1",
+    })
+    assert captured["shop"] == "banggood"
+
+
+def test_index_page_forwards_the_picked_shop_to_manual_entry(logged_in):
+    """The link out of #fetch-form can't submit that form (order_no is
+    required there), so app.js reads the checked shop radio directly."""
+    import app.main as main
+
+    page = logged_in.get("/").text
+    assert 'href="/manual" onclick="return withSelectedShop(this)"' in page
+
+    script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
+    assert "function withSelectedShop" in script
 
 
 def test_every_page_carries_a_tab_icon(logged_in, client):

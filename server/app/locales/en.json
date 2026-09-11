@@ -44,6 +44,8 @@
   "index_title": "Capture an order",
   "index_subtitle": "Pick the shop, enter the order number — the items are fetched from the order page automatically.",
   "shop_label": "Shop",
+  "shop_other_option": "Other …",
+  "shop_other_placeholder": "Shop name",
   "order_no_label": "Order number",
   "order_no_placeholder": "e.g. 302-1234567-1234567",
   "fetch_submit": "Fetch data",

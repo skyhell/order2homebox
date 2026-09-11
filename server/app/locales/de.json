@@ -44,6 +44,8 @@
   "index_title": "Bestellung erfassen",
   "index_subtitle": "Shop wählen, Bestellnummer eingeben — die Artikel werden automatisch von der Bestellseite geholt.",
   "shop_label": "Shop",
+  "shop_other_option": "Sonstiges …",
+  "shop_other_placeholder": "Name des Shops",
   "order_no_label": "Bestellnummer",
   "order_no_placeholder": "z. B. 302-1234567-1234567",
   "fetch_submit": "Daten holen",

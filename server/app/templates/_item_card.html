@@ -52,13 +52,18 @@
                 data-done="{{ t('apply_location_done') }}"
                 onclick="applyLocationToAllCards({{ idx }}, this)">{{ t('apply_location_all') }}</button>
         <div class="newloc-form hidden" id="newloc-form-{{ idx }}">
-          <input class="input" type="text" name="name" id="newloc-name-{{ idx }}" placeholder="{{ t('new_location_placeholder') }}">
+          {# This button sits inside #create-form, so htmx sends the enclosing
+             form's fields with it regardless of hx-include (see the comment in
+             _item_result.html) — every card's own new-location box rides along.
+             Named per idx, or /locations would read whichever card's field
+             happens to come first in the form, not the one clicked. #}
+          <input class="input" type="text" name="item-{{ idx }}-newloc" id="newloc-name-{{ idx }}" placeholder="{{ t('new_location_placeholder') }}">
           <button type="button" class="btn btn-secondary btn-small"
                   hx-post="/locations"
-                  hx-include="#newloc-name-{{ idx }}"
                   hx-vals='{"idx": {{ idx }}}'
                   hx-target="#loc-select-{{ idx }}"
                   hx-swap="outerHTML">{{ t('new_location_create') }}</button>
+          {% include "_newloc_error.html" %}
         </div>
       </div>
     </div>

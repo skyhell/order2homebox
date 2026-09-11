@@ -1,4 +1,5 @@
 """order2homebox web app: fetch order → edit → create Homebox items → print labels."""
+import json
 import logging
 import re
 from contextlib import asynccontextmanager
@@ -340,7 +341,7 @@ async def edit_draft(request: Request, user: str = Depends(require_login)):
         parsed = _item_from_form(stored, idx)
         if parsed is None:
             continue  # the card was removed before leaving the page
-        item, location_id, label_ids, want_print, _, want_show_id, qr_per_row = parsed
+        item, location_id, label_ids, want_print, _, want_show_id, qr_per_row, _ = parsed
         cards.append({
             "idx": idx,
             "item": item,
@@ -432,29 +433,51 @@ async def _edit_page(
 
 
 @app.post("/locations", response_class=HTMLResponse)
-async def create_location(
-    request: Request,
-    name: str = Form(...),
-    idx: int = Form(0),
-    user: str = Depends(require_login),
-):
-    """Create a Homebox location inline; returns the refreshed <select> fragment."""
+async def create_location(request: Request, user: str = Depends(require_login)):
+    """Create (or reuse) a Homebox location inline; returns the refreshed
+    <select> plus an out-of-band error span next to it. A failure here must
+    not cost the card its location field the way replacing the whole <select>
+    with an error message once did.
+
+    Reads the per-idx field itself instead of declaring it via Form(): the
+    button sits inside #create-form, so every card's own new-location field
+    rides along under its own item-{idx}-newloc name — a single shared
+    Form(...) parameter would grab whichever card's field is first in the
+    form, not the one whose "create" button was actually clicked.
+    """
     lang = get_lang(request)
+    form = await request.form()
+    idx = int(form.get("idx", 0) or 0)
+    name = str(form.get(f"item-{idx}-newloc", "")).strip()
+    error_message = ""
+    selected_id = str(form.get(f"item-{idx}-location", ""))
     try:
-        created = await homebox.create_location(name.strip())
+        created = await homebox.get_or_create_location(name)
         locations = await homebox.get_locations()
+        selected_id = created.get("id", "")
     except HomeboxError as exc:
-        return HTMLResponse(
-            f'<p class="error-text">{t("err_homebox", lang)}: {exc}</p>',
-            status_code=200,
-        )
-    return render(
-        request,
-        "_location_select.html",
-        idx=idx,
-        locations=locations,
-        selected_id=created.get("id", ""),
+        error_message = f"{t('err_homebox', lang)}: {exc}"
+        try:
+            locations = await homebox.get_locations()
+        except HomeboxError:
+            # Homebox won't answer at all right now — nothing to rebuild the
+            # select from. /create-item hits the same failure loudly when the
+            # item itself is created, so this is not the only word on it.
+            locations = []
+    select_html = render_fragment(
+        request, "_location_select.html", idx=idx, locations=locations, selected_id=selected_id,
     )
+    error_html = render_fragment(
+        request, "_newloc_error.html", idx=idx, message=error_message, oob=True,
+    )
+    response = HTMLResponse(select_html + error_html)
+    if not error_message:
+        # Tells the card to clear and hide its new-location box (see app.js) —
+        # so a name already created here isn't retyped into existence again by
+        # the auto-create fallback in _create_and_print. Nothing fires on
+        # failure: the typed text must stay exactly as the user left it.
+        response.headers["HX-Trigger"] = json.dumps({"location-created": {"idx": idx}})
+    return response
 
 
 def _order_from_form(form) -> Order:
@@ -479,11 +502,16 @@ def _qr_per_row_off() -> int:
 
 def _item_from_form(form, i: int):
     """Item fields for index i → (item_draft, location_id, label_ids,
-    want_print, show_id, want_show_id, qr_per_row), or None when the card was
-    removed in the UI. `form` is either a real FormData or a draft.StoredForm.
+    want_print, show_id, want_show_id, qr_per_row, new_location_name), or None
+    when the card was removed in the UI. `form` is either a real FormData or a
+    draft.StoredForm.
 
     `show_id` is what goes on the label, `want_show_id` what was asked for —
-    they differ only at three codes per row, where the id has no room."""
+    they differ only at three codes per row, where the id has no room.
+
+    `new_location_name` is whatever the "+ new location" box still holds — set
+    only when the user typed a name there and never clicked its own "create"
+    button before submitting the item."""
     if f"item-{i}-name" not in form:
         return None
     try:
@@ -505,6 +533,7 @@ def _item_from_form(form, i: int):
         product_url=str(form.get(f"item-{i}-url", "")).strip(),
     )
     location_id = str(form.get(f"item-{i}-location", ""))
+    new_location_name = str(form.get(f"item-{i}-newloc", "")).strip()
     label_ids = [str(v) for v in form.getlist(f"item-{i}-labels")]
     want_print = form.get(f"item-{i}-print") is not None
     show_id = form.get(f"item-{i}-showid") is not None
@@ -522,7 +551,8 @@ def _item_from_form(form, i: int):
         want_show_id = str(form.get(f"item-{i}-showid-want", "")) == "1"
         show_id = False
     return (
-        item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row
+        item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row,
+        new_location_name,
     )
 
 
@@ -536,12 +566,14 @@ async def _create_and_print(
     qr_per_row: int = 0,
     agent: agents.Agent | None = None,
     want_show_id: bool | None = None,
+    new_location_name: str = "",
 ) -> dict:
     qr_per_row = qr_per_row or _qr_per_row_off()
     entry = {
         "draft": item_draft,
         "error": "",
         "item": None,
+        "location_id": location_id,  # replaced below if a new location is resolved
         "printed": False,
         "print_error": "",
         # Carried into the result card so its checkbox and preview show what
@@ -554,6 +586,13 @@ async def _create_and_print(
         "qr_per_row": qr_per_row,
     }
     try:
+        # A typed name is the more specific, explicit signal — it wins over
+        # whatever the <select> still holds. get_or_create avoids a duplicate
+        # if the same name already went through the manual "create" button.
+        if new_location_name:
+            location = await homebox.get_or_create_location(new_location_name)
+            location_id = location.get("id", "") or location_id
+            entry["location_id"] = location_id
         item = await homebox.create_item(item_draft, order, location_id, label_ids)
         entry["item"] = item
         # Both create routes come through here, so the reprint page learns about
@@ -599,19 +638,18 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         parsed = _item_from_form(form, i)
         if parsed is None or not parsed[0].name:
             continue  # card removed or already created via its own button
-        item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row = (
-            parsed
-        )
+        (item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row,
+         new_location_name) = parsed
         entry = await _create_and_print(
             item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row,
-            agent=agent, want_show_id=want_show_id,
+            agent=agent, want_show_id=want_show_id, new_location_name=new_location_name,
         )
         # The card's index in the form, not its place in this list: skipped
         # cards make the two drift apart, and the draft is keyed by the former.
         # The print button on the result page sends this number back.
         entry["card_idx"] = i
         if entry["item"]:
-            prefs.set_last_location_id(location_id)
+            prefs.set_last_location_id(entry["location_id"])
             draft.mark_created(i, entry)
         results.append(entry)
 
@@ -636,9 +674,8 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     parsed = _item_from_form(form, idx)
     if parsed is None:
         return HTMLResponse(status_code=400)
-    item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row = (
-        parsed
-    )
+    (item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row,
+     new_location_name) = parsed
 
     async def card_with_error(message: str) -> HTMLResponse:
         try:
@@ -667,10 +704,11 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     entry = await _create_and_print(
         item_draft, order, location_id, label_ids, want_print, show_id, qr_per_row,
         agent=agents.selected(request), want_show_id=want_show_id,
+        new_location_name=new_location_name,
     )
     if entry["error"]:
         return await card_with_error(f"{t('err_homebox', lang)}: {entry['error']}")
-    prefs.set_last_location_id(location_id)
+    prefs.set_last_location_id(entry["location_id"])
     # The card is a result card from now on; coming back to the page must not
     # offer it as an input again, or the item gets created twice.
     draft.save(form)

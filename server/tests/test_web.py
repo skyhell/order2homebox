@@ -2442,6 +2442,87 @@ def test_a_failed_creation_does_not_change_the_remembered_location(logged_in, mo
     assert prefs.get_last_location_id() == "loc-good"
 
 
+def test_create_item_uses_a_typed_new_location_even_without_clicking_create(
+    logged_in, monkeypatch
+):
+    """Typing a name into "+ new location" and going straight to "create item"
+    (never clicking the location's own "create" button) must still create the
+    item in that location, not silently fall back to whatever the <select>
+    already had."""
+    import app.main as main
+    from app import prefs
+
+    captured = {}
+
+    async def fake_get_or_create(name):
+        captured["name"] = name
+        return {"id": "loc-new", "name": name}
+
+    async def fake_create_item(draft, order, location_id, label_ids):
+        captured["location_id"] = location_id
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "get_or_create_location", fake_get_or_create)
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    logged_in.post("/create-item", data={
+        "idx": "0", "shop": "amazon", "order_no": "", "order_date": "",
+        "item_count": "1", "item-0-name": "Thing", "item-0-quantity": "1",
+        "item-0-location": "loc-stale", "item-0-newloc": "Regal Neu",
+    })
+    assert captured["name"] == "Regal Neu"
+    assert captured["location_id"] == "loc-new"
+    assert prefs.get_last_location_id() == "loc-new"
+
+
+def test_locations_route_reads_the_clicked_cards_own_field(logged_in, monkeypatch):
+    """The "create" button next to a new-location box sits inside #create-form,
+    so htmx submits every card's fields, not just the one hx-include names.
+    Before item-{idx}-newloc existed, every card's box shared name="name" and
+    the route read whichever came first — not necessarily the one clicked."""
+    import app.main as main
+
+    async def fake_get_or_create(name):
+        return {"id": "loc-1", "name": name}
+
+    async def fake_locations():
+        return [{"id": "loc-1", "name": "Regal 1"}]
+
+    monkeypatch.setattr(main.homebox, "get_or_create_location", fake_get_or_create)
+    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
+
+    response = logged_in.post("/locations", data={
+        "idx": "1",
+        "item-0-newloc": "", "item-1-newloc": "Regal 1", "item-2-newloc": "decoy",
+    })
+    assert response.status_code == 200
+    assert 'id="loc-select-1"' in response.text
+    assert 'value="loc-1" selected' in response.text
+
+
+def test_locations_route_keeps_the_select_alive_on_failure(logged_in, monkeypatch):
+    """A failed create must not cost the card its location field the way
+    replacing the whole <select> with a bare error message once did."""
+    import app.main as main
+    from app.homebox import HomeboxError
+
+    async def failing_get_or_create(name):
+        raise HomeboxError("boom")
+
+    async def fake_locations():
+        return [{"id": "loc-1", "name": "Regal 1"}]
+
+    monkeypatch.setattr(main.homebox, "get_or_create_location", failing_get_or_create)
+    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
+
+    response = logged_in.post("/locations", data={
+        "idx": "0", "item-0-newloc": "Regal Neu",
+    })
+    assert response.status_code == 200
+    assert '<select name="item-0-location"' in response.text
+    assert "boom" in response.text
+
+
 def test_prefs_survive_a_corrupt_file(tmp_path, monkeypatch):
     """A broken preference file must never take the app down with it."""
     from app import prefs

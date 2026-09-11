@@ -6,6 +6,21 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.13.6] — 2026-09-11
+
+### Fixed
+
+- **A new Lagerort typed into "+ Neuer Lagerort" was silently dropped when
+  "Artikel anlegen" was clicked without first pressing that box's own "Anlegen"
+  button.** That button lives inside the same form as everything else, so htmx
+  submitted every card's new-location field along with it — and since they all
+  shared the same field name, the request always read whichever card happened
+  to come first, not the one actually clicked. A failed attempt then replaced
+  the location `<select>` with a bare error message, dropping the field
+  entirely. Typing a name and creating the item now resolves it to an existing
+  or newly created location either way, and a failed manual "Anlegen" no longer
+  costs the card its `<select>`.
+
 ## [0.13.5] — 2026-09-01
 
 ### Fixed

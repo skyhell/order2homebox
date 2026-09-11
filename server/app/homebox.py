@@ -214,6 +214,20 @@ class HomeboxClient:
             )
         return self._ok(r, "create location")
 
+    async def get_or_create_location(self, name: str) -> dict:
+        """Resolve a typed name to an existing location (case-insensitive exact
+        match) before creating a new one — the same name can reach here twice
+        (once from the manual "create" button, once more from the item-create
+        path if that click's result was never cleared from the field first),
+        and a second call must not create a duplicate."""
+        name = name.strip()
+        locations = await self.get_locations()
+        match = next(
+            (loc for loc in locations if loc.get("name", "").strip().lower() == name.lower()),
+            None,
+        )
+        return match or await self.create_location(name)
+
     async def get_labels(self) -> list[dict]:
         if await self._ensure_mode() == "legacy":
             r = await self._request("GET", "/api/v1/labels")

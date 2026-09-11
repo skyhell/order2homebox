@@ -74,6 +74,29 @@ async def test_legacy_create_location(respx_mock, hb):
     await hb.close()
 
 
+@respx.mock(base_url=BASE, assert_all_called=False)
+async def test_get_or_create_location_reuses_existing_by_name(respx_mock, hb):
+    mock_login(respx_mock)
+    mock_legacy_locations(respx_mock, [{"id": "loc1", "name": "Regal A"}])
+    create_route = respx_mock.post("/api/v1/locations")
+    found = await hb.get_or_create_location("regal a")
+    assert found == {"id": "loc1", "name": "Regal A"}
+    assert not create_route.called
+    await hb.close()
+
+
+@respx.mock(base_url=BASE)
+async def test_get_or_create_location_creates_when_no_match(respx_mock, hb):
+    mock_login(respx_mock)
+    mock_legacy_locations(respx_mock, [{"id": "loc1", "name": "Regal A"}])
+    respx_mock.post("/api/v1/locations").mock(
+        return_value=Response(201, json={"id": "locNew", "name": "Regal B"})
+    )
+    created = await hb.get_or_create_location("Regal B")
+    assert created["id"] == "locNew"
+    await hb.close()
+
+
 @respx.mock(base_url=BASE)
 async def test_legacy_create_item_full_flow(respx_mock, hb):
     mock_login(respx_mock)

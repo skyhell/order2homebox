@@ -103,6 +103,18 @@ document.addEventListener('DOMContentLoaded', updateApplyAllButtons);
 // changes how many location selects are left.
 document.addEventListener('htmx:load', updateApplyAllButtons);
 
+// Fired by POST /locations only on success (see the HX-Trigger header there).
+// Clears and hides the box so a name already turned into a location can't be
+// retyped into existence again by "Create item"'s own fallback for one that
+// was never submitted through this button at all.
+document.body.addEventListener('location-created', function (event) {
+  var idx = event.detail.idx;
+  var input = document.getElementById('newloc-name-' + idx);
+  var box = document.getElementById('newloc-form-' + idx);
+  if (input) input.value = '';
+  if (box) box.classList.add('hidden');
+});
+
 // Three codes across the width leave a 102 px cell, and an asset id can be
 // 121 px wide — it would print across the neighbouring code. So the id is not
 // a choice at three per row: the box goes off and stays off while it is on.

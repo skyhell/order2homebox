@@ -63,6 +63,11 @@ created in Homebox and their QR labels printed. Correcting a quantity re-splits
 the price the order actually charged, and each item decides for itself whether
 its label carries the asset ID or three codes instead of two.
 
+The shop above the items is a field of its own, so an order entered by hand is
+booked where it was really bought, and a wrong one can still be corrected after
+a fetch. *Sonstiges …* takes any shop name for the places the app has no scraper
+for — it reaches Homebox's purchase reference exactly as typed.
+
 ![Result](docs/screenshot-result.png)
 
 Afterwards every item has its asset ID, a preview of the label that was printed
@@ -273,6 +278,16 @@ uvicorn app.main:app --reload
 cd printagent
 pip install -e .
 O2H_DRY_RUN=1 uvicorn printagent.main:app --port 8010   # writes PNGs instead
+```
+
+`pytest` needs no browser. The exception is
+[`server/tests/test_browser.py`](server/tests/test_browser.py), which drives the
+edit page in Chromium for the questions rendered HTML cannot answer — how wide a
+control ends up, which row a field lands on, whether a phone has to scroll
+sideways. It skips itself unless Chromium is installed:
+
+```sh
+playwright install chromium
 ```
 
 ### When a shop changes its page

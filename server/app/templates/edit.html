@@ -2,7 +2,12 @@
 {% block content %}
 <div class="page-wide">
   <h1 class="page-title">{{ t('edit_title') }}</h1>
-  <p class="page-subtitle">{{ t('edit_order_info', order_no=order.order_no or '—', shop=order.shop_display_name) }}</p>
+  {# The shop is a field on this very page, so the line naming it has to follow
+     that field instead of the value the page was opened with. The sentence
+     stays in the locale file — %SHOP% is the one hole app.js fills, and t() is
+     str.format, which leaves a placeholder it has no argument for alone. #}
+  <p class="page-subtitle" id="order-subtitle"
+     data-subtitle="{{ t('edit_order_info', order_no=order.order_no or '—', shop='%SHOP%') }}">{{ t('edit_order_info', order_no=order.order_no or '—', shop=order.shop_display_name) }}</p>
 
   {% if warning %}<div class="banner banner-warning">{{ warning }}</div>{% endif %}
 
@@ -13,7 +18,7 @@
       {# A div, not a label: it fronts two controls (the select and the
          custom-name box), and a label wrapping more than one is ambiguous
          about which it names — same reasoning as the location field below. #}
-      <div class="field field-inline">
+      <div class="field field-inline field-shop">
         <span>{{ t('shop_label') }}</span>
         <select class="input" name="shop" id="shop-select" onchange="toggleCustomShop(this)">
           {% for s in shops %}
@@ -26,6 +31,7 @@
            picked — see toggleCustomShop() and the SHOP_OTHER handling there. #}
         <input class="input{% if order.shop in shops %} hidden{% endif %}" type="text" name="shop_custom"
                id="shop-custom" placeholder="{{ t('shop_other_placeholder') }}"
+               oninput="refreshOrderSubtitle()"
                value="{{ '' if order.shop in shops else order.shop }}">
       </div>
       <label class="field field-inline">

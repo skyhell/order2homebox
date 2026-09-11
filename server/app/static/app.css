@@ -272,8 +272,14 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
 .item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .item-head h2 { font-size: 18px; font-weight: 600; }
 .item-thumb { max-width: 84px; max-height: 84px; border-radius: 10px; float: right; margin-left: 12px; }
-.meta-card { display: flex; gap: 24px; flex-wrap: wrap; }
+.meta-card { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
 .meta-card .field { margin-bottom: 0; }
+/* The shop gets a row of its own: it carries two controls as soon as
+   "Sonstiges" is picked, and side by side in a third of a row the dropdown
+   was down to its arrow. */
+.field-shop { grid-column: 1 / -1; }
+.field-shop select { flex: 0 1 240px; }
+.field-shop input { flex: 1; }
 .newloc { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
 /* full width so it wraps below the buttons instead of beside them */
 .newloc-form { display: flex; gap: 8px; margin-top: 8px; flex-basis: 100%; }
@@ -391,7 +397,8 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
 
 /* ---- responsive ---- */
 @media (max-width: 640px) {
-  .field-row, .result-grid, .meta-card { flex-direction: column; }
+  .field-row, .result-grid { flex-direction: column; }
+  .meta-card { grid-template-columns: 1fr; }
   .nav-links { display: none; }
   .page-title { font-size: 26px; }
 }

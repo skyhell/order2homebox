@@ -22,7 +22,10 @@ on a Brother QL-500 (DK-22211, 29 mm endless) attached to a Raspberry Pi.
   with the asset ID underneath (see `server/app/labels.py`).
 - One scraper file per shop in `server/app/scrapers/` — selectors are constants at the top
   of each file so they are easy to fix when a shop changes its page.
-- Playwright is imported lazily (scrapers only); tests never need a browser.
+- Playwright is imported lazily (scrapers only). Nearly all tests are
+  browser-free; `server/tests/test_browser.py` drives the edit page in Chromium
+  for what rendered HTML cannot answer (widths, which row a field lands on) and
+  skips itself when no browser is installed (`playwright install chromium`).
 - Config via `.env` (see `server/.env.example`); runtime data in `./data/` (git-ignored).
 
 ## Conventions (user preferences)

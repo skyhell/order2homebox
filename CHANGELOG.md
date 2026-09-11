@@ -6,6 +6,23 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.14.1] — 2026-09-11
+
+### Fixed
+
+- **The new shop field left the order row unreadable.** The meta card was a
+  single flex row shared by all three fields, and of the third each one got,
+  120 px go to its label alone — so the shop dropdown, two controls wide as
+  soon as "Sonstiges" is picked, was squeezed down to its arrow with the
+  selected shop no longer legible at all. The card is a two-column grid now:
+  the shop keeps the first row to itself, order number and date share the
+  second.
+- **The line above the form kept naming the shop the page was opened with.**
+  It is rendered once on the server, which was right while the shop was a
+  hidden field — but 0.14.0 made it editable on that very page. It follows the
+  dropdown (and a typed custom name) as it changes now; the sentence itself
+  still comes from the locale file, only the shop name is filled in.
+
 ## [0.14.0] — 2026-09-11
 
 ### Added

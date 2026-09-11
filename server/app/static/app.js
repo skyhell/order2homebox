@@ -112,6 +112,26 @@ function toggleCustomShop(select) {
   var isOther = select.value === '__other__';
   custom.classList.toggle('hidden', !isOther);
   if (isOther) custom.focus();
+  refreshOrderSubtitle();
+}
+
+// The line above the form names the shop the items are booked on — and that is
+// a field on this page now, so it follows the dropdown instead of naming what
+// the page was opened with. The sentence itself stays in the locale file; only
+// its %SHOP% hole is filled here (see data-subtitle in edit.html).
+function refreshOrderSubtitle() {
+  var el = document.getElementById('order-subtitle');
+  var select = document.getElementById('shop-select');
+  if (!el || !select) return;
+  var custom = document.getElementById('shop-custom');
+  var name = select.options[select.selectedIndex].text;
+  if (select.value === '__other__' && custom && custom.value.trim()) {
+    name = custom.value.trim();
+  }
+  // Replaced via a function, not a string: a shop name containing $& would
+  // otherwise be read as a replacement pattern. textContent, so it cannot be
+  // read as markup either.
+  el.textContent = el.dataset.subtitle.replace('%SHOP%', function () { return name; });
 }
 
 // Carries the shop radio picked on the index page over to /manual, so

@@ -788,6 +788,27 @@ def test_the_shop_picked_on_the_edit_page_is_what_gets_created(logged_in, monkey
     assert captured["shop"] == "banggood"
 
 
+def test_the_subtitle_can_follow_the_shop_field(logged_in, monkeypatch):
+    """The shop is editable on this page, so the line naming it must not keep
+    naming the one the page was opened with. The sentence stays in the locale
+    file — app.js only fills its %SHOP% hole."""
+    import app.main as main
+
+    async def fake_empty():
+        return []
+
+    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
+    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
+
+    page = logged_in.get("/manual?shop=temu").text
+    assert 'id="order-subtitle"' in page
+    assert 'data-subtitle="Bestellung — bei %SHOP%"' in page
+    assert "bei Temu" in page  # still server-rendered for the initial paint
+
+    script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
+    assert "function refreshOrderSubtitle" in script
+
+
 def test_index_page_forwards_the_picked_shop_to_manual_entry(logged_in):
     """The link out of #fetch-form can't submit that form (order_no is
     required there), so app.js reads the checked shop radio directly."""

@@ -304,17 +304,37 @@ function saveDraft() {
   if (!form || saveDraft.off) return;
   window.clearTimeout(saveDraft.timer);
   saveDraft.timer = window.setTimeout(function () {
-    fetch('/draft', { method: 'POST', body: new FormData(form) });
+    saveDraft.sending = postDraft(form);
   }, 700);
 }
 
-// "Clear the fields" on the manual page. The server empties the store, but the
-// page on its way out would send exactly what was just cleared right back — so
-// the pending save is dropped and no further one is started.
+function postDraft(form) {
+  // Kept as a promise so "Clear the fields" can wait for it: a save still on
+  // its way would otherwise arrive after the store was emptied and put the
+  // whole series back.
+  return fetch('/draft', { method: 'POST', body: new FormData(form) })
+    .catch(function () {});
+}
+
+// "Clear the fields" on the manual page. Deliberately not a submit button:
+// as the first submit button in the form it was the form's default button,
+// so Enter in any single-line field cleared the entire series instead of
+// creating the item. It sends the form itself, once the save that is already
+// under way has arrived — and it calls off every later one, or the page on
+// its way out sends exactly what was just cleared straight back.
 function resetManual() {
+  var form = document.getElementById('create-form');
+  if (!form) return;
   window.clearTimeout(saveDraft.timer);
   saveDraft.off = true;
-  return true;
+  // Should the reset never get going (offline, the load stopped) the page
+  // stays, and with saving switched off for good everything typed afterwards
+  // would be lost on the next click. So it comes back.
+  window.setTimeout(function () { saveDraft.off = false; }, 10000);
+  Promise.resolve(saveDraft.sending).then(function () {
+    form.action = '/manual/reset';
+    form.submit();  // not requestSubmit(): no validation, and no button at all
+  });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -322,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!form) return;
   // Straight away, not debounced: the state has to be there even if the very
   // next click leaves the page.
-  fetch('/draft', { method: 'POST', body: new FormData(form) });
+  saveDraft.sending = postDraft(form);
   form.addEventListener('input', saveDraft);
   form.addEventListener('change', saveDraft);
   window.addEventListener('pagehide', function () {

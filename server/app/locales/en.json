@@ -58,6 +58,7 @@
   "manual_subtitle": "No order is fetched. What you enter stays — the next item starts from it.",
   "manual_reset": "Clear the fields",
   "manual_continue": "Enter more items",
+  "manual_older_hidden": "{count} earlier items of this series are hidden — they are in Homebox.",
   "edit_order_info": "Order {order_no} at {shop}",
   "order_date_label": "Order date",
   "item_heading": "Item {n}",

@@ -1755,6 +1755,74 @@ def test_the_manual_page_offers_a_card_again_after_everything_was_created(
     _clear_manual()
 
 
+def test_the_next_card_keeps_the_location_the_item_was_filed_under(
+    logged_in, monkeypatch
+):
+    """A location typed into the "+ new location" box is resolved while the
+    item is created, and the <select> beside it still says nothing. Rebuilding
+    the next card from the stored form alone sent the following item somewhere
+    else — so where it really went is remembered."""
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+    import app.main as main
+
+    async def fake_location(name):
+        return {"id": "loc9", "name": name}
+
+    async def fake_locations():
+        # Homebox knows it from the moment it is created, so the card can
+        # offer it — the question is only which one the card picks.
+        return [{"id": "loc1", "name": "Büro"}, {"id": "loc2", "name": "Keller"},
+                {"id": "loc9", "name": "Regal 7"}]
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "get_or_create_location", fake_location)
+    monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    form = _manual_form(idx="0")
+    form["item-0-location"] = ""
+    form["item-0-newloc"] = "Regal 7"
+    logged_in.post("/create-item", data=form)
+
+    body = logged_in.get("/manual").text
+    assert 'name="item-1-location"' in body
+    assert '<option value="loc9" selected>' in body, "the shelf it actually went to"
+    _clear_manual()
+
+
+def test_a_long_series_only_shows_its_recent_items(logged_in, monkeypatch):
+    """Every result card asks the server for its label image again, so a series
+    of fifty would grow slower with each item. The recent ones are the receipts
+    anyone looks at; the page says how many it is not showing."""
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+    import app.main as main
+    from app import draft
+    from app.models import OrderItemDraft
+
+    total = 12
+    logged_in.post("/draft", data=_manual_form(item_count=str(total)))
+    for idx in range(total):
+        draft.mark_created(
+            idx,
+            {"draft": OrderItemDraft(name=f"Teil {idx}"),
+             "item": {"id": f"i{idx}", "assetId": f"000-{idx:03d}"},
+             "location_id": "loc2"},
+            draft.MANUAL,
+        )
+
+    body = logged_in.get("/manual").text
+    assert body.count('class="card result-card') <= main.MANUAL_RESULTS_SHOWN
+    assert "000-011" in body, "the newest is shown"
+    assert "000-000" not in body, "the oldest is not"
+    assert "ausgeblendet" in body, "and the page says so"
+    assert 'name="item-12-name"' in body, "the next item is still there to type"
+    _clear_manual()
+
+
 def test_clearing_the_fields_empties_only_the_manual_page(logged_in, monkeypatch):
     _clear_draft()
     _clear_manual()
@@ -1772,19 +1840,23 @@ def test_clearing_the_fields_empties_only_the_manual_page(logged_in, monkeypatch
     _clear_draft()
 
 
-def test_the_reset_button_calls_off_the_pending_auto_save(logged_in, monkeypatch):
-    """The page on its way out sends the form once more — it would write the
-    values straight back over the store that was just cleared."""
+def test_the_reset_button_is_not_the_forms_default_button(logged_in, monkeypatch):
+    """It was the first submit button in the form, and that is the button Enter
+    presses — typing a price and hitting Enter cleared the whole series. It
+    sends the form from script now, so Enter creates the item instead."""
     import app.main as main
 
     _stub_homebox_lists(monkeypatch)
     body = logged_in.get("/manual").text
-    assert 'formaction="/manual/reset"' in body
-    assert "resetManual()" in body
+    assert 'type="button" onclick="resetManual()"' in body
+    assert "formaction=" not in body, "a second submit button is the trap itself"
 
     script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
     assert "function resetManual" in script
+    # Called off, and only once the save already on its way has arrived — that
+    # one would otherwise land after the reset and put the series back.
     assert "saveDraft.off" in script
+    assert "saveDraft.sending" in script
 
 
 def test_a_reprint_from_a_manual_result_page_writes_to_the_manual_draft(

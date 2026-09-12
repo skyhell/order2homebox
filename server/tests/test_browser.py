@@ -170,7 +170,7 @@ async def test_the_nav_bar_never_pushes_a_page_sideways(page, live_server):
             links = page.locator(".nav-link")
             for i in range(await links.count()):
                 box = await links.nth(i).bounding_box()
-                if box:  # below 640 px the links are not shown at all
+                if box:  # off screen on a phone until the row is scrolled
                     assert box["height"] < 40, "an entry was broken over two lines"
     await page.set_viewport_size(DESKTOP)
     await page.goto(f"{live_server}/lang/de")
@@ -189,3 +189,65 @@ async def test_the_nav_bar_fits_a_phone(page, live_server):
     assert scrolled <= PHONE["width"], "no page may scroll sideways on a phone"
     assert await page.locator(".brand-icon").is_visible(), "still the way home"
     assert await page.locator('.nav-actions a[href="/logout"]').is_visible()
+
+
+async def test_every_page_can_still_be_reached_on_a_phone(page, live_server):
+    """The links were hidden outright below 640 px, and this page lost the one
+    link that used to lead to it from the start page — so on a phone there was
+    no way in at all. They scroll sideways in a row of their own instead."""
+    await page.set_viewport_size(PHONE)
+    await page.goto(f"{live_server}/manual")
+    links = page.locator(".nav-links")
+    assert await links.is_visible()
+
+    manual = page.locator('.nav-link[href="/manual"]')
+    await manual.scroll_into_view_if_needed()
+    await manual.click()
+    await page.wait_for_url(f"{live_server}/manual")
+
+    # The row scrolls, the page does not.
+    assert await page.evaluate("document.documentElement.scrollWidth") <= PHONE["width"]
+    assert await links.evaluate("el => el.scrollWidth > el.clientWidth"), (
+        "the entries are meant to overflow their row, not be squeezed into it"
+    )
+    settings = page.locator('.nav-link[href="/settings"]')
+    await settings.scroll_into_view_if_needed()
+    assert await settings.is_visible()
+
+
+async def test_clearing_the_fields_still_clears_them(page, live_server):
+    """It is no longer a submit button, so the script has to send the form —
+    and only once the auto-save already on its way has arrived, or that one
+    writes the series straight back."""
+    await page.goto(f"{live_server}/manual")
+    await page.fill('textarea[name="item-0-name"]', "Kugellager 608")
+    await page.click("text=Felder leeren")
+    await page.wait_for_url(f"{live_server}/manual")
+    assert "Kugellager 608" not in await page.content()
+
+    await page.goto(f"{live_server}/manual")  # and it stays cleared
+    assert "Kugellager 608" not in await page.content()
+
+
+async def test_enter_on_the_manual_page_does_not_clear_the_series(page, live_server):
+    """The "clear the fields" button was the first submit button in the form,
+    which makes it the button Enter presses: typing a price and hitting Enter
+    threw the whole series away."""
+    asked = []
+
+    async def record(route):
+        asked.append(route.request.url)
+        await route.abort()
+
+    await page.route("**/create", record)
+    await page.route("**/manual/reset", record)
+    await page.goto(f"{live_server}/manual")
+    await page.fill('textarea[name="item-0-name"]', "Kugellager 608")
+    await page.fill('input[name="order_no"]', "A-1")
+    await page.keyboard.press("Enter")
+    await page.wait_for_timeout(400)
+
+    assert asked, "Enter has to submit the form, not do nothing"
+    assert not any("/manual/reset" in url for url in asked), (
+        f"Enter cleared the series instead of creating the item: {asked}"
+    )

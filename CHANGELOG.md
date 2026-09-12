@@ -6,6 +6,29 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.15.1] — 2026-09-12
+
+### Fixed
+
+- **Enter on the manual page cleared the whole series instead of creating the
+  item.** "Felder leeren" was the first submit button in the form, and that is
+  the button a browser presses on Enter in a single-line field — with
+  validation switched off, so nothing stood in its way. It is not a submit
+  button any more: Enter creates the item, and clearing now waits for the
+  auto-save still on its way instead of racing it back into the file.
+- **On a phone every page but the start page had become unreachable.** The
+  navigation links are hidden below 640 px, and 0.15.0 removed the link under
+  the fetch form that used to lead to manual entry — so there was no way in at
+  all. The links keep a row of their own there now and scroll sideways in it.
+- **The next item of a series could be filed in the wrong place.** A location
+  typed into "+ new location" is resolved while the item is created, and the
+  card's dropdown still says nothing — so the card rebuilt after a reload
+  started from that empty dropdown. Where the item actually went is remembered
+  with it now.
+- **A long series made its own page slower with every item.** Each finished
+  item asks the server for its label image again on every visit, without end.
+  The ten most recent are shown, and the page says how many it is not showing.
+
 ## [0.15.0] — 2026-09-12
 
 ### Added

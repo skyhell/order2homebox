@@ -404,9 +404,20 @@ textarea.autogrow { max-height: 11em; overflow-y: auto; }
 @media (max-width: 640px) {
   .field-row, .result-grid { flex-direction: column; }
   .meta-card { grid-template-columns: 1fr; }
-  .nav-links { display: none; }
-  /* The icon stays the way home; the name is what made the bar overflow. With
-     the links gone there is nothing left to push the actions over, either. */
+  /* The links used to be hidden outright here, which left every page but the
+     start page with no way in at all — the manual page worst of all, now that
+     its link under the fetch form is gone. They take a row of their own below
+     the brand instead and scroll sideways inside it, so the bar stays short
+     and the page itself still never moves. */
+  .nav-inner { flex-wrap: wrap; padding-bottom: 4px; }
+  .nav-links {
+    order: 3; flex-basis: 100%; flex-wrap: nowrap;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-link { flex: 0 0 auto; }  /* scroll past them, do not squeeze them */
+  /* The icon stays the way home; the name plus the actions on the right are
+     wider than 400 px on their own, and neither of them can shrink. */
   .brand-name { display: none; }
   .nav-actions { margin-left: auto; }
   .page-title { font-size: 26px; }

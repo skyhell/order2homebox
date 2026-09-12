@@ -128,6 +128,10 @@ def mark_created(idx: int, entry: dict, kind: str = ORDER) -> None:
     created = created_items(data)
     created[str(idx)] = {
         "name": entry["draft"].name,
+        # Where it really went, which is not what the card's <select> said when
+        # the location was typed into the "+ new location" box instead. The
+        # next card of a manual series starts from this.
+        "location_id": str(entry.get("location_id", "") or ""),
         "asset_id": item.get("assetId", ""),
         "item_id": item.get("id", ""),
         "printed": bool(entry.get("printed")),

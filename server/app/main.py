@@ -327,10 +327,18 @@ async def manual_entry(request: Request, user: str = Depends(require_login)):
     # created there is no input card left, so one comes back carrying the
     # values of the last — that is what "a series with small changes" means.
     if not any(card["result"] is None for card in cards):
-        cards.append(_repeat_card(draft.form(data), item_count))
+        cards.append(
+            _repeat_card(draft.form(data), item_count, draft.created_items(data))
+        )
         item_count += 1
+    shown = _recent_cards(cards)
     return await _edit_page(
-        request, order, cards=cards, item_count=item_count, manual=True
+        request,
+        order,
+        cards=shown,
+        item_count=item_count,
+        manual=True,
+        hidden_results=len(cards) - len(shown),
     )
 
 
@@ -400,16 +408,39 @@ def _cards_from_stored(data: dict) -> tuple[Order, list[dict], int]:
     return _order_from_form(stored), cards, int(data.get("item_count", 0))
 
 
-def _repeat_card(stored, at: int) -> dict:
+def _repeat_card(stored, at: int, created: dict | None = None) -> dict:
     """The next card of a manual series: the last card's values again, at a new
     index. The raw fields of a created card are still in the store, so what was
     typed for it is what the next item starts from."""
     for idx in range(at - 1, -1, -1):
         card = _card_from_form(stored, idx, at=at)
-        if card is not None:
-            return card
+        if card is None:
+            continue
+        # The stored field is the <select> as it stood, which is empty or stale
+        # when the location was typed into the "+ new location" box. What the
+        # item was actually filed under is remembered beside it.
+        went_to = (created or {}).get(str(idx), {}).get("location_id", "")
+        if went_to:
+            card["location_id"] = went_to
+        return card
     fresh = _fresh_cards(Order(shop="", order_no="", items=[OrderItemDraft()]))
     return dict(fresh[0], idx=at)
+
+
+# How many finished items a manual series shows. Every result card asks the
+# server for its label image again, so an open-ended series would make the page
+# slower with each item; the recent ones are the receipts anyone looks at, and
+# the older items are in Homebox either way.
+MANUAL_RESULTS_SHOWN = 10
+
+
+def _recent_cards(cards: list[dict], keep: int = MANUAL_RESULTS_SHOWN) -> list[dict]:
+    """The cards to render: every input card, and the last `keep` results."""
+    results = [i for i, card in enumerate(cards) if card["result"] is not None]
+    if len(results) <= keep:
+        return cards
+    hidden = set(results[:-keep])
+    return [card for i, card in enumerate(cards) if i not in hidden]
 
 
 def _result_from_created(entry: dict) -> dict:
@@ -457,6 +488,7 @@ async def _edit_page(
     cards: list[dict] | None = None,
     item_count: int | None = None,
     manual: bool = False,
+    hidden_results: int = 0,
 ) -> HTMLResponse:
     """The edit page. `cards` carries per-card state (a restored draft has a
     different location and different checkboxes per card, and some cards are
@@ -483,6 +515,7 @@ async def _edit_page(
         hb_labels=labels,
         warning=warning,
         manual=manual,
+        hidden_results=hidden_results,
         # None on the manual page: the nav link this feeds leads to /edit, and
         # a manual series is not the order it would offer to go back to.
         draft_info=None if manual else {

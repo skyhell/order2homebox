@@ -58,6 +58,7 @@
   "manual_subtitle": "Ohne Abruf einer Bestellung. Die eingegebenen Werte bleiben stehen — der nächste Artikel beginnt damit.",
   "manual_reset": "Felder leeren",
   "manual_continue": "Weiter erfassen",
+  "manual_older_hidden": "{count} ältere Artikel dieser Serie sind ausgeblendet — sie sind in Homebox angelegt.",
   "edit_order_info": "Bestellung {order_no} bei {shop}",
   "order_date_label": "Bestelldatum",
   "item_heading": "Artikel {n}",

@@ -61,6 +61,13 @@
       </label>
     </div>
 
+    {# A long series would ask the server for one label image per finished
+       item on every visit, so only the recent ones are shown. Nothing is lost:
+       they are in Homebox, and the page says so. #}
+    {% if hidden_results %}
+    <p class="hint">{{ t('manual_older_hidden', count=hidden_results) }}</p>
+    {% endif %}
+
     {# A card is either still an input or already a created item — a restored
        draft brings both back, each with the values it was left with. #}
     {% for card in cards %}
@@ -82,12 +89,14 @@
     <div class="action-bar">
       {# This button prints too, so it says where. #}
       {% include "_print_target.html" %}
-      {# The values of a series stay until they are cleared here — and the
-         pending auto-save has to be called off, or the page on its way out
-         writes them straight back (see resetManual in app.js). #}
+      {# The values of a series stay until they are cleared here. Not a submit
+         button: as the first one in the form it was the form's default button,
+         so Enter in any single-line field cleared the series instead of
+         creating the item. resetManual() in app.js sends the form — and calls
+         off the auto-save first, or the page on its way out writes the values
+         straight back. #}
       {% if manual %}
-      <button class="btn btn-ghost" type="submit" formaction="/manual/reset"
-              formnovalidate onclick="return resetManual()">{{ t('manual_reset') }}</button>
+      <button class="btn btn-ghost" type="button" onclick="resetManual()">{{ t('manual_reset') }}</button>
       {% endif %}
       <button class="btn btn-primary btn-large" type="submit" data-loading-text="{{ t('creating') }}">{{ t('create_submit') }}</button>
     </div>

@@ -15,6 +15,11 @@ Enter an order number, review the scraped items, pick (or create) a storage loca
   last used is pre-selected for every item of the next order, and one button
   applies a card's location to all the other cards — an order usually goes to
   one and the same place.
+- ✍️ **Items by hand, in series** — a *Manual* page for everything that never
+  came from an order page: the same form without a fetch behind it, the shop
+  simply typed. What you enter stays, and the card comes back filled in after
+  each item is created — a box of similar parts is a series of small changes,
+  not the same form typed out again every time.
 - 🏷️ **QR labels** — DK-22211 (29 mm endless), exactly 306 px wide, two identical
   QR codes side by side (cut in half → two labels per asset), optional asset ID
   text — switchable per item right on its card, so a single item can get a bare
@@ -67,6 +72,13 @@ The shop above the items is a field of its own, so an order entered by hand is
 booked where it was really bought, and a wrong one can still be corrected after
 a fetch. *Sonstiges …* takes any shop name for the places the app has no scraper
 for — it reaches Homebox's purchase reference exactly as typed.
+
+![Add items by hand](docs/screenshot-manual.png)
+
+*Manual* is that same page without an order behind it — type where the thing
+came from, what it is and where it goes, and create it. The values stay for the
+next one, so entering ten kinds of screws is ten small changes rather than ten
+empty forms.
 
 ![Result](docs/screenshot-result.png)
 

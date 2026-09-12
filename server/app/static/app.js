@@ -134,15 +134,6 @@ function refreshOrderSubtitle() {
   el.textContent = el.dataset.subtitle.replace('%SHOP%', function () { return name; });
 }
 
-// Carries the shop radio picked on the index page over to /manual, so
-// switching to manual entry does not silently fall back to whatever shop
-// happens to be first (Amazon) regardless of what was actually selected.
-function withSelectedShop(link) {
-  var checked = document.querySelector('input[name="shop"]:checked');
-  if (checked) link.href = '/manual?shop=' + encodeURIComponent(checked.value);
-  return true;
-}
-
 // Fired by POST /locations only on success (see the HX-Trigger header there).
 // Clears and hides the box so a name already turned into a location can't be
 // retyped into existence again by "Create item"'s own fallback for one that
@@ -310,11 +301,20 @@ function removeItemCard(idx) {
 // typing and once more on the way out; GET /edit builds the page from it.
 function saveDraft() {
   var form = document.getElementById('create-form');
-  if (!form) return;
+  if (!form || saveDraft.off) return;
   window.clearTimeout(saveDraft.timer);
   saveDraft.timer = window.setTimeout(function () {
     fetch('/draft', { method: 'POST', body: new FormData(form) });
   }, 700);
+}
+
+// "Clear the fields" on the manual page. The server empties the store, but the
+// page on its way out would send exactly what was just cleared right back — so
+// the pending save is dropped and no further one is started.
+function resetManual() {
+  window.clearTimeout(saveDraft.timer);
+  saveDraft.off = true;
+  return true;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -326,6 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
   form.addEventListener('input', saveDraft);
   form.addEventListener('change', saveDraft);
   window.addEventListener('pagehide', function () {
+    if (saveDraft.off) return;
     // A normal request would be cancelled as the page goes away; a beacon
     // survives it and catches whatever the 700 ms above have not sent yet.
     navigator.sendBeacon('/draft', new FormData(form));

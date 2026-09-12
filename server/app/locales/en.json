@@ -1,6 +1,7 @@
 {
   "app_name": "order2homebox",
   "nav_new": "New order",
+  "nav_manual": "Manual",
   "nav_draft": "Order",
   "nav_label": "Print label",
   "nav_text": "Text label",
@@ -50,10 +51,13 @@
   "order_no_placeholder": "e.g. 302-1234567-1234567",
   "fetch_submit": "Fetch data",
   "fetch_loading": "Loading order …",
-  "manual_link": "Or enter manually without fetching",
   "go_to_cookies": "Open shop sessions",
 
   "edit_title": "Review and edit items",
+  "manual_title": "Add items by hand",
+  "manual_subtitle": "No order is fetched. What you enter stays — the next item starts from it.",
+  "manual_reset": "Clear the fields",
+  "manual_continue": "Enter more items",
   "edit_order_info": "Order {order_no} at {shop}",
   "order_date_label": "Order date",
   "item_heading": "Item {n}",

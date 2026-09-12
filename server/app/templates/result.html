@@ -10,6 +10,11 @@
      A card that was skipped on create (removed, or already created by its own
      button) leaves a hole, so counting the loop would send the print button
      off to another card's entry — and the reprint result would be dropped. #}
+  {# The reprint buttons below are htmx posts with no form around them, so the
+     hidden mode field of the edit page cannot ride along. hx-vals is inherited
+     by everything inside, which tells /print which draft to write the result
+     of a reprint back to. #}
+  <div{% if manual %} hx-vals='{"mode": "manual"}'{% endif %}>
   {% for r in results %}
   {% set idx = r.card_idx %}
   {% if r.item %}
@@ -21,9 +26,16 @@
   </div>
   {% endif %}
   {% endfor %}
+  </div>
 
   <div class="action-bar">
+    {# Back where the items came from: a manual series carries on with the
+       values it was created from, an order starts a new one. #}
+    {% if manual %}
+    <a class="btn btn-secondary btn-large" href="/manual">{{ t('manual_continue') }}</a>
+    {% else %}
     <a class="btn btn-secondary btn-large" href="/">{{ t('new_order_button') }}</a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

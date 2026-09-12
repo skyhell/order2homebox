@@ -35,6 +35,9 @@
     </a>
     <div class="nav-links">
       <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}">{{ t('nav_new') }}</a>
+      {# Its own entry beside the fetch, not a link below it: entering items by
+         hand is a way of working, not a fallback for a failed scrape. #}
+      <a href="/manual" class="nav-link{% if request.url.path == '/manual' %} active{% endif %}">{{ t('nav_manual') }}</a>
       {# Only while an order is being worked on: without a link the fetched
          page could not be reached again, it is not a URL anyone can type. #}
       {% if draft_info %}

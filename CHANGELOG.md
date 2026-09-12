@@ -6,6 +6,22 @@ bug-fix or maintenance release a patch bump.
 
 Each version links to its GitHub release, which carries the full notes.
 
+## [0.15.0] — 2026-09-12
+
+### Added
+
+- **Entering items by hand was a link under the fetch form, and everything
+  typed there was gone as soon as one item was created.** It is a page of its
+  own now, "Manuell", right after "Neue Bestellung" in the navigation bar. It
+  is the familiar edit page without the shop dropdown — nothing was fetched
+  here, so the shop is simply typed — and it keeps what was entered: after an
+  item is created, the next card is there again with the same values, so a
+  series of similar items only needs the one thing that differs to be changed.
+  The values survive leaving the page and a restart, and "Felder leeren"
+  starts a fresh series. The manual page has a draft of its own
+  (`data/manual.json`), so a fetched order and a hand-entered series no longer
+  displace each other.
+
 ## [0.14.1] — 2026-09-11
 
 ### Fixed

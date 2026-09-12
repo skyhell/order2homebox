@@ -1,4 +1,4 @@
-"""The order currently being edited (data/draft.json).
+"""What is currently being edited (data/draft.json, data/manual.json).
 
 The edit page only ever existed as the answer to POST /fetch — it had no address
 of its own and nothing was kept, so every click on another page threw the fetched
@@ -8,6 +8,13 @@ draft, a location, labels and the three checkboxes, and restoring reuses it
 rather than growing a second parser that can drift.
 
 Replaced by the next fetch, never expired on its own.
+
+Two of them: a fetched order (data/draft.json) and the manual page, which is a
+series of items rather than an order (data/manual.json). Same shape and the
+same functions, only the file differs — a fetch must not throw away a manual
+series half-way through, and the manual page must not throw away an order. The
+form itself says which one it belongs to: the manual page renders a hidden
+``mode`` field, and main.py turns that into the ``kind`` passed in here.
 """
 import json
 from pathlib import Path
@@ -15,6 +22,10 @@ from pathlib import Path
 from .config import settings
 
 META_FIELDS = ("shop", "order_no", "order_date")
+
+ORDER = "order"
+MANUAL = "manual"
+FILES = {ORDER: "draft.json", MANUAL: "manual.json"}
 
 
 class StoredForm(dict):
@@ -28,15 +39,15 @@ class StoredForm(dict):
         return [value] if value not in (None, "") else []
 
 
-def _path() -> Path:
+def _path(kind: str = ORDER) -> Path:
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    return settings.data_dir / "draft.json"
+    return settings.data_dir / FILES.get(kind, FILES[ORDER])
 
 
-def load() -> dict | None:
+def load(kind: str = ORDER) -> dict | None:
     """The stored draft, or None — an unreadable file is simply no draft."""
     try:
-        data = json.loads(_path().read_text(encoding="utf-8"))
+        data = json.loads(_path(kind).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     if not isinstance(data, dict) or not isinstance(data.get("fields"), dict):
@@ -44,10 +55,10 @@ def load() -> dict | None:
     return data
 
 
-def clear() -> None:
+def clear(kind: str = ORDER) -> None:
     """Drop the draft — the next fetch replaces what is on the page."""
     try:
-        _path().unlink()
+        _path(kind).unlink()
     except OSError:
         pass
 
@@ -65,7 +76,7 @@ def created_items(data: dict) -> dict:
     return entries if isinstance(entries, dict) else {}
 
 
-def save(posted) -> None:
+def save(posted, kind: str = ORDER) -> None:
     """Store the edit form as it currently stands.
 
     Keeps the items already created: a delayed auto-save (the beacon sent while
@@ -82,15 +93,20 @@ def save(posted) -> None:
         count = int(fields.get("item_count", 0))
     except (TypeError, ValueError):
         count = 0
-    previous = load() or {}
+    previous = load(kind) or {}
     data = {
         "item_count": count,
         "fields": fields,
-        "created": created_items(previous) if _same_order(previous, fields) else {},
+        # The manual page keeps them regardless: shop and order number are
+        # ordinary fields of a series there, not its identity, and losing the
+        # created entries would offer an item that exists for creating again.
+        "created": created_items(previous)
+        if kind == MANUAL or _same_order(previous, fields)
+        else {},
     }
     for key in META_FIELDS:
         data[key] = str(fields.get(key, ""))
-    _write(data)
+    _write(data, kind)
 
 
 def _same_order(previous: dict, fields: dict) -> bool:
@@ -102,10 +118,10 @@ def _same_order(previous: dict, fields: dict) -> bool:
     return all(str(previous.get(key, "")) == str(fields.get(key, "")) for key in ("shop", "order_no"))
 
 
-def mark_created(idx: int, entry: dict) -> None:
+def mark_created(idx: int, entry: dict, kind: str = ORDER) -> None:
     """Remember that this card's item is in Homebox, with what the result card
     needs to come back: asset ID, item ID and what was printed."""
-    data = load()
+    data = load(kind)
     item = entry.get("item") or {}
     if not data or not item.get("assetId"):
         return
@@ -121,7 +137,7 @@ def mark_created(idx: int, entry: dict) -> None:
         "qr_per_row": int(entry.get("qr_per_row") or 2),
     }
     data["created"] = created
-    _write(data)
+    _write(data, kind)
 
 
 def update_print_result(
@@ -132,6 +148,7 @@ def update_print_result(
     show_asset_id: bool | None = None,
     qr_per_row: int | None = None,
     want_asset_id: bool | None = None,
+    kind: str = ORDER,
 ) -> None:
     """Overwrite what a created card remembers about printing, so a reprint that
     worked also survives a reload of the edit page — the failed attempt from the
@@ -146,7 +163,7 @@ def update_print_result(
     The asset ID is the guard: a card index travelling with a page that has since
     been replaced must not write onto whatever item sits at that index now.
     """
-    data = load()
+    data = load(kind)
     if not data or idx < 0 or not asset_id:
         return
     created = created_items(data)
@@ -162,13 +179,13 @@ def update_print_result(
     if qr_per_row is not None:
         entry["qr_per_row"] = int(qr_per_row)
     data["created"] = created
-    _write(data)
+    _write(data, kind)
 
 
-def summary() -> dict | None:
+def summary(kind: str = ORDER) -> dict | None:
     """What the nav link needs: order number, shop and how many cards — None
     while there is no draft, and then no link is shown at all."""
-    data = load()
+    data = load(kind)
     if not data:
         return None
     fields = data.get("fields", {})
@@ -186,8 +203,8 @@ def summary() -> dict | None:
     }
 
 
-def _write(data: dict) -> None:
+def _write(data: dict, kind: str = ORDER) -> None:
     try:
-        _path().write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _path(kind).write_text(json.dumps(data, indent=2), encoding="utf-8")
     except OSError:
         pass  # losing the draft must never break creating or printing

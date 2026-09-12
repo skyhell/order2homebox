@@ -307,23 +307,46 @@ async def fetch_order(
     return await _edit_page(request, order, warning=warning)
 
 
+def _store(form) -> str:
+    """Which of the two drafts this form belongs to. The manual page renders a
+    hidden ``mode`` field; everything else is an order."""
+    return draft.MANUAL if str(form.get("mode", "")) == draft.MANUAL else draft.ORDER
+
+
 @app.get("/manual", response_class=HTMLResponse)
-async def manual_entry(
-    request: Request,
-    shop: Shop = Shop.amazon,
-    order_no: str = "",
-    user: str = Depends(require_login),
-):
-    order = Order(shop=shop, order_no=order_no, items=[OrderItemDraft()])
-    draft.clear()  # starting by hand replaces the page just like a fetch does
-    return await _edit_page(request, order)
+async def manual_entry(request: Request, user: str = Depends(require_login)):
+    """Items entered by hand, without an order page to fetch. A page of its
+    own with a store of its own: what was typed here stays until it is
+    cleared, so a series of similar items can be created one after another."""
+    data = draft.load(draft.MANUAL)
+    if not data:
+        order = Order(shop="", order_no="", items=[OrderItemDraft()])
+        return await _edit_page(request, order, manual=True)
+    order, cards, item_count = _cards_from_stored(data)
+    # A series needs somewhere to type the next item: once every card has been
+    # created there is no input card left, so one comes back carrying the
+    # values of the last — that is what "a series with small changes" means.
+    if not any(card["result"] is None for card in cards):
+        cards.append(_repeat_card(draft.form(data), item_count))
+        item_count += 1
+    return await _edit_page(
+        request, order, cards=cards, item_count=item_count, manual=True
+    )
+
+
+@app.post("/manual/reset")
+async def reset_manual(request: Request, user: str = Depends(require_login)):
+    """Start a fresh series: the manual page comes back empty."""
+    draft.clear(draft.MANUAL)
+    return RedirectResponse("/manual", status_code=303)
 
 
 @app.post("/draft")
 async def save_draft(request: Request, user: str = Depends(require_login)):
     """The edit form as it currently stands, sent while typing and once more
     when the page goes away — so switching pages does not lose it."""
-    draft.save(await request.form())
+    form = await request.form()
+    draft.save(form, _store(form))
     return Response(status_code=204)
 
 
@@ -334,8 +357,36 @@ async def edit_draft(request: Request, user: str = Depends(require_login)):
     data = draft.load()
     if not data:
         return RedirectResponse("/", status_code=303)
+    order, cards, item_count = _cards_from_stored(data)
+    return await _edit_page(request, order, cards=cards, item_count=item_count)
+
+
+def _card_from_form(form, idx: int, at: int | None = None) -> dict | None:
+    """One input card view from stored (or posted) fields, or None when the
+    card was removed in the UI. `at` renders the same values at another index —
+    that is the next item of a manual series."""
+    parsed = _item_from_form(form, idx)
+    if parsed is None:
+        return None
+    item, location_id, label_ids, want_print, _, want_show_id, qr_per_row, _ = parsed
+    return {
+        "idx": idx if at is None else at,
+        "item": item,
+        "location_id": location_id,
+        "label_ids": label_ids,
+        "want_print": want_print,
+        # The answer, not the label: at three per row the card shows the box
+        # off and disabled, but unticking three-up has to give this back.
+        "want_show_id": want_show_id,
+        "want_qr3": qr_per_row == 3,
+        "result": None,
+    }
+
+
+def _cards_from_stored(data: dict) -> tuple[Order, list[dict], int]:
+    """A stored draft as the edit page reads it: the order, one card per item
+    (input or result) and the item count the form was left with."""
     stored = draft.form(data)
-    order = _order_from_form(stored)
     created = draft.created_items(data)
     cards = []
     for idx in range(int(data.get("item_count", 0))):
@@ -343,25 +394,22 @@ async def edit_draft(request: Request, user: str = Depends(require_login)):
         if entry:
             cards.append({"idx": idx, "result": _result_from_created(entry)})
             continue
-        parsed = _item_from_form(stored, idx)
-        if parsed is None:
-            continue  # the card was removed before leaving the page
-        item, location_id, label_ids, want_print, _, want_show_id, qr_per_row, _ = parsed
-        cards.append({
-            "idx": idx,
-            "item": item,
-            "location_id": location_id,
-            "label_ids": label_ids,
-            "want_print": want_print,
-            # The answer, not the label: at three per row the card shows the box
-            # off and disabled, but unticking three-up has to give this back.
-            "want_show_id": want_show_id,
-            "want_qr3": qr_per_row == 3,
-            "result": None,
-        })
-    return await _edit_page(
-        request, order, cards=cards, item_count=int(data.get("item_count", 0))
-    )
+        card = _card_from_form(stored, idx)
+        if card is not None:
+            cards.append(card)
+    return _order_from_form(stored), cards, int(data.get("item_count", 0))
+
+
+def _repeat_card(stored, at: int) -> dict:
+    """The next card of a manual series: the last card's values again, at a new
+    index. The raw fields of a created card are still in the store, so what was
+    typed for it is what the next item starts from."""
+    for idx in range(at - 1, -1, -1):
+        card = _card_from_form(stored, idx, at=at)
+        if card is not None:
+            return card
+    fresh = _fresh_cards(Order(shop="", order_no="", items=[OrderItemDraft()]))
+    return dict(fresh[0], idx=at)
 
 
 def _result_from_created(entry: dict) -> dict:
@@ -408,11 +456,13 @@ async def _edit_page(
     warning: str = "",
     cards: list[dict] | None = None,
     item_count: int | None = None,
+    manual: bool = False,
 ) -> HTMLResponse:
     """The edit page. `cards` carries per-card state (a restored draft has a
     different location and different checkboxes per card, and some cards are
     results rather than inputs); without it every item starts from the
-    defaults."""
+    defaults. `manual` is the same page without an order behind it: a free-text
+    shop instead of the dropdown, and a store of its own."""
     lang = get_lang(request)
     try:
         locations = await homebox.get_locations()
@@ -432,8 +482,12 @@ async def _edit_page(
         locations=locations,
         hb_labels=labels,
         warning=warning,
-        draft_info={"order_no": order.order_no, "shop": order.shop,
-                    "cards": len(cards)},
+        manual=manual,
+        # None on the manual page: the nav link this feeds leads to /edit, and
+        # a manual series is not the order it would offer to go back to.
+        draft_info=None if manual else {
+            "order_no": order.order_no, "shop": order.shop, "cards": len(cards),
+        },
     )
 
 
@@ -637,8 +691,9 @@ async def create_items(request: Request, user: str = Depends(require_login)):
     form = await request.form()
     lang = get_lang(request)
     order = _order_from_form(form)
+    kind = _store(form)
 
-    draft.save(form)
+    draft.save(form, kind)
     results = []
     count = int(form.get("item_count", 0))
     # One printer for the whole order: it is the one this browser chose, and
@@ -660,7 +715,7 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         entry["card_idx"] = i
         if entry["item"]:
             prefs.set_last_location_id(entry["location_id"])
-            draft.mark_created(i, entry)
+            draft.mark_created(i, entry, kind)
         results.append(entry)
 
     if not results:
@@ -670,6 +725,9 @@ async def create_items(request: Request, user: str = Depends(require_login)):
         "result.html",
         order=order,
         results=results,
+        # The reprint buttons here are outside #create-form, so the hidden mode
+        # field cannot ride along with them — the page says it instead.
+        manual=kind == draft.MANUAL,
     )
 
 
@@ -681,18 +739,21 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     lang = get_lang(request)
     idx = int(form.get("idx", 0))
     order = _order_from_form(form)
+    kind = _store(form)
     parsed = _item_from_form(form, idx)
     if parsed is None:
         return HTMLResponse(status_code=400)
     (item_draft, location_id, label_ids, want_print, show_id, want_show_id, qr_per_row,
      new_location_name) = parsed
 
-    async def card_with_error(message: str) -> HTMLResponse:
+    async def homebox_lists() -> tuple[list, list]:
         try:
-            locations = await homebox.get_locations()
-            labels = await homebox.get_labels()
+            return await homebox.get_locations(), await homebox.get_labels()
         except HomeboxError:
-            locations, labels = [], []
+            return [], []
+
+    async def card_with_error(message: str) -> HTMLResponse:
+        locations, labels = await homebox_lists()
         return render(
             request,
             "_item_card.html",
@@ -721,9 +782,36 @@ async def create_single_item(request: Request, user: str = Depends(require_login
     prefs.set_last_location_id(entry["location_id"])
     # The card is a result card from now on; coming back to the page must not
     # offer it as an input again, or the item gets created twice.
-    draft.save(form)
-    draft.mark_created(idx, entry)
-    return render(request, "_item_result.html", r=entry, idx=idx)
+    draft.save(form, kind)
+    draft.mark_created(idx, entry, kind)
+    if kind != draft.MANUAL:
+        return render(request, "_item_result.html", r=entry, idx=idx)
+    # A manual series carries on where it left off: the result card is followed
+    # by the next input card with the same values, so only what differs has to
+    # be typed. An outerHTML swap puts every element returned here in the place
+    # of the card, so the two arrive together; the item count is the one thing
+    # outside it and comes back out of band.
+    next_idx = max(int(form.get("item_count", 0)), idx + 1)
+    locations, labels = await homebox_lists()
+    return HTMLResponse(
+        render_fragment(request, "_item_result.html", r=entry, idx=idx)
+        + render_fragment(
+            request,
+            "_item_card.html",
+            idx=next_idx,
+            item=item_draft,
+            locations=locations,
+            hb_labels=labels,
+            # The location the item really went to, which is not the one in the
+            # select when it was typed into the "new location" box instead.
+            selected_location_id=entry["location_id"],
+            selected_label_ids=label_ids,
+            want_print=want_print,
+            want_show_id=want_show_id,
+            want_qr3=qr_per_row == 3,
+        )
+        + render_fragment(request, "_item_count.html", item_count=next_idx + 1, oob=True)
+    )
 
 
 # -- print from a Homebox link ------------------------------------------------
@@ -937,9 +1025,12 @@ async def print_label(
     # Only the result cards of the edit page send one: they are the only labels
     # whose print result is remembered anywhere.
     card_idx: int = Form(-1),
+    # Which draft that card belongs to — the manual page keeps its own.
+    mode: str = Form(""),
     user: str = Depends(require_login),
 ):
     lang = get_lang(request)
+    kind = draft.MANUAL if mode == draft.MANUAL else draft.ORDER
     if not ASSET_ID_RE.match(asset_id):
         return HTMLResponse(_print_status(request, ok=False, message="?"))
     qr_per_row = clamp_qr_per_row(qr_per_row) if qr_per_row else _qr_per_row_off()
@@ -964,7 +1055,7 @@ async def print_label(
         # record the same condition the same way (see _create_and_print).
         draft.update_print_result(
             card_idx, asset_id, printed=False, error=printer.NO_PRINTER,
-            show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row,
+            show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row, kind=kind,
         )
         message, detail = _print_error_parts(printer.NO_PRINTER, lang)
         return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
@@ -975,13 +1066,13 @@ async def print_label(
         # what the page shows must survive a reload either way.
         draft.update_print_result(
             card_idx, asset_id, printed=False, error=str(exc),
-            show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row,
+            show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row, kind=kind,
         )
         message, detail = _print_error_parts(str(exc), lang)
         return HTMLResponse(_print_status(request, ok=False, message=message, detail=detail))
     draft.update_print_result(
         card_idx, asset_id, printed=True, error="",
-        show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row,
+        show_asset_id=show_id, want_asset_id=show_text, qr_per_row=qr_per_row, kind=kind,
     )
     return HTMLResponse(_print_status(request, ok=True, message=t("print_ok", lang)))
 

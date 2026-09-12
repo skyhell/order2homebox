@@ -60,18 +60,23 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .nav-inner {
-  max-width: 980px; margin: 0 auto; padding: 0 20px;
-  display: flex; align-items: center; gap: 24px; height: 52px;
+  max-width: 980px; margin: 0 auto; padding: 6px 20px;
+  display: flex; align-items: center; gap: 6px 24px; min-height: 52px;
 }
 .brand {
   display: flex; align-items: center; gap: 8px;
   font-weight: 600; font-size: 16px; color: var(--text); text-decoration: none;
 }
 .brand-icon { width: 22px; height: 22px; color: var(--accent); }
-.nav-links { display: flex; gap: 4px; flex: 1; }
+/* Wrapping, and min-width so the row may become narrower than its content:
+   seven entries do not fit 980 px in German, and without this the bar pushed
+   every page sideways on anything narrower than a wide laptop. A second line
+   of links is the price; breaking "Etikett drucken" in half is not. */
+.nav-links { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; min-width: 0; }
 .nav-link {
   color: var(--text-secondary); text-decoration: none; font-size: 14px;
-  padding: 6px 12px; border-radius: 980px; transition: color .15s, background .15s;
+  white-space: nowrap;
+  padding: 6px 10px; border-radius: 980px; transition: color .15s, background .15s;
 }
 .nav-link:hover { color: var(--text); }
 .nav-link.active { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }

@@ -1,0 +1,5 @@
+{# How many cards the form has room for. A removed card keeps its index, so
+   this is not the number of cards — /create skips what is not submitted. The
+   manual page adds a card without a page load, and then it comes back on its
+   own (hx-swap-oob), since it sits outside the card being swapped. #}
+<input type="hidden" name="item_count" id="item-count" value="{{ item_count }}"{% if oob | default(false) %} hx-swap-oob="true"{% endif %}>

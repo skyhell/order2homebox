@@ -17,6 +17,7 @@ from tests.conftest import TEST_PASSWORD
 pytest.importorskip("playwright.async_api")
 
 PHONE = {"width": 400, "height": 900}
+TABLET = {"width": 760, "height": 900}
 DESKTOP = {"width": 1280, "height": 900}
 
 
@@ -71,11 +72,22 @@ async def page(live_server):
         await browser.close()
 
 
+async def open_order_edit(page, live_server, shop="temu"):
+    """The edit page of a fetched order — the shop is a dropdown only there.
+    Seeded through the very draft the browser posts while typing, because
+    fetching a real order page is the one thing a test cannot do."""
+    await page.request.post(f"{live_server}/draft", form={
+        "shop": shop, "order_no": "028-111", "order_date": "2026-05-20",
+        "item_count": "1", "item-0-name": "USB Hub", "item-0-location": "loc1",
+    })
+    await page.goto(f"{live_server}/edit")
+
+
 async def test_the_order_row_is_two_rows_with_a_readable_shop_picker(page, live_server):
     """All three fields in one flex row left 120 px of each third to the label
     alone, and the shop — two controls wide at "Sonstiges" — was down to its
     arrow. The shop keeps the first row now, the other two share the second."""
-    await page.goto(f"{live_server}/manual?shop=temu")
+    await open_order_edit(page, live_server)
     shop = await page.locator("#shop-select").bounding_box()
     order_no = await page.locator('input[name="order_no"]').bounding_box()
     order_date = await page.locator('input[name="order_date"]').bounding_box()
@@ -87,7 +99,7 @@ async def test_the_order_row_is_two_rows_with_a_readable_shop_picker(page, live_
 
 
 async def test_the_custom_shop_box_shares_the_shop_row(page, live_server):
-    await page.goto(f"{live_server}/manual?shop=temu")
+    await open_order_edit(page, live_server)
     custom = page.locator("#shop-custom")
     assert not await custom.is_visible()  # hidden for one of the four known shops
 
@@ -102,7 +114,7 @@ async def test_the_custom_shop_box_shares_the_shop_row(page, live_server):
 async def test_the_subtitle_follows_the_shop_field(page, live_server):
     """The shop became a field on this page, so the line naming it above the
     form has to change with it instead of naming what was loaded."""
-    await page.goto(f"{live_server}/manual?shop=temu")
+    await open_order_edit(page, live_server)
     subtitle = page.locator("#order-subtitle")
     assert "Temu" in await subtitle.inner_text()
 
@@ -116,7 +128,7 @@ async def test_the_subtitle_follows_the_shop_field(page, live_server):
 
 async def test_the_order_row_stacks_on_a_phone(page, live_server):
     await page.set_viewport_size(PHONE)
-    await page.goto(f"{live_server}/manual?shop=temu")
+    await open_order_edit(page, live_server)
     shop = await page.locator("#shop-select").bounding_box()
     order_no = await page.locator('input[name="order_no"]').bounding_box()
     order_date = await page.locator('input[name="order_date"]').bounding_box()
@@ -130,11 +142,45 @@ async def test_the_order_row_stacks_on_a_phone(page, live_server):
         assert field["x"] + field["width"] <= card["x"] + card["width"]
 
 
+async def test_the_manual_order_row_is_readable_too(page, live_server):
+    """Same two-row card, with a typed shop in place of the dropdown — the
+    grid must not treat a plain input any differently."""
+    await page.goto(f"{live_server}/manual")
+    shop = await page.locator("#shop-text").bounding_box()
+    order_no = await page.locator('input[name="order_no"]').bounding_box()
+    order_date = await page.locator('input[name="order_date"]').bounding_box()
+
+    assert shop["width"] > 150
+    assert order_no["y"] > shop["y"], "the shop keeps the first row to itself"
+    assert abs(order_no["y"] - order_date["y"]) < 2
+
+
+async def test_the_nav_bar_never_pushes_a_page_sideways(page, live_server):
+    """Between the phone breakpoint and a wide laptop every link is shown, and
+    there are seven of them — in German they are wider than the bar. They wrap
+    onto a second line now; before that the whole page scrolled sideways from
+    1100 px down, and the words themselves were broken in half."""
+    for lang in ("de", "en"):
+        await page.goto(f"{live_server}/lang/{lang}")
+        for size in (DESKTOP, {"width": 1024, "height": 900}, TABLET, PHONE):
+            await page.set_viewport_size(size)
+            await page.goto(f"{live_server}/manual")
+            scrolled = await page.evaluate("document.documentElement.scrollWidth")
+            assert scrolled <= size["width"], f"{lang} scrolls sideways at {scrolled}"
+            links = page.locator(".nav-link")
+            for i in range(await links.count()):
+                box = await links.nth(i).bounding_box()
+                if box:  # below 640 px the links are not shown at all
+                    assert box["height"] < 40, "an entry was broken over two lines"
+    await page.set_viewport_size(DESKTOP)
+    await page.goto(f"{live_server}/lang/de")
+
+
 async def test_the_nav_bar_fits_a_phone(page, live_server):
     """The brand name beside the language switch, theme toggle and logout link
     came to more than 400 px, and none of them can shrink — so every page
     scrolled sideways on a phone. The name goes, the icon stays."""
-    await page.goto(f"{live_server}/manual?shop=temu")
+    await page.goto(f"{live_server}/manual")
     assert await page.locator(".brand-name").is_visible(), "kept where there is room"
 
     await page.set_viewport_size(PHONE)

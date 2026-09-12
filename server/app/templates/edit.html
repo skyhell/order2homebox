@@ -1,20 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-wide">
-  <h1 class="page-title">{{ t('edit_title') }}</h1>
+  <h1 class="page-title">{{ t('manual_title') if manual else t('edit_title') }}</h1>
+  {% if manual %}
+  <p class="page-subtitle">{{ t('manual_subtitle') }}</p>
+  {% else %}
   {# The shop is a field on this very page, so the line naming it has to follow
      that field instead of the value the page was opened with. The sentence
      stays in the locale file — %SHOP% is the one hole app.js fills, and t() is
      str.format, which leaves a placeholder it has no argument for alone. #}
   <p class="page-subtitle" id="order-subtitle"
      data-subtitle="{{ t('edit_order_info', order_no=order.order_no or '—', shop='%SHOP%') }}">{{ t('edit_order_info', order_no=order.order_no or '—', shop=order.shop_display_name) }}</p>
+  {% endif %}
 
   {% if warning %}<div class="banner banner-warning">{{ warning }}</div>{% endif %}
 
   <form method="post" action="/create" id="create-form">
-    <input type="hidden" name="item_count" value="{{ item_count }}">
+    {% include "_item_count.html" %}
+    {# Says which of the two drafts this form belongs to; every route that
+       stores something reads it (see _store in main.py). #}
+    {% if manual %}<input type="hidden" name="mode" value="manual">{% endif %}
 
     <div class="card meta-card">
+      {% if manual %}
+      {# Nothing was fetched here, so there is no shop the page could offer a
+         choice of — whatever it was bought from is typed. #}
+      <label class="field field-inline field-shop">
+        <span>{{ t('shop_label') }}</span>
+        <input class="input" type="text" name="shop" id="shop-text"
+               placeholder="{{ t('shop_other_placeholder') }}" value="{{ order.shop }}">
+      </label>
+      {% else %}
       {# A div, not a label: it fronts two controls (the select and the
          custom-name box), and a label wrapping more than one is ambiguous
          about which it names — same reasoning as the location field below. #}
@@ -34,6 +50,7 @@
                oninput="refreshOrderSubtitle()"
                value="{{ '' if order.shop in shops else order.shop }}">
       </div>
+      {% endif %}
       <label class="field field-inline">
         <span>{{ t('order_no_label') }}</span>
         <input class="input input-mono" type="text" name="order_no" value="{{ order.order_no }}">
@@ -65,6 +82,13 @@
     <div class="action-bar">
       {# This button prints too, so it says where. #}
       {% include "_print_target.html" %}
+      {# The values of a series stay until they are cleared here — and the
+         pending auto-save has to be called off, or the page on its way out
+         writes them straight back (see resetManual in app.js). #}
+      {% if manual %}
+      <button class="btn btn-ghost" type="submit" formaction="/manual/reset"
+              formnovalidate onclick="return resetManual()">{{ t('manual_reset') }}</button>
+      {% endif %}
       <button class="btn btn-primary btn-large" type="submit" data-loading-text="{{ t('creating') }}">{{ t('create_submit') }}</button>
     </div>
   </form>

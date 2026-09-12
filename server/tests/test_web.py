@@ -480,6 +480,7 @@ def test_a_configured_count_above_three_starts_the_card_ticked(logged_in, monkey
     """The same clamp on the way in. Read untrimmed, a configured 4 failed the
     "is this three?" test, so the box came up unticked and the card printed two
     codes — while the very same 4 sent to /label or /print draws three."""
+    _clear_manual()  # a fresh card, not the last series
     import app.main as main
     from app.config import settings
 
@@ -544,6 +545,7 @@ def test_a_result_card_keeps_the_index_the_draft_is_keyed_by(logged_in, monkeypa
 
 
 def test_edit_page_offers_the_asset_id_checkbox_per_item(logged_in, monkeypatch):
+    _clear_manual()  # a fresh card, not the last series
     import app.main as main
 
     async def fake_empty():
@@ -564,6 +566,7 @@ def test_edit_page_offers_the_asset_id_checkbox_per_item(logged_in, monkeypatch)
 def test_item_card_wires_quantity_to_the_price(logged_in, monkeypatch):
     """The re-split happens in the browser, so the card has to carry the hooks
     app.js looks for — an id per field and the two handlers."""
+    _clear_manual()  # a fresh card, not the last series
     import app.main as main
 
     async def fake_empty():
@@ -583,6 +586,7 @@ def test_item_name_is_a_growing_text_box(logged_in, monkeypatch):
     """Marketplace names run to 200 characters; in a one-line input the end can
     only be reached by scrolling inside the line. The field is a textarea that
     app.js grows — the class is the hook it looks for."""
+    _clear_manual()  # a fresh card, not the last series
     import app.main as main
 
     async def fake_empty():
@@ -669,6 +673,7 @@ def test_create_single_item_without_name_keeps_card(logged_in, monkeypatch):
 
 
 def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
+    _clear_manual()
     import app.main as main
 
     async def fake_locations():
@@ -680,33 +685,11 @@ def test_manual_edit_page_renders_item_card(logged_in, monkeypatch):
     monkeypatch.setattr(main.homebox, "get_locations", fake_locations)
     monkeypatch.setattr(main.homebox, "get_labels", fake_labels)
 
-    response = logged_in.get("/manual?shop=temu")
+    response = logged_in.get("/manual")
     assert response.status_code == 200
     assert 'id="item-card-0"' in response.text
     assert 'hx-post="/create-item"' in response.text  # per-item button present
     assert "Büro" in response.text and "Elektronik" in response.text
-    assert '<option value="temu" selected>' in response.text
-
-
-def test_manual_entry_defaults_to_amazon_but_the_shop_is_editable(logged_in, monkeypatch):
-    """Without a ?shop= query the page still starts at Amazon, but — unlike
-    before — the field is a real <select>, not a hidden input: the user can
-    correct it before creating the item."""
-    import app.main as main
-
-    async def fake_empty():
-        return []
-
-    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
-    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
-
-    response = logged_in.get("/manual")
-    assert response.status_code == 200
-    assert '<select class="input" name="shop" id="shop-select"' in response.text
-    assert '<option value="amazon" selected>' in response.text
-    assert '<option value="banggood" >' in response.text
-    assert '<option value="__other__" >' in response.text  # not selected
-    assert 'id="shop-custom"' in response.text and 'class="input hidden"' in response.text
 
 
 def test_a_custom_shop_survives_a_reload_and_is_used_for_purchase_from(
@@ -792,33 +775,19 @@ def test_the_subtitle_can_follow_the_shop_field(logged_in, monkeypatch):
     """The shop is editable on this page, so the line naming it must not keep
     naming the one the page was opened with. The sentence stays in the locale
     file — app.js only fills its %SHOP% hole."""
+    _clear_draft()
     import app.main as main
 
-    async def fake_empty():
-        return []
-
-    monkeypatch.setattr(main.homebox, "get_locations", fake_empty)
-    monkeypatch.setattr(main.homebox, "get_labels", fake_empty)
-
-    page = logged_in.get("/manual?shop=temu").text
+    _stub_homebox_lists(monkeypatch)
+    logged_in.post("/draft", data=_draft_form(shop="temu"))
+    page = logged_in.get("/edit").text
     assert 'id="order-subtitle"' in page
-    assert 'data-subtitle="Bestellung — bei %SHOP%"' in page
+    assert 'data-subtitle="Bestellung 028-111 bei %SHOP%"' in page
     assert "bei Temu" in page  # still server-rendered for the initial paint
 
     script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
     assert "function refreshOrderSubtitle" in script
-
-
-def test_index_page_forwards_the_picked_shop_to_manual_entry(logged_in):
-    """The link out of #fetch-form can't submit that form (order_no is
-    required there), so app.js reads the checked shop radio directly."""
-    import app.main as main
-
-    page = logged_in.get("/").text
-    assert 'href="/manual" onclick="return withSelectedShop(this)"' in page
-
-    script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
-    assert "function withSelectedShop" in script
+    _clear_draft()
 
 
 def test_every_page_carries_a_tab_icon(logged_in, client):
@@ -1307,7 +1276,7 @@ def test_a_removed_card_stays_removed_without_shifting_the_others(logged_in, mon
     body = logged_in.get("/edit").text
     assert 'id="item-card-0"' in body and 'id="item-card-2"' in body
     assert 'id="item-card-1"' not in body
-    assert 'name="item_count" value="3"' in body
+    assert 'name="item_count" id="item-count" value="3"' in body
     _clear_draft()
 
 
@@ -1599,6 +1568,249 @@ def test_edit_without_a_stored_page_goes_to_the_start(logged_in):
 def test_draft_routes_require_login(client):
     assert client.get("/edit").status_code == 303
     assert client.post("/draft", data={"item_count": "0"}).status_code == 303
+
+
+# -- entering items by hand, as a series ---------------------------------------
+
+
+def _clear_manual():
+    from app import draft
+
+    draft.clear(draft.MANUAL)
+
+
+def _manual_form(**overrides):
+    """The form of the manual page, the way the browser posts it — the hidden
+    mode field is what sends it to its own store."""
+    data = {
+        "mode": "manual", "shop": "Flohmarkt", "order_no": "", "order_date": "",
+        "item_count": "1",
+        "item-0-name": "Kugellager 608", "item-0-description": "8x22x7",
+        "item-0-quantity": "10", "item-0-price": "0,55",
+        "item-0-location": "loc2", "item-0-labels": ["lab1"],
+        "item-0-print": "on",
+    }
+    data.update(overrides)
+    return data
+
+
+def test_manual_entry_has_its_own_nav_entry_after_the_new_order(logged_in):
+    """It was a subtle link under the fetch form, reachable only from there."""
+    nav = logged_in.get("/").text
+    assert nav.index('href="/"') < nav.index('href="/manual"')
+    assert nav.index('href="/manual"') < nav.index('href="/label"')
+    assert "Manuell" in nav
+
+
+def test_manual_entry_is_named_in_both_languages():
+    import json
+
+    from app.main import BASE_DIR
+
+    for lang in ("de", "en"):
+        strings = json.loads((BASE_DIR / "locales" / f"{lang}.json").read_text("utf-8"))
+        for key in ("nav_manual", "manual_title", "manual_subtitle", "manual_reset",
+                    "manual_continue"):
+            assert strings[key]
+        assert "manual_link" not in strings  # the old link on the start page
+
+
+def test_the_start_page_no_longer_links_to_manual_entry(logged_in):
+    """The nav entry replaced it, and with it the shop it used to carry over."""
+    import app.main as main
+
+    below_the_nav = logged_in.get("/").text.split("</nav>")[1]
+    assert 'href="/manual"' not in below_the_nav
+    script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
+    assert "withSelectedShop" not in script
+
+
+def test_the_manual_page_types_the_shop_instead_of_picking_it(logged_in, monkeypatch):
+    """Nothing was fetched here, so there is no list of shops to choose from —
+    and the four the scrapers know are not what a hand-entered item comes
+    from."""
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+
+    body = logged_in.get("/manual").text
+    assert 'id="shop-select"' not in body and 'id="shop-custom"' not in body
+    assert '<input class="input" type="text" name="shop" id="shop-text"' in body
+    # the rest of the order row is the known one
+    assert 'name="order_no"' in body and 'name="order_date"' in body
+    assert 'name="mode" value="manual"' in body
+
+
+def test_the_manual_page_comes_back_with_everything_that_was_typed(
+    logged_in, monkeypatch
+):
+    """A series is small changes to the last item, so nothing may be lost by
+    leaving the page."""
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+
+    assert logged_in.post("/draft", data=_manual_form()).status_code == 204
+    body = logged_in.get("/manual").text
+
+    assert 'value="Flohmarkt"' in body
+    assert "Kugellager 608" in body and "8x22x7" in body
+    assert 'value="10" min="1"' in body and 'value="0.55"' in body
+    assert '<option value="loc2" selected>Keller</option>' in body
+    assert '<option value="lab1" selected>' in body
+    _clear_manual()
+
+
+def test_the_manual_page_and_a_fetched_order_do_not_displace_each_other(
+    logged_in, monkeypatch
+):
+    """One draft for both would mean every fetch throws a half-finished series
+    away, and opening the manual page throws the order away."""
+    _clear_draft()
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+
+    logged_in.post("/draft", data=_manual_form())
+    # The nav link to an order is offered while there is one, and a series is
+    # not one: with only the manual page filled in there is nothing to go back
+    # to.
+    assert 'href="/edit"' not in logged_in.get("/manual").text
+
+    logged_in.post("/draft", data=_draft_form())
+    manual = logged_in.get("/manual").text
+    assert "Kugellager 608" in manual and "USB Hub" not in manual
+
+    order = logged_in.get("/edit").text
+    assert "USB Hub" in order and "Kugellager 608" not in order
+    _clear_draft()
+    _clear_manual()
+
+
+def test_creating_a_manual_item_leaves_the_next_card_filled_in(logged_in, monkeypatch):
+    """The point of the page: create one, change what differs, create the next.
+    The result card is followed by an input card with the same values, and the
+    form has room for it."""
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+    import app.main as main
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    async def fake_print(agent, png, copies=1):
+        return {"status": "printed"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    monkeypatch.setattr(main.printer, "print_png", fake_print)
+
+    body = logged_in.post("/create-item", data=dict(_manual_form(), idx="0")).text
+
+    assert 'id="item-card-0"' in body and "000-007" in body  # the result card
+    assert 'id="item-card-1"' in body  # and the next one to fill in
+    assert "Kugellager 608" in body and 'value="0.55"' in body
+    assert '<option value="loc2" selected>Keller</option>' in body
+    assert '<option value="lab1" selected>' in body
+    assert 'name="item_count" id="item-count" value="2"' in body
+    assert 'hx-swap-oob="true"' in body  # it sits outside the swapped card
+    _clear_manual()
+
+
+def test_an_order_item_is_created_without_a_card_for_the_next_one(
+    logged_in, monkeypatch
+):
+    """An order has as many items as it has — only a manual series carries on."""
+    _clear_draft()
+    _stub_homebox_lists(monkeypatch)
+    import app.main as main
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    body = logged_in.post("/create-item", data=dict(_draft_form(), idx="0")).text
+    assert "000-007" in body
+    assert 'name="item-1-name"' not in body
+    _clear_draft()
+
+
+def test_the_manual_page_offers_a_card_again_after_everything_was_created(
+    logged_in, monkeypatch
+):
+    """Coming back to a series whose last card was created must not leave the
+    page with nothing to type into."""
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+    import app.main as main
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+    logged_in.post("/create-item", data=dict(_manual_form(), idx="0"))
+
+    body = logged_in.get("/manual").text
+    assert 'id="item-card-0"' in body and "000-007" in body  # still the result
+    assert 'name="item-1-name"' in body  # the next item, prefilled
+    assert "Kugellager 608" in body
+    assert 'name="item_count" id="item-count" value="2"' in body
+    _clear_manual()
+
+
+def test_clearing_the_fields_empties_only_the_manual_page(logged_in, monkeypatch):
+    _clear_draft()
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+    logged_in.post("/draft", data=_draft_form())
+    logged_in.post("/draft", data=_manual_form())
+
+    response = logged_in.post("/manual/reset")
+    assert response.status_code == 303 and response.headers["location"] == "/manual"
+
+    body = logged_in.get("/manual").text
+    assert "Kugellager 608" not in body
+    assert 'id="item-card-0"' in body  # one empty card to start over with
+    assert "USB Hub" in logged_in.get("/edit").text
+    _clear_draft()
+
+
+def test_the_reset_button_calls_off_the_pending_auto_save(logged_in, monkeypatch):
+    """The page on its way out sends the form once more — it would write the
+    values straight back over the store that was just cleared."""
+    import app.main as main
+
+    _stub_homebox_lists(monkeypatch)
+    body = logged_in.get("/manual").text
+    assert 'formaction="/manual/reset"' in body
+    assert "resetManual()" in body
+
+    script = (main.BASE_DIR / "static" / "app.js").read_text(encoding="utf-8")
+    assert "function resetManual" in script
+    assert "saveDraft.off" in script
+
+
+def test_a_reprint_from_a_manual_result_page_writes_to_the_manual_draft(
+    logged_in, monkeypatch
+):
+    """The result page has no form around its cards, so the mode the edit page
+    carries in a hidden field has to reach /print another way."""
+    _clear_draft()
+    _clear_manual()
+    _stub_homebox_lists(monkeypatch)
+    import app.main as main
+
+    async def fake_create_item(item_draft, order, location_id, label_ids):
+        return {"id": "item1", "assetId": "000-007"}
+
+    monkeypatch.setattr(main.homebox, "create_item", fake_create_item)
+
+    body = logged_in.post("/create", data=_manual_form()).text
+    assert """hx-vals='{"mode": "manual"}'""" in body
+    assert 'href="/manual"' in body  # back to the series, not on to a new order
+
+    from app import draft
+
+    assert draft.load(draft.MANUAL)["created"]["0"]["asset_id"] == "000-007"
+    assert draft.load() is None  # and nothing landed in the order draft
+    _clear_manual()
 
 
 # -- what was typed into a field before ---------------------------------------

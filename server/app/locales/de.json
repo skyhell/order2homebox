@@ -1,6 +1,7 @@
 {
   "app_name": "order2homebox",
   "nav_new": "Neue Bestellung",
+  "nav_manual": "Manuell",
   "nav_draft": "Bestellung",
   "nav_label": "Etikett drucken",
   "nav_text": "Textetikett",
@@ -50,10 +51,13 @@
   "order_no_placeholder": "z. B. 302-1234567-1234567",
   "fetch_submit": "Daten holen",
   "fetch_loading": "Bestellung wird geladen …",
-  "manual_link": "Oder manuell ohne Abruf erfassen",
   "go_to_cookies": "Zu den Shop-Sitzungen",
 
   "edit_title": "Artikel prüfen und bearbeiten",
+  "manual_title": "Artikel manuell erfassen",
+  "manual_subtitle": "Ohne Abruf einer Bestellung. Die eingegebenen Werte bleiben stehen — der nächste Artikel beginnt damit.",
+  "manual_reset": "Felder leeren",
+  "manual_continue": "Weiter erfassen",
   "edit_order_info": "Bestellung {order_no} bei {shop}",
   "order_date_label": "Bestelldatum",
   "item_heading": "Artikel {n}",
